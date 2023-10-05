@@ -1,0 +1,32 @@
+[
+  {
+    "id": 1,
+    "name": "Imperial",
+    "price": "100",
+    "image": "https://cdn.pixabay.com/photo/2012/04/13/11/53/glass-32068_1280.png"
+  },
+  {
+    "id": 2,
+    "name": "Agua",
+    "price": "70",
+    "image": "https://cdn.pixabay.com/photo/2012/04/13/21/36/mineral-33734_1280.png"
+  },
+  {
+    "id": 3,
+    "name": "Sidra",
+    "price": "150",
+    "image": "https://cdn.pixabay.com/photo/2014/04/02/10/15/glass-303236_1280.png"
+  },
+  {
+    "id": 4,
+    "name": "Refrigerante",
+    "price": "150",
+    "image": "https://cdn.pixabay.com/photo/2013/07/12/13/42/soda-147152_1280.png"
+  },
+  {
+    "id": 5,
+    "name": "Copo Vinho",
+    "price": "70",
+    "image": "https://cdn.pixabay.com/photo/2013/07/13/10/15/glass-156878_1280.png"
+  }
+]
