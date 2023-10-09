@@ -6,7 +6,8 @@ const cmds = require("./commands");
 
 const app = express();
 const port = process.env.PORT || 5000;
-const jsonParser = bodyParser.json()
+const jsonParser = bodyParser.json();
+const PRINTER = 'Metapace T-3II';
 
 String.prototype.toBytes = function () {
     const arr = []
@@ -17,7 +18,7 @@ String.prototype.toBytes = function () {
 }
 
 const printHeader = (printJob) => {
-    const date = new Date().toISOString().replace(/T/, ' ').      // replace T with a space
+    const date = new Date().toISOString().replace(/T/, ' ').
         replace(/\..+/, '');
 
     printJob.newLine(3);
@@ -43,24 +44,28 @@ const printHeader = (printJob) => {
 }
 
 async function printItem(productName) {
-    const printJob = new PrintJobs();
-    printJob.setTextFormat('normal');
-    printJob.setFont('B');
-    printJob.newLine(2);
-    printJob.text('1 ' + productName);
-    printHeader(printJob);
+    return new Promise((resolve, reject) => {
+        const printJob = new PrintJobs();
+        printJob.setTextFormat('wide');
+        printJob.newLine(2);
+        printJob.text('1 ' + productName);
+        printJob.setTextFormat('normal');
+        printHeader(printJob);
 
-    printer.printDirect({
-        data: new Buffer.from(printJob.printData()),
-        printer: '_Metapace_T_3',
-        type: 'RAW',
-        success: function (jobID) {
-            console.log("sent to printer with ID: " + jobID);
-        },
-        error: function (err) {
-            console.log(err);
-        }
+        printer.printDirect({
+            data: new Buffer.from(printJob.printData()),
+            printer: PRINTER,
+            type: 'RAW',
+            success: function (jobID) {
+                //console.log("sent to printer with ID: " + jobID);
+                resolve();
+            },
+            error: function (err) {
+                console.log(err);
+            }
+        });
     });
+
 }
 
 async function printTotal(cart) {
@@ -83,10 +88,10 @@ async function printTotal(cart) {
 
     printer.printDirect({
         data: new Buffer.from(printJob.printData()),
-        printer: '_Metapace_T_3',
+        printer: PRINTER,
         type: 'RAW',
         success: function (jobID) {
-            console.log("sent to printer with ID: " + jobID);
+            //console.log("sent to printer with ID: " + jobID);
         },
         error: function (err) {
             console.log(err);
@@ -96,17 +101,17 @@ async function printTotal(cart) {
 
 app.listen(port, () => console.log(`Listening on port ${port}`));
 
-app.post('/printer', jsonParser, (req, res) => { //Line 9
+app.post('/printer', jsonParser, async (req, res) => {
     const items = req.body.items;
     const cart = req.body.cart;
 
-    items.forEach(item => {
+    for await (const item of items) {
         for (let i = 0; i < item.quantity; i++) {
-            printItem(item.name);
+            await printItem(item.name);
         }
-    })
+    }
 
-    printTotal(cart);
+    await printTotal(cart);
 
-    res.send({message: 'Done'});
+    res.send({ message: 'Done' });
 });
