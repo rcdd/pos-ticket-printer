@@ -11,3 +11,4 @@ can generate tickets of drinks and food to the custumer can get them in the bar/
 - Excute `npm run start` to start the FE project
 - Excute `npm run server` to start the server project
 - Or execute `npm run dev` to start all the project (Server and FE)
+- Open [http://localhost:3000](http://localhost:3000)
