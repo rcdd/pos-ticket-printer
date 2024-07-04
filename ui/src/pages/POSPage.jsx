@@ -138,8 +138,8 @@ function POSPage() {
                 })
             });
 
-            await RecordService.addRecord(bodyRequest.items)
             await PrinterService.print(bodyRequest);
+            await RecordService.addRecord(bodyRequest.items)
 
             setCart([]);
             setTotalAmount(0);
