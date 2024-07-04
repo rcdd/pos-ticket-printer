@@ -2,7 +2,6 @@ import React, {useEffect, useRef, useState} from 'react'
 import MainLayout from '../layouts/MainLayout'
 // import {toast} from 'react-toastify';
 import {ComponentToPrint} from '../components/ComponentToPrint';
-import productsDb from './../db/products.json';
 import Button from '@mui/material/Button';
 import {Box, IconButton, InputAdornment} from "@mui/material";
 import AddIcon from '@mui/icons-material/Add';
@@ -13,6 +12,9 @@ import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
+import ProductService from "../services/product.service";
+import PrinterService from "../services/printer.service";
+import RecordService from "../services/record.service";
 
 function POSPage() {
     const [products, setProducts] = useState([]);
@@ -34,8 +36,14 @@ function POSPage() {
 
     const fetchProducts = async () => {
         setIsLoading(true);
-        setProducts(productsDb);
-        setIsLoading(false);
+        await ProductService.getAll().then((response) => {
+            console.log(response);
+            setProducts(response.data);
+            setIsLoading(false);
+        }).catch((error) => {
+            console.log(error.response);
+            throw Error(error.response.data.message)
+        });
     }
 
     const addProductToCart = async (product) => {
@@ -94,6 +102,7 @@ function POSPage() {
 
         setCart(newCart);
     }
+
     const decreaseQuantity = async (product) => {
         const newCart = cart.map(cartItem => {
             if (cartItem.id === product.id) {
@@ -122,29 +131,22 @@ function POSPage() {
             };
 
             cart.forEach((cartItem) => {
-                bodyRequest.items.push({'quantity': cartItem.quantity.toString(), 'name': cartItem.name})
+                bodyRequest.items.push({
+                    quantity: cartItem.quantity.toString(),
+                    name: cartItem.name,
+                    price: cartItem.price
+                })
             });
 
-            const requestOptions = {
-                method: 'POST',
-                headers: {
-                    'Content-type': 'application/json',
-                },
-                body: JSON.stringify(bodyRequest)
-            };
-            console.log(requestOptions);
-            const response = await fetch('/printer', requestOptions);
-            const body = await response.json();
-
-            if (response.status !== 200) {
-                throw Error(body.message)
-            }
+            await RecordService.addRecord(bodyRequest.items)
+            await PrinterService.print(bodyRequest);
 
             setCart([]);
             setTotalAmount(0);
             setChangeValue(0);
+
+            setOpenModal(false);
         }
-        setOpenModal(false);
     };
 
     const doExchange = () => {
