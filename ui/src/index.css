@@ -60,3 +60,15 @@ code {
     font-size: 48px;
     margin-bottom: 32px;
 }
+
+.products-list {
+    display: block;
+    height: calc(100vh - 100px);
+    overflow: auto;
+}
+
+.products-table {
+    display: table-caption;
+    height: calc(100vh - 300px);
+    overflow: auto; 
+}

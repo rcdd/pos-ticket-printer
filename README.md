@@ -1,20 +1,14 @@
-# React Tutorial - Create a Point of Sale System for Beginners in 1 Hour (React POS)
+# React and NodeJS | POS - TicketPrint
 
-This project was built for teaching React for beginners in 1 Hour. Students learn how to set up a real world react project and build a Point of Sale System. The video for this tutorial is available on Devtamin's Youtube Channel, [https://www.youtube.com/watch?v=8E7Xwy0lXlg](https://www.youtube.com/watch?v=8E7Xwy0lXlg). Please, enjoy the video and subscribe Devtamin on Youtube. 
+This project was made to help my association to get a system that 
+can generate tickets of drinks and food to the custumer can get them in the bar/coffe/restaurant. 
 
-## How to set up the project
-
+## How run the project:
 - Clone this respository to your computer
 - Access to the project folder on the computer via Termaial or Git Bash
 - Excute `npm install` to download all necessary packages
-- Excute `npm start` to start the project
-
-
-
-
-
-
-
-
-
-
+- Open `/server/index.js` file and update `PRINTER` variable with your printer name
+- Excute `npm run start` to start the FE project
+- Excute `npm run server` to start the server project
+- Or execute `npm run dev` to start all the project (Server and FE)
+- Open [http://localhost:3000](http://localhost:3000)

@@ -52,15 +52,17 @@ async function printText(printJob) {
 }
 
 async function printItem(productName) {
-    const printJob = new PrintJobs();
-    printJob.setTextFormat('normal');
-    printJob.setFont('B');
-    printJob.newLine(2);
-    printJob.text('1 ' + productName);
-    printHeader(printJob);
+    return new Promise((resolve, reject) => {
+        const printJob = new PrintJobs();
+        printJob.setTextFormat('wide');
+        printJob.newLine(2);
+        printJob.text('1 ' + productName);
+        printJob.setTextFormat('normal');
+        printHeader(printJob);
 
-    printText(printJob).then(r => {
-        return true;
+        printText(printJob).then(r => {
+            return true;
+        });
     });
 }
 
@@ -97,11 +99,7 @@ async function printRequest(res, req) {
         }
     }
 
-    printTotal(cart).then(r => {
-        res.send({message: 'Done'});
-    }).catch(e => {
-        res.send({message: 'Error', error: e});
-    });
+    await printTotal(cart);
 }
 
 const getPrintConfig = (res, req) => {

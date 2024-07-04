@@ -59,5 +59,5 @@ module.exports = {
     S_RASTER_Q: 		[ 0x1d, 0x76, 0x30, 0x03 ],	 	// Set raster image quadruple
 
     // Currency
-    EURO: 				[ 0x1b, 0x74, 0x13, 0xd5 ] // Euro Symbol
+    EURO: 				[ 0x1b, 0x74, 0x13, 0xd5 ]      // Euro Symbol
 }

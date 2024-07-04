@@ -23,6 +23,7 @@ function POSPage() {
     const [totalAmount, setTotalAmount] = useState(0);
     const [changeValue, setChangeValue] = useState(0);
     const [openModal, setOpenModal] = React.useState(false);
+    const [isPrinting, setIsPrinting] = React.useState(false);
 
 
     const formatterEUR = new Intl.NumberFormat('pt-PT', {
@@ -125,6 +126,7 @@ function POSPage() {
     }
     const handleCloseModal = async (status: boolean = false) => {
         if (status) {
+            setIsPrinting(true);
             const bodyRequest = {
                 items: [],
                 cart: {items: cart, total: ((totalAmount / 100).toFixed(2))},
@@ -144,9 +146,9 @@ function POSPage() {
             setCart([]);
             setTotalAmount(0);
             setChangeValue(0);
-
-            setOpenModal(false);
+            setIsPrinting(false);
         }
+        setOpenModal(false);
     };
 
     const doExchange = () => {
@@ -172,15 +174,15 @@ function POSPage() {
     return (
         <MainLayout>
             <div className='row'>
-                <div className='col-lg-7'>
+                <div className='col-lg-7 products-list'>
                     {isLoading ? 'Loading' : <div className='row'>
                         {products.map((product, key) =>
                             <div key={key} className='col-lg-4 mb-4'>
                                 <div className='pos-item px-3 text-center border'
-                                     onClick={() => addProductToCart(product)}>
+                                    onClick={() => addProductToCart(product)}>
                                     <p>{product.name}</p>
                                     <img draggable="false" src={product.image} className="pos-item__image"
-                                         alt={product.name}/>
+                                        alt={product.name} />
                                     <p>{(product.price / 100).toFixed(2)}€</p>
                                 </div>
                             </div>
@@ -189,46 +191,46 @@ function POSPage() {
 
                 </div>
                 <div className='col-lg-5'>
-                    <div style={{display: "none"}}>
-                        <ComponentToPrint cart={cart} totalAmount={totalAmount} ref={componentRef}/>
+                    <div style={{ display: "none" }}>
+                        <ComponentToPrint cart={cart} totalAmount={totalAmount} ref={componentRef} />
                     </div>
                     <div className='table-responsive-wrapper bg-dark'>
                         <table className='table table-responsive table-dark table-hover'>
                             <thead>
-                            <tr>
-                                <td width={123}>Quantidade</td>
-                                <td width={150}>Item</td>
-                                <td width={100}>Preço</td>
-                                <td width={90}>Total</td>
-                                <td></td>
-                            </tr>
+                                <tr>
+                                    <td width={123}>Quantidade</td>
+                                    <td width={150}>Item</td>
+                                    <td width={100}>Preço</td>
+                                    <td width={90}>Total</td>
+                                    <td></td>
+                                </tr>
                             </thead>
-                            <tbody>
-                            {cart ? cart.map((cartProduct, key) => <tr key={key}>
-                                    <td align={"left"}>
+                            <tbody className='products-table'>
+                                {cart ? cart.map((cartProduct, key) => <tr key={key}>
+                                    <td width={123} align={"left"}>
                                         <IconButton color="primary" aria-label="reduce quantity"
-                                                    onClick={() => decreaseQuantity(cartProduct)}>
-                                            <RemoveIcon/>
+                                            onClick={() => decreaseQuantity(cartProduct)}>
+                                            <RemoveIcon />
                                         </IconButton>
                                         {cartProduct.quantity}
                                         <IconButton color="primary" aria-label="increase quantity"
-                                                    onClick={() => increaseQuantity(cartProduct)}>
-                                            <AddIcon/>
+                                            onClick={() => increaseQuantity(cartProduct)}>
+                                            <AddIcon />
                                         </IconButton>
                                     </td>
-                                    <td valign={"middle"}>{cartProduct.name}</td>
-                                    <td valign={"middle"}>{(cartProduct.price / 100).toFixed(2)}€</td>
-                                    <td valign={"middle"}>{(cartProduct.totalAmount / 100).toFixed(2)}€</td>
+                                    <td width={150} valign={"middle"}>{cartProduct.name}</td>
+                                    <td width={100} valign={"middle"}>{(cartProduct.price / 100).toFixed(2)}€</td>
+                                    <td width={90} valign={"middle"}>{(cartProduct.totalAmount / 100).toFixed(2)}€</td>
                                     <td align={"center"}>
                                         <IconButton
                                             color="error"
                                             aria-label="delete"
                                             onClick={() => removeProduct(cartProduct)}>
-                                            <DeleteIcon/>
+                                            <DeleteIcon />
                                         </IconButton>
                                     </td>
                                 </tr>)
-                                : 'No Item in Cart'}
+                                    : 'No Item in Cart'}
                             </tbody>
                         </table>
                     </div>
@@ -236,7 +238,7 @@ function POSPage() {
 
                     <div className=''>
                         <Button variant="contained" fullWidth={true}
-                                size="large" disabled={totalAmount === 0} onClick={handlePayment}>
+                            size="large" disabled={totalAmount === 0} onClick={handlePayment}>
                             Pagar
                         </Button>
                     </div>
@@ -245,8 +247,8 @@ function POSPage() {
                 </div>
             </div>
             <Dialog open={openModal} onClose={() => handleCloseModal(false)}
-                    fullWidth={true}
-                    maxWidth='sm'
+                fullWidth={true}
+                maxWidth='sm'
             >
                 <DialogTitle className='modal__title'>Pagamento</DialogTitle>
                 <DialogContent>
@@ -288,8 +290,8 @@ function POSPage() {
                 </DialogContent>
 
                 <DialogActions>
-                    <Button variant="contained" fullWidth={true} size="large"
-                            onClick={() => handleCloseModal(true)}>Finalizar</Button>
+                    <Button variant="contained" disable={isPrinting} fullWidth={true} size="large"
+                        onClick={() => handleCloseModal(true)}>Imprimir</Button>
                 </DialogActions>
             </Dialog>
         </MainLayout>
