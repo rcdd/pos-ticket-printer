@@ -261,10 +261,13 @@ function POSPage() {
                             fullWidth
                             defaultValue={(totalAmount / 100).toFixed(2)}
                             className={'modal__receive-value__input'}
+                            onFocus={event => {
+                                event.target.select();
+                            }}
                             InputProps={{
                                 endAdornment: <InputAdornment position="start">€</InputAdornment>,
                             }}
-                            onChange={(value) => setChangeValue(value.target.value)}
+                            onChange={(value) => setChangeValue(value.target.value.replace(",", "."))}
                             onKeyPress={(e) => {
                                 if (e.key === 'Enter') {
                                     handleCloseModal(true);

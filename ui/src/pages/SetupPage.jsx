@@ -83,35 +83,41 @@ function SetupPage() {
     return (<MainLayout>
         <div className='bg-light p-5 mt-4 rounded-3'>
             <h1>Setup</h1>
+            {isLoading && <p>Loading...</p>}
+            {!isLoading &&
+                <div>
+                    <div>
+                        <h2>Produtos</h2>
+                        <p>Adicione, edite ou remova produtos</p>
+                        <Button variant="contained" fullWidth={false} size="large"
+                                onClick={() => setOpenAddModal(true)}>
+                            Adicionar Produto</Button>
+                        <div style={{marginTop: "16px"}}>
+                            <ListProductComponent products={products} editProduct={handleEditProduct}/>
+                        </div>
+                    </div>
 
-            <div>
-                <h2>Produtos</h2>
-                <p>Adicione, edite ou remova produtos</p>
-                <Button variant="contained" fullWidth={false} size="large" onClick={() => setOpenAddModal(true)}>
-                    Adicionar Produto</Button>
-                <div style={{marginTop: "16px"}}>
-                    <ListProductComponent products={products} editProduct={handleEditProduct}/>
+                    <div>
+                        <h2>Impressora</h2>
+                        <FormControl fullWidth>
+                            <InputLabel id="printer-select">Impressora</InputLabel>
+                            <Select
+                                labelId="printer-select"
+                                id="printer-select"
+                                value={printer}
+                                label="Impressora"
+                                defaultValue={printer}
+                                onChange={handlePrinterChange}
+                            >
+                                {printerList.map((_printer) => {
+                                    return (
+                                        <MenuItem id={_printer.name} value={_printer.name}>{_printer.name}</MenuItem>)
+                                })}
+                            </Select>
+                        </FormControl>
+                    </div>
                 </div>
-            </div>
-
-            <div>
-                <h2>Impressora</h2>
-                <FormControl fullWidth>
-                    <InputLabel id="printer-select">Impressora</InputLabel>
-                    <Select
-                        labelId="printer-select"
-                        id="printer-select"
-                        value={printer}
-                        label="Impressora"
-                        defaultValue={printer}
-                        onChange={handlePrinterChange}
-                    >
-                        {printerList.map((_printer) => {
-                            return (<MenuItem id={_printer.name} value={_printer.name}>{_printer.name}</MenuItem>)
-                        })}
-                    </Select>
-                </FormControl>
-            </div>
+            }
         </div>
         <AddProductModal open={openAddModal} close={onAddProductModalClose}/>
         <EditProductModal open={openEditModal} close={onEditProductModalClose} product={productEdit}/>

@@ -8,10 +8,12 @@ function HomePage() {
 
     const handleSetup = () => {
         const pass = prompt("Password:", "")
-        if (pass === "admin") {
-            nav("/setup");
-        } else {
-            alert("Wrong Password");
+        if (pass !==  null) {
+            if (pass === "admin") {
+                nav("/setup");
+            } else {
+                alert("Wrong Password");
+            }
         }
     }
 
@@ -24,7 +26,7 @@ function HomePage() {
                 </p>
                 <Link to='/pos' className='btn btn-primary'>Iniciar</Link>
                 <p></p>
-                <Button onClick={handleSetup} variant="outlined" >Setup</Button>
+                <Button onClick={handleSetup} variant="outlined">Setup</Button>
             </div>
         </MainLayout>
     )
