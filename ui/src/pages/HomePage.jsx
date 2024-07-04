@@ -1,8 +1,20 @@
 import React from 'react'
-import {Link} from 'react-router-dom'
+import {Link, useNavigate} from 'react-router-dom'
 import MainLayout from '../layouts/MainLayout'
+import Button from '@mui/material/Button';
 
 function HomePage() {
+    const nav = useNavigate();
+
+    const handleSetup = () => {
+        const pass = prompt("Password:", "")
+        if (pass === "admin") {
+            nav("/setup");
+        } else {
+            alert("Wrong Password");
+        }
+    }
+
     return (
         <MainLayout>
             <div className='bg-light p-5 mt-4 rounded-3'>
@@ -10,8 +22,9 @@ function HomePage() {
                 <p>If you have an issue, reach out to me on <a
                     href="https://github.com/rcdd/" rel="noreferrer" target="_blank">Ruben Domingues</a>
                 </p>
-                <Link to='/pos' className='btn btn-primary'>Dashboard</Link>
-                <Link to='/setup' className='btn btn-primary'>Setup</Link>
+                <Link to='/pos' className='btn btn-primary'>Iniciar</Link>
+                <p></p>
+                <Button onClick={handleSetup} variant="outlined" >Setup</Button>
             </div>
         </MainLayout>
     )

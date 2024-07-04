@@ -119,7 +119,7 @@ function POSPage() {
     const handlePayment = () => {
         setOpenModal(true)
     }
-    const handleCloseModal = async (status: boolean = false) => {
+    const handleCloseModal = async (status = false) => {
         if (status) {
             setIsPrinting(true);
             const bodyRequest = {
@@ -139,8 +139,10 @@ function POSPage() {
             setTotalAmount(0);
             setChangeValue(0);
             setIsPrinting(false);
+            setOpenModal(false);
+        } else {
+            setOpenModal(false);
         }
-        setOpenModal(false);
     };
 
     const doExchange = () => {
