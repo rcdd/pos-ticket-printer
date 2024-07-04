@@ -2,6 +2,8 @@ const printer = require('@thiagoelg/node-printer');
 const PrintJobs = require('./printJobs');
 const cmds = require("./commands");
 
+let PRINTER_NAME = 'Metapace T-3II';
+
 String.prototype.toBytes = function () {
     const arr = []
     for (let i = 0; i < this.length; i++) {
@@ -9,7 +11,7 @@ String.prototype.toBytes = function () {
     }
     return arr;
 }
-let PRINTER_NAME = '_Metapace_T_3';
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 const printHeader = (printJob) => {
     const date = new Date().toISOString().replace(/T/, ' ').      // replace T with a space
@@ -61,31 +63,33 @@ async function printItem(productName) {
         printHeader(printJob);
 
         printText(printJob).then(r => {
-            return true;
+            resolve();
         });
     });
 }
 
 async function printTotal(cart) {
-    const printJob = new PrintJobs();
+    return new Promise((resolve, reject) => {
+        const printJob = new PrintJobs();
 
-    printJob.setTextFormat('normal');
-    printJob.setFont('B');
-    printJob.text('Pedido:');
-    printJob.setFont('A');
-    printJob.newLine(2);
-    cart.items.forEach(item => {
-        printJob.text(item.quantity + ' ' + item.name);
-        printJob.newLine(1);
-    });
-    printJob.newLine(2);
-    printJob.setFont('B');
-    printJob.text('Total:' + cart.total);
-    printJob.raw(cmds.EURO);
-    printHeader(printJob);
+        printJob.setTextFormat('normal');
+        printJob.setFont('B');
+        printJob.text('Pedido:');
+        printJob.setFont('A');
+        printJob.newLine(2);
+        cart.items.forEach(item => {
+            printJob.text(item.quantity + ' ' + item.name);
+            printJob.newLine(1);
+        });
+        printJob.newLine(2);
+        printJob.setFont('B');
+        printJob.text('Total:' + cart.total);
+        printJob.raw(cmds.EURO);
+        printHeader(printJob);
 
-    printText(printJob).then(r => {
-        return true;
+        printText(printJob).then(r => {
+            return resolve();
+        });
     });
 }
 
@@ -100,6 +104,10 @@ async function printRequest(res, req) {
     }
 
     await printTotal(cart);
+    
+    await delay(2000);
+
+    return res.send("OK");
 }
 
 const getPrintConfig = (res, req) => {
