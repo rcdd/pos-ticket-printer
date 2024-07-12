@@ -8,7 +8,7 @@ function HomePage() {
 
     const handleSetup = () => {
         const pass = prompt("Password:", "")
-        if (pass !==  null) {
+        if (pass !== null) {
             if (pass === "admin") {
                 nav("/setup");
             } else {
@@ -20,13 +20,15 @@ function HomePage() {
     return (
         <MainLayout>
             <div className='bg-light p-5 mt-4 rounded-3'>
-                <h1>Welcome to the simple POS for small business</h1>
-                <p>If you have an issue, reach out to me on <a
-                    href="https://github.com/rcdd/" rel="noreferrer" target="_blank">Ruben Domingues</a>
+                <h1>Bem-vindo ao sistema simples de talões POS</h1>
+                <p>Qualquer duvida ou informção contactar <a
+                    href="https://github.com/rcdd/" rel="noreferrer" target="_blank">Ruben Domingues</a> através numero
+                    918182831.
                 </p>
+                <p>👇 Clique no botão seguinte "Iniciar" para abrir a aplicação.</p>
                 <Link to='/pos' className='btn btn-primary'>Iniciar</Link>
                 <p></p>
-                <Button onClick={handleSetup} variant="outlined">Setup</Button>
+                <Button onClick={handleSetup} variant="outlined">Administração</Button>
             </div>
         </MainLayout>
     )
