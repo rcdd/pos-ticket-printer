@@ -11,8 +11,10 @@ function ListProductComponent({products, editProduct}) {
                             <div className='pos-item px-3 text-center border'
                                  onClick={() => editProduct(product)}>
                                 <p>{product.name}</p>
-                                <img draggable="false" src={product.image} className="pos-item__image"
-                                     alt={product.name}/>
+                                {product.image === null && <p>Imagem não disponível</p>}
+                                {product.image && <img draggable="false" src={product.image}
+                                                       className="pos-item__image"
+                                                       alt={product.name}/>}
                                 <p>{(product.price / 100).toFixed(2)}€</p>
                             </div>
                         </div>

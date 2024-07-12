@@ -35,7 +35,6 @@ function SetupPage() {
 
     const fetchProducts = async () => {
         await ProductService.getAll().then((response) => {
-            console.log(response);
             setProducts(response.data);
         }).catch((error) => {
             console.log(error.response);
@@ -66,7 +65,6 @@ function SetupPage() {
 
     const getPrinterList = async () => {
         PrinterService.getList().then((response) => {
-            console.log(response);
             setPrinterList(response.data)
         });
     };
@@ -111,7 +109,7 @@ function SetupPage() {
                             >
                                 {printerList.map((_printer) => {
                                     return (
-                                        <MenuItem id={_printer.name} value={_printer.name}>{_printer.name}</MenuItem>)
+                                        <MenuItem key={_printer.name} id={_printer.name} value={_printer.name}>{_printer.name}</MenuItem>)
                                 })}
                             </Select>
                         </FormControl>

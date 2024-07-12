@@ -1,6 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react'
 import MainLayout from '../layouts/MainLayout'
-// import {toast} from 'react-toastify';
 import LoadingButton from '@mui/lab/LoadingButton';
 import {ComponentToPrint} from '../components/ComponentToPrint';
 import Button from '@mui/material/Button';
@@ -30,11 +29,6 @@ function POSPage() {
     const formatterEUR = new Intl.NumberFormat('pt-PT', {
         maximumSignificantDigits: 2,
     });
-
-    // const toastOptions = {
-    //     autoClose: 400,
-    //     pauseOnHover: true,
-    // }
 
     const fetchProducts = async () => {
         setIsLoading(true);

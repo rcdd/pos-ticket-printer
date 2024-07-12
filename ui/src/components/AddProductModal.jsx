@@ -1,12 +1,13 @@
 import React, {useEffect, useState} from 'react'
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
-import {Box, InputAdornment} from "@mui/material";
+import {Box, IconButton, InputAdornment} from "@mui/material";
 import TextField from "@mui/material/TextField";
 import DialogActions from "@mui/material/DialogActions";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
 import ProductService from "../services/product.service";
+import {FileUploadOutlined} from "@mui/icons-material";
 
 
 function AddProductModal({open, close}) {
@@ -31,7 +32,6 @@ function AddProductModal({open, close}) {
                 setNewName(null);
                 setNewPrice(0);
                 setNewImage(null);
-                console.log(response);
             }).catch(
                 (error) => {
                     console.log(error.response);
@@ -42,6 +42,17 @@ function AddProductModal({open, close}) {
         }
         close(false);
     };
+
+    const handleUpload = (event) => {
+        const file = event.target.files[0];
+        setNewImage("./imgs/" + file.name);
+        // const reader = new FileReader();
+        // reader.readAsDataURL(file);
+        // reader.onload = () => {
+        //     console.log(reader);
+        // };
+    };
+
     return (
         <Dialog open={openModal} onClose={() => handleCloseModal(false)}
                 fullWidth={true}
@@ -90,6 +101,19 @@ function AddProductModal({open, close}) {
                         label="Imagem"
                         name="image"
                         autoComplete="image"
+                        value={newImage ?? ''}
+                        InputProps={{
+                            endAdornment: (
+                                <IconButton component="label">
+                                    <FileUploadOutlined/>
+                                    <input
+                                        type="file"
+                                        hidden
+                                        onChange={handleUpload}
+                                    />
+                                </IconButton>
+                            ),
+                        }}
                         onChange={(value) => setNewImage(value.target.value)}
                     />
                 </Box>
