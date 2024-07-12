@@ -24,6 +24,7 @@ function POSPage() {
     const [changeValue, setChangeValue] = useState(0);
     const [openModal, setOpenModal] = React.useState(false);
     const [isPrinting, setIsPrinting] = React.useState(false);
+    const [isPrinted, setIsPrinted] = React.useState(false);
 
 
     const formatterEUR = new Intl.NumberFormat('pt-PT', {
@@ -113,8 +114,9 @@ function POSPage() {
     const handlePayment = () => {
         setOpenModal(true)
     }
-    const handleCloseModal = async (status = false) => {
+    const handlePrint = async (status = false) => {
         if (status) {
+            setIsPrinted(false);
             setIsPrinting(true);
             const bodyRequest = {
                 items: [], cart: {items: cart, total: ((totalAmount / 100).toFixed(2))},
@@ -129,15 +131,22 @@ function POSPage() {
             await PrinterService.print(bodyRequest);
             await RecordService.addRecord(bodyRequest.items)
 
-            setCart([]);
-            setTotalAmount(0);
-            setChangeValue(0);
             setIsPrinting(false);
-            setOpenModal(false);
+            setIsPrinted(true);
         } else {
             setOpenModal(false);
         }
     };
+
+    const handleModalClose = () => {
+        if (isPrinted) {
+            setCart([]);
+            setTotalAmount(0);
+            setChangeValue(0);
+            setIsPrinted(false);
+        }
+        setOpenModal(false);
+    }
 
     const doExchange = () => {
         const value = (changeValue - (totalAmount / 100)).toFixed(2);
@@ -230,7 +239,7 @@ function POSPage() {
 
             </div>
         </div>
-        <Dialog open={openModal} onClose={() => handleCloseModal(false)}
+        <Dialog open={openModal} onClose={handleModalClose}
                 fullWidth={true}
                 maxWidth='sm'
         >
@@ -264,7 +273,8 @@ function POSPage() {
                             onChange={(value) => setChangeValue(value.target.value.replace(",", "."))}
                             onKeyPress={(e) => {
                                 if (e.key === 'Enter') {
-                                    handleCloseModal(true);
+                                    e.preventDefault();
+                                    !isPrinted ? handlePrint(true) : handleModalClose();
                                 }
                             }}
                         />
@@ -274,11 +284,13 @@ function POSPage() {
             </DialogContent>
 
             <DialogActions>
-                <LoadingButton loading={isPrinting} loadingIndicator="A imprimir.."
-                               variant="contained" fullWidth={true} size="large"
-                               onClick={() => handleCloseModal(true)}>
+                {!isPrinted && <LoadingButton loading={isPrinting} loadingIndicator="A imprimir.."
+                                              variant="contained" fullWidth={true} size="large"
+                                              onClick={() => handlePrint(true)}>
                     Imprimir
-                </LoadingButton>
+                </LoadingButton>}
+                {isPrinted && <Button variant="contained" fullWidth={true} size="large"
+                                      onClick={handleModalClose}>Fechar</Button>}
             </DialogActions>
         </Dialog>
     </MainLayout>)
