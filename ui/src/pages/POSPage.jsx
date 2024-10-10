@@ -183,11 +183,11 @@ function POSPage() {
     }, [cart])
 
     return (<MainLayout>
-        <div className='row'>
-            <div className='col-lg-7 products-list'>
-                {isLoading ? 'Loading...' : 
-                zone !== null ? <div className='pos-item p-2 mb-2' onClick={()=> setZone(null)}>🔙  Retroceder</div> : null }
-                
+        <div className='row'>           
+            <div className='col-lg-7'>
+                {isLoading ? 'Loading...' : null }
+                {zone !== null ? <div className='pos-item p-2 mb-2' onClick={()=> setZone(null)}>🔙  Retroceder</div> : null }
+
                 {zone === null ? <div>
                     <div className='pos-item mt-5 mb-4 p-5 text-center border'
                         onClick={() => setZone('kitchen')}>
@@ -201,30 +201,37 @@ function POSPage() {
                <        img draggable="false" src="../imgs/bar-icon.png" className="pos-item__image"
                             alt=""/>
                     </div>
-                </div> : 
-                zone === 'kitchen' ? 
-                <div className='row'>
-                    {productsFood.length !== 0 ? productsFood.map((product, key) => <div key={key} className='col-lg-4 mb-4'>
-                        <div className='pos-item px-3 text-center border'
-                             onClick={() => addProductToCart(product)}>
-                            <p>{product.name}</p>
-                            <img draggable="false" src={product.image} className="pos-item__image"
-                                 alt={product.name}/>
-                            <p>{(product.price / 100).toFixed(2)}€</p>
-                        </div>
-                    </div>) : <h4>Sem produtos</h4>}
-                </div> :
-                <div className='row'>
-                    {productsDrink.length !== 0 ? productsDrink.map((product, key) => <div key={key} className='col-lg-4 mb-4'>
-                        <div className='pos-item px-3 text-center border'
-                             onClick={() => addProductToCart(product)}>
-                            <p>{product.name}</p>
-                            <img draggable="false" src={product.image} className="pos-item__image"
-                                 alt={product.name}/>
-                            <p>{(product.price / 100).toFixed(2)}€</p>
-                        </div>
-                    </div>) : <h4>Sem produtos</h4>}
-                </div>}
+                </div> : null};
+
+                {zone === 'kitchen' ? 
+                <div className='products-list'>
+                    <div className='row'>
+                        {productsFood.length !== 0 ? productsFood.map((product, key) => <div key={key} className='col-lg-4 mb-4'>
+                            <div className='pos-item px-3 text-center border'
+                                onClick={() => addProductToCart(product)}>
+                                <p>{product.name}</p>
+                                <img draggable="false" src={product.image} className="pos-item__image"
+                                    alt={product.name}/>
+                                <p>{(product.price / 100).toFixed(2)}€</p>
+                            </div>
+                        </div>) : <h4>Sem produtos</h4>}
+                    </div> 
+                </div>: null }
+
+                {zone === 'bar' ?
+                <div className='products-list'>
+                    <div className='row'>
+                        {productsDrink.length !== 0 ? productsDrink.map((product, key) => <div key={key} className='col-lg-4 mb-4'>
+                            <div className='pos-item px-3 text-center border'
+                                onClick={() => addProductToCart(product)}>
+                                <p>{product.name}</p>
+                                <img draggable="false" src={product.image} className="pos-item__image"
+                                    alt={product.name}/>
+                                <p>{(product.price / 100).toFixed(2)}€</p>
+                            </div>
+                        </div>) : <h4>Sem produtos</h4>}
+                    </div>
+                </div> : null}
             </div>
 
             <div className='col-lg-5'>
