@@ -63,8 +63,9 @@ code {
 
 .products-list {
     display: block;
-    height: calc(100vh - 100px);
-    overflow: auto;
+    height: calc(100vh - 150px);
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 .products-table {

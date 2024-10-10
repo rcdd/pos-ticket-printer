@@ -201,7 +201,7 @@ function POSPage() {
                <        img draggable="false" src="../imgs/bar-icon.png" className="pos-item__image"
                             alt=""/>
                     </div>
-                </div> : null};
+                </div> : null }
 
                 {zone === 'kitchen' ? 
                 <div className='products-list'>
@@ -231,7 +231,7 @@ function POSPage() {
                             </div>
                         </div>) : <h4>Sem produtos</h4>}
                     </div>
-                </div> : null}
+                </div> : null }
             </div>
 
             <div className='col-lg-5'>
