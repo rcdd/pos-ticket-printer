@@ -17,7 +17,8 @@ import PrinterService from "../services/printer.service";
 import RecordService from "../services/record.service";
 
 function POSPage() {
-    const [products, setProducts] = useState([]);
+    const [productsFood, setProductsFood] = useState([]);
+    const [productsDrink, setProductsDrink] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [cart, setCart] = useState([]);
     const [totalAmount, setTotalAmount] = useState(0);
@@ -25,7 +26,9 @@ function POSPage() {
     const [openModal, setOpenModal] = React.useState(false);
     const [isPrinting, setIsPrinting] = React.useState(false);
     const [isPrinted, setIsPrinted] = React.useState(false);
+    const [zone, setZone] = React.useState(null);
 
+    const componentRef = useRef();
 
     const formatterEUR = new Intl.NumberFormat('pt-PT', {
         maximumSignificantDigits: 2,
@@ -34,7 +37,18 @@ function POSPage() {
     const fetchProducts = async () => {
         setIsLoading(true);
         await ProductService.getAll().then((response) => {
-            setProducts(response.data);
+            const foods = [];
+            const drinks = [];
+            response.data.forEach(element => {
+                if(element.type === 'Drink'){
+                    drinks.push(element);
+                }
+                if(element.type === 'Food'){
+                    foods.push(element);
+                }
+            });
+            setProductsFood(foods);
+            setProductsDrink(drinks);
             setIsLoading(false);
         }).catch((error) => {
             throw Error(error.response.data.message)
@@ -109,17 +123,16 @@ function POSPage() {
         setCart(newCart);
     }
 
-    const componentRef = useRef();
-
     const handlePayment = () => {
         setOpenModal(true)
     }
-    const handlePrint = async (status = false) => {
+    const handlePrint = async (status = false, totals = false) => {
         if (status) {
             setIsPrinted(false);
             setIsPrinting(true);
             const bodyRequest = {
                 items: [], cart: {items: cart, total: ((totalAmount / 100).toFixed(2))},
+                 totalOnly: totals,
             };
 
             cart.forEach((cartItem) => {
@@ -144,6 +157,7 @@ function POSPage() {
             setTotalAmount(0);
             setChangeValue(0);
             setIsPrinted(false);
+            setZone(null);
         }
         setOpenModal(false);
     }
@@ -171,8 +185,26 @@ function POSPage() {
     return (<MainLayout>
         <div className='row'>
             <div className='col-lg-7 products-list'>
-                {isLoading ? 'Loading' : <div className='row'>
-                    {products.map((product, key) => <div key={key} className='col-lg-4 mb-4'>
+                {isLoading ? 'Loading...' : 
+                zone !== null ? <div className='pos-item p-2 mb-2' onClick={()=> setZone(null)}>🔙  Retroceder</div> : null }
+                
+                {zone === null ? <div>
+                    <div className='pos-item mt-5 mb-4 p-5 text-center border'
+                        onClick={() => setZone('kitchen')}>
+                        <p>Cozinha</p>
+               <        img draggable="false" src="../imgs/restaurant-icon.png" className="pos-item__image"
+                            alt=""/>
+                    </div>
+                    <div className='pos-item p-5 text-center border'
+                        onClick={() => setZone('bar')}>
+                        <p>Bar</p>
+               <        img draggable="false" src="../imgs/bar-icon.png" className="pos-item__image"
+                            alt=""/>
+                    </div>
+                </div> : 
+                zone === 'kitchen' ? 
+                <div className='row'>
+                    {productsFood.length !== 0 ? productsFood.map((product, key) => <div key={key} className='col-lg-4 mb-4'>
                         <div className='pos-item px-3 text-center border'
                              onClick={() => addProductToCart(product)}>
                             <p>{product.name}</p>
@@ -180,10 +212,21 @@ function POSPage() {
                                  alt={product.name}/>
                             <p>{(product.price / 100).toFixed(2)}€</p>
                         </div>
-                    </div>)}
+                    </div>) : <h4>Sem produtos</h4>}
+                </div> :
+                <div className='row'>
+                    {productsDrink.length !== 0 ? productsDrink.map((product, key) => <div key={key} className='col-lg-4 mb-4'>
+                        <div className='pos-item px-3 text-center border'
+                             onClick={() => addProductToCart(product)}>
+                            <p>{product.name}</p>
+                            <img draggable="false" src={product.image} className="pos-item__image"
+                                 alt={product.name}/>
+                            <p>{(product.price / 100).toFixed(2)}€</p>
+                        </div>
+                    </div>) : <h4>Sem produtos</h4>}
                 </div>}
-
             </div>
+
             <div className='col-lg-5'>
                 <div style={{display: "none"}}>
                     <ComponentToPrint cart={cart} totalAmount={totalAmount} ref={componentRef}/>
@@ -287,7 +330,13 @@ function POSPage() {
                 {!isPrinted && <LoadingButton loading={isPrinting} loadingIndicator="A imprimir.."
                                               variant="contained" fullWidth={true} size="large"
                                               onClick={() => handlePrint(true)}>
-                    Imprimir
+                    Imprimir (Senhas)
+                </LoadingButton>}
+
+                {!isPrinted && <LoadingButton loading={isPrinting} loadingIndicator="A imprimir.."
+                                              variant="contained" fullWidth={true} size="large"
+                                              onClick={() => handlePrint(true, true)}>
+                    Imprimir (Totais)
                 </LoadingButton>}
                 {isPrinted && <Button variant="contained" fullWidth={true} size="large"
                                       onClick={handleModalClose}>Fechar</Button>}

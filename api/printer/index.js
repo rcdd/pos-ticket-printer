@@ -1,3 +1,6 @@
+/**
+ * Deprecated
+ */
 const printer = require('@thiagoelg/node-printer');
 const PrintJobs = require('./printJobs');
 const cmds = require("./commands");

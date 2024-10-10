@@ -6,6 +6,9 @@ import TextField from "@mui/material/TextField";
 import DialogActions from "@mui/material/DialogActions";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
+import MenuItem from "@mui/material/MenuItem";
+import InputLabel from "@mui/material/InputLabel";
+import Select from "@mui/material/Select";
 import ProductService from "../services/product.service";
 import {FileUploadOutlined} from "@mui/icons-material";
 
@@ -15,12 +18,14 @@ function AddProductModal({open, close, product}) {
     const [newName, setNewName] = useState(product ? product.name : null);
     const [newPrice, setNewPrice] = useState(product ? product.price : 0);
     const [newImage, setNewImage] = useState(product ? product.image : null);
+    const [newType, setNewType] = useState(product ? product.type : null);
 
     useEffect(() => {
         setOpenModal(open);
         setNewName(null);
         setNewPrice(0);
         setNewImage(null);
+        setNewType(null);
     }, [open]);
 
     const handleRemoveProduct = async () => {
@@ -34,13 +39,14 @@ function AddProductModal({open, close, product}) {
         );
         close(false);
     }
-    const handleCloseModal = async (status: boolean = false) => {
+    const handleCloseModal = async (status = false) => {
         if (status) {
             const bodyRequest = {
                 id: product.id,
                 name: newName ?? product.name,
                 price: newPrice ? newPrice * 100 : product.price,
                 image: newImage ?? product.image,
+                type: newType ?? product.type
             };
 
             await ProductService.update(bodyRequest).then((response) => {
@@ -48,6 +54,7 @@ function AddProductModal({open, close, product}) {
                 setNewName(null);
                 setNewPrice(0);
                 setNewImage(null);
+                setNewType(null);
             }).catch(
                 (error) => {
                     console.log(error.response);
@@ -64,6 +71,10 @@ function AddProductModal({open, close, product}) {
         const file = event.target.files[0];
         setNewImage("./imgs/" + file.name);
     };
+
+    const handleTypeSelect = (event) => {
+        setNewType(event.target.value);
+    }
 
     return (
         <Dialog open={openModal} onClose={() => handleCloseModal(false)}
@@ -108,6 +119,18 @@ function AddProductModal({open, close, product}) {
                         }}
                         onChange={(value) => setNewPrice(value.target.value)}
                     />
+                    <InputLabel id="type-select-label">Tipo</InputLabel>
+                    <Select
+                        labelId="type-select-label"
+                        id="type-select"
+                        value={product ? product.type : null}
+                        label="Tipo"
+                        onChange={handleTypeSelect}
+                    >
+                        <MenuItem value={"Drink"}>Bebida</MenuItem>
+                        <MenuItem value={"Food"}>Comida</MenuItem>
+                    </Select>
+
                     <TextField
                         margin="normal"
                         fullWidth

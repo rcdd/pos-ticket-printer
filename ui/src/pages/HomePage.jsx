@@ -22,7 +22,7 @@ function HomePage() {
             <div className='bg-light p-5 mt-4 rounded-3'>
                 <h1>Bem-vindo ao sistema simples de talões POS</h1>
                 <p>Qualquer duvida ou informção contactar <a
-                    href="https://github.com/rcdd/" rel="noreferrer" target="_blank">Ruben Domingues</a> através numero
+                    href="https://github.com/rcdd/" rel="noreferrer" target="_blank">Ruben Domingues</a> através do número
                     918182831.
                 </p>
                 <p>👇 Clique no botão seguinte "Iniciar" para abrir a aplicação.</p>

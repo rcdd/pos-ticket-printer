@@ -17,6 +17,19 @@ exports.create = (req, res) => {
         });
         return;
     }
+    if (!req.body.type) {
+        res.status(400).send({
+            message: "Type can not be empty!"
+        });
+        return;
+    }
+
+    if(req.body.type !== "Drink" && req.body.type !== "Food"){
+        res.status(400).send({
+            message: "Type must be do type Drink or Food!"
+        });
+        return;
+    }
 
     // Validate if name is unique
     Product.findOne({
@@ -35,6 +48,7 @@ exports.create = (req, res) => {
         const product = {
             name: req.body.name,
             price: req.body.price,
+            type: req.body.type,
             image: req.body.image ? req.body.image : null // update to default one
         };
 

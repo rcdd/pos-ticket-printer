@@ -1,3 +1,8 @@
+module.exports.TypeStatus = Object.freeze({
+    Drink: 'Drink',
+    Food: 'Food',
+ });
+
 module.exports = (sequelize, Sequelize) => {
     return sequelize.define("product", {
         id: {
@@ -13,6 +18,11 @@ module.exports = (sequelize, Sequelize) => {
         },
         image: {
             type: Sequelize.STRING
+        },
+        type: {
+            type:   Sequelize.ENUM,
+            values: Object.values(this.TypeStatus),
+            defaultValue :  this.TypeStatus.Drink
         }
     });
 };

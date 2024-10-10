@@ -6,6 +6,9 @@ import TextField from "@mui/material/TextField";
 import DialogActions from "@mui/material/DialogActions";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
+import MenuItem from "@mui/material/MenuItem";
+import InputLabel from "@mui/material/InputLabel";
+import Select from "@mui/material/Select";
 import ProductService from "../services/product.service";
 import {FileUploadOutlined} from "@mui/icons-material";
 
@@ -15,23 +18,26 @@ function AddProductModal({open, close}) {
     const [newName, setNewName] = useState(null);
     const [newPrice, setNewPrice] = useState(0);
     const [newImage, setNewImage] = useState(null);
+    const [newType, setNewType] = useState("Drink");
 
     useEffect(() => {
         setOpenModal(open);
     }, [open]);
 
-    const handleCloseModal = async (status: boolean = false) => {
+    const handleCloseModal = async (status = false) => {
         if (status) {
             const bodyRequest = {
                 name: newName,
                 price: newPrice.replace(",", ".") * 100,
                 image: newImage,
+                type: newType
             };
 
             await ProductService.create(bodyRequest).then((response) => {
                 setNewName(null);
                 setNewPrice(0);
                 setNewImage(null);
+                setNewType("Drink");
             }).catch(
                 (error) => {
                     console.log(error.response);
@@ -46,12 +52,11 @@ function AddProductModal({open, close}) {
     const handleUpload = (event) => {
         const file = event.target.files[0];
         setNewImage("./imgs/" + file.name);
-        // const reader = new FileReader();
-        // reader.readAsDataURL(file);
-        // reader.onload = () => {
-        //     console.log(reader);
-        // };
     };
+
+    const handleTypeSelect = (event) => {
+        setNewType(event.target.value);
+    }
 
     return (
         <Dialog open={openModal} onClose={() => handleCloseModal(false)}
@@ -94,6 +99,18 @@ function AddProductModal({open, close}) {
                         }}
                         onChange={(value) => setNewPrice(value.target.value)}
                     />
+                    <InputLabel id="type-select-label" required>Tipo</InputLabel>
+                    <Select
+                        labelId="type-select-label"
+                        id="type-select"
+                        label="Tipo"
+                        value={newType}
+                        onChange={handleTypeSelect}
+                    >
+                        <MenuItem value={"Drink"}>Bebida</MenuItem>
+                        <MenuItem value={"Food"}>Comida</MenuItem>
+                    </Select>
+
                     <TextField
                         margin="normal"
                         fullWidth

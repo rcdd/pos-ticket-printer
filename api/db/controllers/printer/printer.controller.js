@@ -103,15 +103,19 @@ async function printTotal(cart) {
     });
 }
 
-exports.printRequest = async(req, res) => {
-    const items = req.body.items;
-    const cart = req.body.cart;
+exports.printRequest = async(req, res) => {   
     PRINTER_NAME = req.body.printer;
     HEADERS = req.body.headers;
 
-    for await (const item of items) {
-        for (let i = 0; i < item.quantity; i++) {
-            await printItem(item.name);
+    const items = req.body.items;
+    const cart = req.body.cart;
+    const totalOnly = req.body.totalOnly;
+
+    if(!totalOnly){
+        for await (const item of items) {
+            for (let i = 0; i < item.quantity; i++) {
+                await printItem(item.name);
+            }
         }
     }
 

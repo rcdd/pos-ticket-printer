@@ -89,7 +89,7 @@ function SetupPage() {
     }
 
     const handlerHeaderFirstLine = (event) => {
-        if(event.target.value.length == 0 || event.target.value.length > 40){
+        if(event.target.value.length === 0 || event.target.value.length > 40){
             setFirstLineError(true);
             return;
         }
