@@ -3,6 +3,8 @@ const Option = db.options;
 const Op = db.Sequelize.Op;
 
 const optionPrintName = 'printer';
+const optionFirstLine = 'firstLine';
+const optionSecondLine = 'secondLine';
 
 exports.getPrinter = (req, res) => {
     Option.findOne({
@@ -26,7 +28,7 @@ exports.getPrinter = (req, res) => {
         });
 }
 
-exports.setPrinter = (req, res) => {
+exports.setPrinter = async (req, res) => {
     // Validate request
     if (!req.body.name) {
         res.status(400).send({
@@ -81,3 +83,184 @@ exports.setPrinter = (req, res) => {
     });
 };
 
+exports.setHeaderFirstLine = (req, res) => {
+    // Validate request
+    if (!req.body.firstLine) {
+        res.status(400).send({
+            message: "First line can not be empty!"
+        });
+        return;
+    }
+
+    const firstLine = req.body.firstLine;
+
+    Option.findOne({
+        where: {
+            name: optionFirstLine
+        }
+    }).then(data => {
+        if (data) {
+            Option.update({value: firstLine}, {
+                where: {name: optionFirstLine}
+            })
+                .then(num => {
+                    if (num.includes(1)) {
+                        res.send({
+                            message: "First line was updated successfully."
+                        });
+                    } else {
+                        res.send({
+                            message: `Cannot update first line with ${firstLine}!`
+                        });
+                    }
+                })
+                .catch(err => {
+                    res.status(500).send({
+                        message: "Error updating first line with " + firstLine,
+                        error: err
+                    });
+                });
+
+            return;
+        }
+
+        // Save Option in the database
+        Option.create({name: optionFirstLine, value: firstLine})
+            .then(data => {
+                res.send({text: data.value});
+            })
+            .catch(err => {
+                res.status(500).send({
+                    message:
+                        err.message || "Some error occurred while creating the item."
+                });
+            });
+    });
+}
+
+exports.setHeaderSecondLine = (req, res) => {
+    // Validate request
+    if (!req.body.secondLine) {
+        res.status(400).send({
+            message: "Second line can not be empty!"
+        });
+        return;
+    }
+
+    const secondLine = req.body.secondLine;
+
+    Option.findOne({
+        where: {
+            name: optionSecondLine
+        }
+    }).then(data => {
+        if (data) {
+            Option.update({value: secondLine}, {
+                where: {name: optionSecondLine}
+            })
+                .then(num => {
+                    if (num.includes(1)) {
+                        res.send({
+                            message: "Second line was updated successfully."
+                        });
+                    } else {
+                        res.send({
+                            message: `Cannot update second line with ${secondLine}!`
+                        });
+                    }
+                })
+                .catch(err => {
+                    res.status(500).send({
+                        message: "Error updating second line with " + secondLine,
+                        error: err
+                    });
+                });
+
+            return;
+        }
+
+        Option.create({name: optionSecondLine, value: secondLine})
+            .then(data => {
+                res.send({text: data.value});
+            })
+            .catch(err => {
+                res.status(500).send({
+                    message:
+                        err.message || "Some error occurred while creating the item."
+                });
+            });
+    });
+}
+
+exports.getHeaders = (req, res) => {
+    return Option.findOne({
+        where: {
+            name: optionFirstLine
+        }
+    })
+        .then(_first => {
+            if (_first) {
+                return Option.findOne({
+                    where: {
+                        name: optionSecondLine
+                    }
+                })
+                    .then(_second => {
+                        if (_second) {
+                            res.send({firstLine: _first.value, secondLine: _second.value});
+                        } else {
+                            res.status(404).send({
+                                message: "Not found second line header"
+                            });
+                        }
+                    })
+                    .catch(err => {
+                        res.status(500).send({
+                            message: "Error retrieving header"
+                        });
+                    });
+            } else {
+                res.status(404).send({
+                    message: "Not found first line header"
+                });
+            }
+        })
+        .catch(err => {
+            res.status(500).send({
+                message: "Error retrieving header"
+            });
+        });
+}
+
+
+exports.getHeadersInit = () => {
+    return Option.findOne({
+        where: {
+            name: optionFirstLine
+        }
+    })
+        .then(_first => {
+            if (_first) {
+                return Option.findOne({
+                    where: {
+                        name: optionSecondLine
+                    }
+                })
+                    .then(_second => {
+                        if (_second) {
+                            return ({firstLine: _first.value, secondLine: _second.value});
+                        } else {
+                            return false;
+                        }
+                    })
+                    .catch(err => {
+                        return false;
+                    });
+            } else {
+                return false;
+            }
+        })
+        .catch(err => {
+            return false;
+        });
+}

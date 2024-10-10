@@ -6,9 +6,8 @@ import ListProductComponent from "../components/ListProductComponent";
 import EditProductModal from "../components/EditProductModal";
 import ProductService from "../services/product.service";
 import PrinterService from "../services/printer.service";
-import {FormControl, InputLabel, MenuItem, Select} from "@mui/material";
+import {FormControl, InputLabel, TextField, MenuItem, Select} from "@mui/material";
 import OptionService from "../services/option.service";
-
 
 function SetupPage() {
     const [openAddModal, setOpenAddModal] = React.useState(false);
@@ -19,6 +18,11 @@ function SetupPage() {
     const [printerList, setPrinterList] = React.useState([]);
     const [printer, setPrinter] = React.useState([]);
 
+    const [firstLine, setFirstLine] = React.useState();
+    const [secondLine, setSecondLine] = React.useState();
+    const [firstLineError, setFirstLineError] = React.useState(false);
+    const [secondLineError, setSecondLineError] = React.useState(false);
+    
     useEffect(() => {
         getPrinterList().then(() => {
             fetchProducts().then(() => {
@@ -31,6 +35,12 @@ function SetupPage() {
                 });
             });
         });
+
+        OptionService.getHeaders().then(res => {
+            setFirstLine(res.data.firstLine);
+            setSecondLine(res.data.secondLine);
+        });
+
     }, []);
 
     const fetchProducts = async () => {
@@ -78,6 +88,36 @@ function SetupPage() {
         });
     }
 
+    const handlerHeaderFirstLine = (event) => {
+        if(event.target.value.length == 0 || event.target.value.length > 40){
+            setFirstLineError(true);
+            return;
+        }
+
+        setFirstLineError(false);
+        OptionService.setHeaderFirstLine(event.target.value).then((response) => {
+            setFirstLine(event.target.value);
+        }).catch((error) => {
+            console.log(error.response);
+            throw Error(error.response.data.message)
+        });
+    }
+
+    const handlerHeaderSecondLine = (event) => {
+        if(event.target.value.length > 40){
+            setSecondLineError(true);
+            return;
+        }
+
+        setSecondLineError(false);
+        OptionService.setHeaderSecondLine(event.target.value).then((response) => {
+            setSecondLine(event.target.value);
+        }).catch((error) => {
+            console.log(error.response);
+            throw Error(error.response.data.message)
+        });
+    }
+
     return (<MainLayout>
         <div className='bg-light p-5 mt-4 rounded-3'>
             <h1>Setup</h1>
@@ -95,7 +135,7 @@ function SetupPage() {
                         </div>
                     </div>
 
-                    <div>
+                    <div style={{marginBottom: "32px"}}>
                         <h2>Impressora</h2>
                         <FormControl fullWidth>
                             <InputLabel id="printer-select">Impressora</InputLabel>
@@ -112,6 +152,14 @@ function SetupPage() {
                                         <MenuItem key={_printer.name} id={_printer.name} value={_printer.name}>{_printer.name}</MenuItem>)
                                 })}
                             </Select>
+                        </FormControl>
+                    </div>
+
+                    <div>
+                        <h2>Cabeçalho</h2>
+                        <FormControl fullWidth>
+                        <TextField error={firstLineError} id="firstLine" label="Primeira Linha" variant="standard" defaultValue={firstLine} onChange={handlerHeaderFirstLine}/>
+                        <TextField error={secondLineError} id="secondLine" label="Segunda Linha" variant="standard" defaultValue={secondLine} onChange={handlerHeaderSecondLine} />
                         </FormControl>
                     </div>
                 </div>

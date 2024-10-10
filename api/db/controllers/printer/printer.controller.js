@@ -1,12 +1,16 @@
 const printer = require('@thiagoelg/node-printer');
-const PrintJobs = require('./printJobs');
-const cmds = require("./commands");
+const PrintJobs = require('./lib/printJobs');
+const cmds = require("./lib/commands");
 
-const db = require("../db/models");
+const db = require("../../models");
 const Option = db.options;
 const Op = db.Sequelize.Op;
 
-let PRINTER_NAME = 'Metapace T-3II';
+let PRINTER_NAME = 'undefined';
+let HEADERS = {
+    firstLine: "Undefined",
+    secondLine: "Undefined"
+}
 
 String.prototype.toBytes = function () {
     const arr = []
@@ -32,9 +36,11 @@ const printHeader = (printJob) => {
     printJob.newLine(1);
     printJob.separator();
     printJob.newLine(1);
-    printJob.text("XVII Torneio de Freguesias");
-    printJob.newLine(1);
-    printJob.text("Rancho F.J.A. dos Conqueiros");
+    printJob.text(HEADERS.firstLine);
+    if (HEADERS.secondLine) {
+        printJob.newLine(1);
+        printJob.text(HEADERS.secondLine);    
+    }
     printJob.newLine(1);
     printJob.separator();
     printJob.setTextAlignment('left');
@@ -49,7 +55,7 @@ async function printText(printJob) {
         printer: PRINTER_NAME,
         type: 'RAW',
         success: function (jobID) {
-            // console.log("sent to printer with ID: " + jobID);
+            //console.log("sent to printer " + PRINTER_NAME + " with ID: " + jobID);
         },
         error: function (err) {
             console.log(err);
@@ -97,9 +103,11 @@ async function printTotal(cart) {
     });
 }
 
-async function printRequest(res, req) {
+exports.printRequest = async(req, res) => {
     const items = req.body.items;
     const cart = req.body.cart;
+    PRINTER_NAME = req.body.printer;
+    HEADERS = req.body.headers;
 
     for await (const item of items) {
         for (let i = 0; i < item.quantity; i++) {
@@ -114,35 +122,25 @@ async function printRequest(res, req) {
     return res.send("OK");
 }
 
-const getPrintConfig = async (res, req) => {
-    Option.findOne({
+exports.getPrintName = async (res, req) => {
+    return Option.findOne({
         where: {
             name: "printer"
         }
     })
         .then(data => {
             if (data) {
-                res.send({name: data.value});
+                return data.value;
             } else {
-                res.status(404).send({
-                    message: "Not found printer"
-                });
+                throw new Error("Printer not found !!");
             }
         })
         .catch(err => {
-            res.status(500).send({
-                message: "Error retrieving printer"
-            });
+            throw new Error("Error retrieving printer");
         });
-    //return res.send(printer);
 }
 
-const getPrinterList = (res, req) => {
-    return res.send(printer.getPrinters());
-}
-
-module.exports = {
-    printRequest,
-    getPrintConfig,
-    getPrinterList
+exports.getPrinterList = async (res, req) => {
+    var printers = await printer.getPrinters();
+    return req.send(printers);
 }
