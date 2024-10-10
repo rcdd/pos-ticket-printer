@@ -117,10 +117,10 @@ exports.printRequest = async(req, res) => {
                 await printItem(item.name);
             }
         }
+    } else {
+        await printTotal(cart);
     }
 
-    await printTotal(cart);
-    
     await delay(2000);
 
     return res.send("OK");
