@@ -40,9 +40,14 @@ function POSPage() {
             const foods = [];
             const drinks = [];
             response.data.forEach(element => {
+                if(element.image === null){
+                    element.image = "../imgs/placeholder.png"
+                }
+
                 if(element.type === 'Drink'){
                     drinks.push(element);
                 }
+                
                 if(element.type === 'Food'){
                     foods.push(element);
                 }
@@ -186,24 +191,27 @@ function POSPage() {
         <div className='row'>           
             <div className='col-lg-7'>
                 {isLoading ? 'Loading...' : null }
-                {zone !== null ? <div className='pos-item p-2 mb-2' onClick={()=> setZone(null)}>🔙  Retroceder</div> : null }
+                {zone !== null ? <div style={{display: "flex"}} className='mb-3'>
+                    <div className='pos-item p-4 px-5' onClick={()=> setZone(null)}>🔙  Retroceder</div> 
+                    <h3 className='p-3 px-5 text-center'>{zone === 'food' ? "Comidas" : "Bebidas"}</h3>
+                    </div> : null }
 
                 {zone === null ? <div>
                     <div className='pos-item mt-5 mb-4 p-5 text-center border'
-                        onClick={() => setZone('kitchen')}>
-                        <p>Cozinha</p>
+                        onClick={() => setZone('food')}>
+                        <p>Comidas</p>
                <        img draggable="false" src="../imgs/restaurant-icon.png" className="pos-item__image"
                             alt=""/>
                     </div>
                     <div className='pos-item p-5 text-center border'
-                        onClick={() => setZone('bar')}>
-                        <p>Bar</p>
+                        onClick={() => setZone('drink')}>
+                        <p>Bebidas</p>
                <        img draggable="false" src="../imgs/bar-icon.png" className="pos-item__image"
                             alt=""/>
                     </div>
                 </div> : null }
 
-                {zone === 'kitchen' ? 
+                {zone === 'food' ? 
                 <div className='products-list'>
                     <div className='row'>
                         {productsFood.length !== 0 ? productsFood.map((product, key) => <div key={key} className='col-lg-4 mb-4'>
@@ -218,7 +226,7 @@ function POSPage() {
                     </div> 
                 </div>: null }
 
-                {zone === 'bar' ?
+                {zone === 'drink' ?
                 <div className='products-list'>
                     <div className='row'>
                         {productsDrink.length !== 0 ? productsDrink.map((product, key) => <div key={key} className='col-lg-4 mb-4'>
