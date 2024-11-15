@@ -24,7 +24,7 @@ exports.create = (req, res) => {
         return;
     }
 
-    if(req.body.type !== "Drink" && req.body.type !== "Food"){
+    if (req.body.type !== "Drink" && req.body.type !== "Food") {
         res.status(400).send({
             message: "Type must be do type Drink or Food!"
         });
@@ -34,7 +34,8 @@ exports.create = (req, res) => {
     // Validate if name is unique
     Product.findOne({
         where: {
-            name: req.body.name
+            name: req.body.name,
+            isDeleted: false
         }
     }).then(data => {
         if (data) {
@@ -49,7 +50,8 @@ exports.create = (req, res) => {
             name: req.body.name,
             price: req.body.price,
             type: req.body.type,
-            image: req.body.image ? req.body.image : null // update to default one
+            image: req.body.image ? req.body.image : null, // update to default one
+            isDeleted: false
         };
 
         // Save Product in the database
@@ -69,9 +71,9 @@ exports.create = (req, res) => {
 // Retrieve all Products from the database.
 exports.findAll = (req, res) => {
     const title = req.query.title;
-    var condition = title ? {title: {[Op.like]: `%${title}%`}} : null;
+    var condition = title ? { title: { [Op.like]: `%${title}%` }, isDeleted: false } : { isDeleted: false };
 
-    Product.findAll({where: condition})
+    Product.findAll({ where: condition, attributes: { exclude: ['isDeleted'] } })
         .then(data => {
             res.send(data);
         })
@@ -103,7 +105,7 @@ exports.update = (req, res) => {
     const id = req.body.id;
 
     Product.update(req.body, {
-        where: {id: id}
+        where: { id: id }
     })
         .then(num => {
             if (num === 1) {
@@ -124,12 +126,36 @@ exports.update = (req, res) => {
         });
 };
 
-// Delete a Product with the specified id in the request
+exports.softDelete = (req, res) => {
+    const id = req.params.id;
+
+    Product.update({ isDeleted: true }, {
+        where: { id: id, isDeleted: false }
+    })
+        .then(num => {
+            console.log(num);
+            if (num.includes(1)) {
+                res.send({
+                    message: "Product was deleted successfully!"
+                });
+            } else {
+                res.send({
+                    message: `Cannot delete Product with id=${id}. Maybe Product was not found!`
+                });
+            }
+        })
+        .catch(err => {
+            res.status(500).send({
+                message: "Could not delete Product with id=" + id
+            });
+        });
+};
+
 exports.delete = (req, res) => {
     const id = req.params.id;
 
     Product.destroy({
-        where: {id: id}
+        where: { id: id }
     })
         .then(num => {
             if (num === 1) {
@@ -156,7 +182,7 @@ exports.deleteAll = (req, res) => {
         truncate: false
     })
         .then(nums => {
-            res.send({message: `${nums} Products were deleted successfully!`});
+            res.send({ message: `${nums} Products were deleted successfully!` });
         })
         .catch(err => {
             res.status(500).send({

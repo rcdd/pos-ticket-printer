@@ -10,7 +10,7 @@ function HomePage() {
         const pass = prompt("Password:", "")
         if (pass !== null) {
             if (pass === "admin") {
-                nav("/setup");
+                nav("/admin");
             } else {
                 alert("Wrong Password");
             }

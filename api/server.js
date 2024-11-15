@@ -30,7 +30,7 @@ let HEADERS = {firstLine: null, secondLine: null};
 const printer = require("./db/controllers/printer/printer.controller");
 const options = require("./db/controllers/options.controller");
 const products = require("./db/controllers/products.controller");
-const records = require("./db/controllers/records.controller");
+const invoices = require("./db/controllers/invoices.controller");
 
 // set port, listen for requests
 app.listen(PORT, () => {
@@ -82,6 +82,8 @@ app.get("/option/get-header", options.getHeaders);
 app.post("/db/product", products.create);
 app.get("/db/products", products.findAll);
 app.put("/db/product", products.update);
-app.delete("/db/product/:id", products.delete);
+app.delete("/db/product/:id", products.softDelete);
 
-app.post("/record/add", records.create);
+app.post("/invoice/add", invoices.create);
+app.post("/invoice/all", invoices.getAll);
+app.post("/invoice/revoke", invoices.revoke);

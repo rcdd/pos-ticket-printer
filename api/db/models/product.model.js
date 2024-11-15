@@ -1,7 +1,7 @@
 module.exports.TypeStatus = Object.freeze({
     Drink: 'Drink',
     Food: 'Food',
- });
+});
 
 module.exports = (sequelize, Sequelize) => {
     return sequelize.define("product", {
@@ -20,9 +20,13 @@ module.exports = (sequelize, Sequelize) => {
             type: Sequelize.STRING
         },
         type: {
-            type:   Sequelize.ENUM,
+            type: Sequelize.ENUM,
             values: Object.values(this.TypeStatus),
-            defaultValue :  this.TypeStatus.Drink
+            defaultValue: this.TypeStatus.Drink
+        },
+        isDeleted: {
+            type: Sequelize.BOOLEAN,
+            defaultValue: false
         }
     });
 };

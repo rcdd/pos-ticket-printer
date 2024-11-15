@@ -5,11 +5,12 @@ module.exports = (sequelize, Sequelize) => {
             primaryKey: true,
             autoIncrement: true
         },
-        name: {
-            type: Sequelize.STRING
-        },
-        price: {
-            type: Sequelize.INTEGER
+        product: {
+            type: Sequelize.INTEGER,
+            references: {
+                model: "products",
+                key: "id"
+            }
         },
         quantity: {
             type: Sequelize.INTEGER

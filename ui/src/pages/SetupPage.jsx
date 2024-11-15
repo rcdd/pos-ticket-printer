@@ -1,9 +1,8 @@
 import React, {useEffect} from 'react'
-import MainLayout from '../layouts/MainLayout'
 import Button from "@mui/material/Button";
-import AddProductModal from "../components/AddProductModal";
-import ListProductComponent from "../components/ListProductComponent";
-import EditProductModal from "../components/EditProductModal";
+import AddProductModal from "../components/Admin/AddProductModal";
+import ListProductComponent from "../components/Admin/ListProductComponent";
+import EditProductModal from "../components/Admin/EditProductModal";
 import ProductService from "../services/product.service";
 import PrinterService from "../services/printer.service";
 import {FormControl, InputLabel, TextField, MenuItem, Select, Box, Tab} from "@mui/material";
@@ -28,7 +27,7 @@ function SetupPage() {
     const [secondLine, setSecondLine] = React.useState();
     const [firstLineError, setFirstLineError] = React.useState(false);
     const [secondLineError, setSecondLineError] = React.useState(false);
-    
+
     useEffect(() => {
         getPrinterList().then(() => {
             fetchProducts().then(() => {
@@ -54,15 +53,15 @@ function SetupPage() {
             const foods = [];
             const drinks = [];
             response.data.forEach(element => {
-                if(element.image === null){
+                if (element.image === null) {
                     element.image = "../imgs/placeholder.png"
                 }
 
-                if(element.type === 'Drink'){
+                if (element.type === 'Drink') {
                     drinks.push(element);
                 }
-                
-                if(element.type === 'Food'){
+
+                if (element.type === 'Food') {
                     foods.push(element);
                 }
             });
@@ -111,7 +110,7 @@ function SetupPage() {
     }
 
     const handlerHeaderFirstLine = (event) => {
-        if(event.target.value.length === 0 || event.target.value.length > 40){
+        if (event.target.value.length === 0 || event.target.value.length > 40) {
             setFirstLineError(true);
             return;
         }
@@ -126,7 +125,7 @@ function SetupPage() {
     }
 
     const handlerHeaderSecondLine = (event) => {
-        if(event.target.value.length > 40){
+        if (event.target.value.length > 40) {
             setSecondLineError(true);
             return;
         }
@@ -142,20 +141,20 @@ function SetupPage() {
 
     const handleTabChange = (event, newValue) => {
         setTabPosition(newValue);
-      };
+    };
 
-    return (<MainLayout>
-        <div className='bg-light p-5 mt-4 rounded-3'>
-            <h1>Setup</h1>
+    return (
+        <div>
+            <h1 className={"mb-4"}>Configurações</h1>
             {isLoading && <p>Loading...</p>}
             {!isLoading &&
                 <div>
                     <TabContext value={tabPosition}>
-                        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                        <Box sx={{borderBottom: 1, borderColor: 'divider'}}>
                             <TabList onChange={handleTabChange} aria-label="lab API tabs example">
-                            <Tab label="Produtos" value="1" />
-                            <Tab label="Impressora" value="2" />
-                            <Tab label="Cabeçalhos" value="3" />
+                                <Tab label="Produtos" value="1"/>
+                                <Tab label="Impressora" value="2"/>
+                                <Tab label="Cabeçalhos" value="3"/>
                             </TabList>
                         </Box>
                         <TabPanel value="1">
@@ -166,31 +165,37 @@ function SetupPage() {
                                 Adicionar Produto</Button>
                             <div style={{marginTop: "16px"}}>
                                 {
-                                zone !== null ? 
-                                <div style={{display: "flex"}} className='mb-3'>
-                                    <div className='pos-item p-1 px-5' onClick={()=> setZone(null)}>🔙  Retroceder</div> 
-                                    <h3 className='p-1 px-5 text-center'>{zone === 'food' ? "Comidas" : "Bebidas"}</h3>
-                                </div>
-                                : null 
+                                    zone !== null ?
+                                        <div style={{display: "flex", alignItems: "center"}} className='mb-3'>
+                                            <div className='pos-item py-3 px-5' onClick={() => setZone(null)}>🔙
+                                                Retroceder
+                                            </div>
+                                            <h3 className='p-1 px-5 text-center'>{zone === 'food' ? "Comidas" : "Bebidas"}</h3>
+                                        </div>
+                                        : null
                                 }
 
                                 {
-                                zone === 'food' ? <ListProductComponent products={productsFoods} editProduct={handleEditProduct}/> :
-                                zone === 'drink' ? <ListProductComponent products={productsDrinks} editProduct={handleEditProduct}/> : 
-                                <div className='mb-5'>
-                                    <div className='pos-item mt-5 mb-3 py-2 text-center border'
-                                        onClick={() => setZone('food')}>
-                                        <p>Comidas</p>
-                                        <img draggable="false" src="../imgs/restaurant-icon.png" className="pos-item__image"
-                                            alt=""/>
-                                    </div>
-                                    <div className='pos-item py-2 text-center border'
-                                        onClick={() => setZone('drink')}>
-                                        <p>Bebidas</p>
-                                        <img draggable="false" src="../imgs/bar-icon.png" className="pos-item__image"
-                                            alt=""/>
-                                    </div>
-                                </div> 
+                                    zone === 'food' ? <ListProductComponent products={productsFoods}
+                                                                            editProduct={handleEditProduct}/> :
+                                        zone === 'drink' ? <ListProductComponent products={productsDrinks}
+                                                                                 editProduct={handleEditProduct}/> :
+                                            <div className='mb-5'>
+                                                <div className='pos-item mt-5 mb-3 py-2 text-center border'
+                                                     onClick={() => setZone('food')}>
+                                                    <p>Comidas</p>
+                                                    <img draggable="false" src="../imgs/restaurant-icon.png"
+                                                         className="pos-item__image"
+                                                         alt=""/>
+                                                </div>
+                                                <div className='pos-item py-2 text-center border'
+                                                     onClick={() => setZone('drink')}>
+                                                    <p>Bebidas</p>
+                                                    <img draggable="false" src="../imgs/bar-icon.png"
+                                                         className="pos-item__image"
+                                                         alt=""/>
+                                                </div>
+                                            </div>
                                 }
                             </div>
                         </TabPanel>
@@ -210,7 +215,8 @@ function SetupPage() {
                                     >
                                         {printerList.map((_printer) => {
                                             return (
-                                                <MenuItem key={_printer.name} id={_printer.name} value={_printer.name}>{_printer.name}</MenuItem>)
+                                                <MenuItem key={_printer.name} id={_printer.name}
+                                                          value={_printer.name}>{_printer.name}</MenuItem>)
                                         })}
                                     </Select>
                                 </FormControl>
@@ -220,17 +226,21 @@ function SetupPage() {
                         <TabPanel value="3">
                             <h2>Cabeçalho</h2>
                             <FormControl fullWidth>
-                            <TextField error={firstLineError} id="firstLine" label="Primeira Linha" variant="standard" defaultValue={firstLine} onChange={handlerHeaderFirstLine}/>
-                            <TextField error={secondLineError} id="secondLine" label="Segunda Linha" variant="standard" defaultValue={secondLine} onChange={handlerHeaderSecondLine} />
+                                <TextField error={firstLineError} id="firstLine" label="Primeira Linha"
+                                           variant="standard" defaultValue={firstLine}
+                                           onChange={handlerHeaderFirstLine}/>
+                                <TextField error={secondLineError} id="secondLine" label="Segunda Linha"
+                                           variant="standard" defaultValue={secondLine}
+                                           onChange={handlerHeaderSecondLine}/>
                             </FormControl>
                         </TabPanel>
                     </TabContext>
                 </div>
             }
+            <AddProductModal open={openAddModal} close={onAddProductModalClose}/>
+            <EditProductModal open={openEditModal} close={onEditProductModalClose} product={productEdit}/>
         </div>
-        <AddProductModal open={openAddModal} close={onAddProductModalClose}/>
-        <EditProductModal open={openEditModal} close={onEditProductModalClose} product={productEdit}/>
-    </MainLayout>)
+    )
 }
 
 export default SetupPage

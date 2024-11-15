@@ -1,34 +1,24 @@
-import React, {useEffect, useRef, useState} from 'react'
+import React, { useEffect, useState } from 'react'
 import MainLayout from '../layouts/MainLayout'
-import LoadingButton from '@mui/lab/LoadingButton';
-import {ComponentToPrint} from '../components/ComponentToPrint';
-import Button from '@mui/material/Button';
-import {Box, IconButton, InputAdornment} from "@mui/material";
-import AddIcon from '@mui/icons-material/Add';
-import RemoveIcon from '@mui/icons-material/Remove';
-import DeleteIcon from '@mui/icons-material/Delete';
-import TextField from '@mui/material/TextField';
-import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogTitle from '@mui/material/DialogTitle';
+import { PaymentModalComponent } from '../components/POS/PaymentModalComponent';
+import { CartComponent } from '../components/POS/CartComponent';
 import ProductService from "../services/product.service";
 import PrinterService from "../services/printer.service";
-import RecordService from "../services/record.service";
+import InvoiceService from "../services/invoice.service";
+import { ZoneSelectionComponent } from '../components/POS/ZoneSelectionComponent';
 
 function POSPage() {
     const [productsFood, setProductsFood] = useState([]);
     const [productsDrink, setProductsDrink] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [cart, setCart] = useState([]);
+    const [invoiceId, setInvoiceId] = useState(null);
     const [totalAmount, setTotalAmount] = useState(0);
     const [changeValue, setChangeValue] = useState(0);
     const [openModal, setOpenModal] = React.useState(false);
     const [isPrinting, setIsPrinting] = React.useState(false);
     const [isPrinted, setIsPrinted] = React.useState(false);
     const [zone, setZone] = React.useState(null);
-
-    const componentRef = useRef();
 
     const formatterEUR = new Intl.NumberFormat('pt-PT', {
         maximumSignificantDigits: 2,
@@ -40,15 +30,15 @@ function POSPage() {
             const foods = [];
             const drinks = [];
             response.data.forEach(element => {
-                if(element.image === null){
+                if (element.image === null) {
                     element.image = "../imgs/placeholder.png"
                 }
 
-                if(element.type === 'Drink'){
+                if (element.type === 'Drink') {
                     drinks.push(element);
                 }
-                
-                if(element.type === 'Food'){
+
+                if (element.type === 'Food') {
                     foods.push(element);
                 }
             });
@@ -86,7 +76,7 @@ function POSPage() {
             setCart(newCart);
         } else {
             let addingProduct = {
-                ...product, 'quantity': 1, 'totalAmount': formatterEUR.format(product.price),
+                ...product, quantity: 1, totalAmount: formatterEUR.format(product.price),
             }
             setCart([...cart, addingProduct]);
         }
@@ -131,23 +121,19 @@ function POSPage() {
     const handlePayment = () => {
         setOpenModal(true)
     }
+
     const handlePrint = async (status = false, totals = false) => {
         if (status) {
             setIsPrinted(false);
             setIsPrinting(true);
             const bodyRequest = {
-                items: [], cart: {items: cart, total: ((totalAmount / 100).toFixed(2))},
-                 totalOnly: totals,
+                items: cart,
+                totalAmount: (totalAmount / 100).toFixed(2),
+                totalOnly: totals,
             };
 
-            cart.forEach((cartItem) => {
-                bodyRequest.items.push({
-                    quantity: cartItem.quantity.toString(), name: cartItem.name, price: cartItem.price
-                })
-            });
-
             await PrinterService.print(bodyRequest);
-            await RecordService.addRecord(bodyRequest.items)
+            setInvoiceId(await InvoiceService.addInvoice(bodyRequest.items, bodyRequest.totalAmount));
 
             setIsPrinting(false);
             setIsPrinted(true);
@@ -157,22 +143,16 @@ function POSPage() {
     };
 
     const handleModalClose = () => {
+        setOpenModal(false);
+
         if (isPrinted) {
             setCart([]);
             setTotalAmount(0);
             setChangeValue(0);
             setIsPrinted(false);
             setZone(null);
+            setInvoiceId(null);
         }
-        setOpenModal(false);
-    }
-
-    const doExchange = () => {
-        const value = (changeValue - (totalAmount / 100)).toFixed(2);
-        if (isNaN(value) || value < 0) {
-            return '0.00€';
-        }
-        return value + '€';
     }
 
     useEffect(() => {
@@ -188,175 +168,35 @@ function POSPage() {
     }, [cart])
 
     return (<MainLayout>
-        <div className='row'>           
-            <div className='col-lg-7'>
-                {isLoading ? 'Loading...' : null }
-                {zone !== null ? <div style={{display: "flex"}} className='mb-3'>
-                    <div className='pos-item p-4 px-5' onClick={()=> setZone(null)}>🔙  Retroceder</div> 
-                    <h3 className='p-3 px-5 text-center'>{zone === 'food' ? "Comidas" : "Bebidas"}</h3>
-                    </div> : null }
+        <div className='row'>
+            <ZoneSelectionComponent
+                zone={zone}
+                setZone={setZone}
+                isLoading={isLoading}
+                productsFood={productsFood}
+                productsDrink={productsDrink}
+                addProductToCart={addProductToCart} />
 
-                {zone === null ? <div>
-                    <div className='pos-item mt-5 mb-4 p-5 text-center border'
-                        onClick={() => setZone('food')}>
-                        <p>Comidas</p>
-               <        img draggable="false" src="../imgs/restaurant-icon.png" className="pos-item__image"
-                            alt=""/>
-                    </div>
-                    <div className='pos-item p-5 text-center border'
-                        onClick={() => setZone('drink')}>
-                        <p>Bebidas</p>
-               <        img draggable="false" src="../imgs/bar-icon.png" className="pos-item__image"
-                            alt=""/>
-                    </div>
-                </div> : null }
-
-                {zone === 'food' ? 
-                <div className='products-list'>
-                    <div className='row'>
-                        {productsFood.length !== 0 ? productsFood.map((product, key) => <div key={key} className='col-lg-4 mb-4'>
-                            <div className='pos-item px-3 text-center border'
-                                onClick={() => addProductToCart(product)}>
-                                <p>{product.name}</p>
-                                <img draggable="false" src={product.image} className="pos-item__image"
-                                    alt={product.name}/>
-                                <p>{(product.price / 100).toFixed(2)}€</p>
-                            </div>
-                        </div>) : <h4>Sem produtos</h4>}
-                    </div> 
-                </div>: null }
-
-                {zone === 'drink' ?
-                <div className='products-list'>
-                    <div className='row'>
-                        {productsDrink.length !== 0 ? productsDrink.map((product, key) => <div key={key} className='col-lg-4 mb-4'>
-                            <div className='pos-item px-3 text-center border'
-                                onClick={() => addProductToCart(product)}>
-                                <p>{product.name}</p>
-                                <img draggable="false" src={product.image} className="pos-item__image"
-                                    alt={product.name}/>
-                                <p>{(product.price / 100).toFixed(2)}€</p>
-                            </div>
-                        </div>) : <h4>Sem produtos</h4>}
-                    </div>
-                </div> : null }
-            </div>
-
-            <div className='col-lg-5'>
-                <div style={{display: "none"}}>
-                    <ComponentToPrint cart={cart} totalAmount={totalAmount} ref={componentRef}/>
-                </div>
-                <div className='table-responsive-wrapper bg-dark'>
-                    <table className='table table-responsive table-dark table-hover'>
-                        <thead>
-                        <tr>
-                            <td width={123}>Quantidade</td>
-                            <td width={150}>Item</td>
-                            <td width={100}>Preço</td>
-                            <td width={90}>Total</td>
-                            <td></td>
-                        </tr>
-                        </thead>
-                        <tbody className='products-table'>
-                        {cart ? cart.map((cartProduct, key) => <tr key={key}>
-                            <td width={123} align={"left"}>
-                                <IconButton color="primary" aria-label="reduce quantity"
-                                            onClick={() => decreaseQuantity(cartProduct)}>
-                                    <RemoveIcon/>
-                                </IconButton>
-                                {cartProduct.quantity}
-                                <IconButton color="primary" aria-label="increase quantity"
-                                            onClick={() => increaseQuantity(cartProduct)}>
-                                    <AddIcon/>
-                                </IconButton>
-                            </td>
-                            <td width={150} valign={"middle"}>{cartProduct.name}</td>
-                            <td width={100} valign={"middle"}>{(cartProduct.price / 100).toFixed(2)}€</td>
-                            <td width={90} valign={"middle"}>{(cartProduct.totalAmount / 100).toFixed(2)}€</td>
-                            <td align={"center"}>
-                                <IconButton
-                                    color="error"
-                                    aria-label="delete"
-                                    onClick={() => removeProduct(cartProduct)}>
-                                    <DeleteIcon/>
-                                </IconButton>
-                            </td>
-                        </tr>) : 'No Item in Cart'}
-                        </tbody>
-                    </table>
-                </div>
-                <h2 className='p-4 bg-dark text-white'>Total: {(totalAmount / 100).toFixed(2)}€</h2>
-
-                <div className=''>
-                    <Button variant="contained" fullWidth={true}
-                            size="large" disabled={totalAmount === 0} onClick={handlePayment}>
-                        Pagar
-                    </Button>
-                </div>
-
-
-            </div>
+            <CartComponent
+                cart={cart}
+                totalAmount={totalAmount}
+                increaseQuantity={increaseQuantity}
+                decreaseQuantity={decreaseQuantity}
+                removeProduct={removeProduct}
+                handlePayment={handlePayment} />
         </div>
-        <Dialog open={openModal} onClose={handleModalClose}
-                fullWidth={true}
-                maxWidth='sm'
-        >
-            <DialogTitle className='modal__title'>Pagamento</DialogTitle>
-            <DialogContent>
-                <Box
-                    noValidate
-                    component="form"
-                    sx={{
-                        display: 'flex', flexDirection: 'column', m: 'auto', width: 'fit-content',
-                    }}
-                >
-                    <span className='modal__total'>Total: <b>{(totalAmount / 100).toFixed(2)}€</b></span>
-                    <div className='modal__receive-value'>
-                        <span>Valor recebido:</span>
-                        <TextField
-                            autoFocus
-                            margin="dense"
-                            type="amount"
-                            variant="filled"
-                            label={'Insira o valor recebido'}
-                            fullWidth
-                            defaultValue={(totalAmount / 100).toFixed(2)}
-                            className={'modal__receive-value__input'}
-                            onFocus={event => {
-                                event.target.select();
-                            }}
-                            InputProps={{
-                                endAdornment: <InputAdornment position="start">€</InputAdornment>,
-                            }}
-                            onChange={(value) => setChangeValue(value.target.value.replace(",", "."))}
-                            onKeyPress={(e) => {
-                                if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    !isPrinted ? handlePrint(true) : handleModalClose();
-                                }
-                            }}
-                        />
-                    </div>
-                    <span className='modal__exchange'>Troco: <b>{doExchange()}</b></span>
-                </Box>
-            </DialogContent>
 
-            <DialogActions>
-                {!isPrinted && <LoadingButton loading={isPrinting} loadingIndicator="A imprimir.."
-                                              variant="contained" fullWidth={true} size="large"
-                                              onClick={() => handlePrint(true)}>
-                    Imprimir (Senhas)
-                </LoadingButton>}
-
-                {!isPrinted && <LoadingButton loading={isPrinting} loadingIndicator="A imprimir.."
-                                              variant="contained" fullWidth={true} size="large"
-                                              onClick={() => handlePrint(true, true)}>
-                    Imprimir (Totais)
-                </LoadingButton>}
-                {isPrinted && <Button variant="contained" fullWidth={true} size="large"
-                                      onClick={handleModalClose}>Fechar</Button>}
-            </DialogActions>
-        </Dialog>
+        <PaymentModalComponent
+            openModal={openModal}
+            totalAmount={totalAmount}
+            invoiceId={invoiceId}
+            isPrinted={isPrinted}
+            isPrinting={isPrinting}
+            changeValue={changeValue}
+            setChangeValue={setChangeValue}
+            handlePrint={handlePrint}
+            handleModalClose={handleModalClose}
+        />
     </MainLayout>)
 }
 

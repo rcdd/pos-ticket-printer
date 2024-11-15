@@ -39,7 +39,7 @@ const printHeader = (printJob) => {
     printJob.text(HEADERS.firstLine);
     if (HEADERS.secondLine) {
         printJob.newLine(1);
-        printJob.text(HEADERS.secondLine);    
+        printJob.text(HEADERS.secondLine);
     }
     printJob.newLine(1);
     printJob.separator();
@@ -78,7 +78,7 @@ async function printItem(productName) {
     });
 }
 
-async function printTotal(cart) {
+async function printTotal(cart, total) {
     return new Promise((resolve, reject) => {
         const printJob = new PrintJobs();
 
@@ -87,13 +87,13 @@ async function printTotal(cart) {
         printJob.text('Pedido:');
         printJob.setFont('A');
         printJob.newLine(2);
-        cart.items.forEach(item => {
+        cart.forEach(item => {
             printJob.text(item.quantity + ' ' + item.name);
             printJob.newLine(1);
         });
         printJob.newLine(2);
         printJob.setFont('B');
-        printJob.text('Total:' + cart.total);
+        printJob.text('Total:' + total);
         printJob.raw(cmds.EURO);
         printHeader(printJob);
 
@@ -103,12 +103,12 @@ async function printTotal(cart) {
     });
 }
 
-exports.printRequest = async(req, res) => {   
+exports.printRequest = async(req, res) => {
     PRINTER_NAME = req.body.printer;
     HEADERS = req.body.headers;
 
     const items = req.body.items;
-    const cart = req.body.cart;
+    const totalAmount = req.body.totalAmount;
     const totalOnly = req.body.totalOnly;
 
     if(!totalOnly){
@@ -118,7 +118,7 @@ exports.printRequest = async(req, res) => {
             }
         }
     } else {
-        await printTotal(cart);
+        await printTotal(items, totalAmount);
     }
 
     await delay(2000);
