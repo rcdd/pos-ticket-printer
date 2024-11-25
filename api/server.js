@@ -5,7 +5,7 @@ const app = express();
 const cors = require("cors");
 
 var corsOptions = {
-    origin: process.env.CLIENT_ORIGIN || "http://localhost:3000"
+    origin: process.env.CLIENT_ORIGIN?.split(',') || ["http://localhost:3000"]
 };
 
 app.use(cors(corsOptions));
@@ -17,7 +17,7 @@ app.use(express.urlencoded({extended: true}));
 
 const db = require("./db/models");
 
-db.sequelize.sync({ alter: true });
+db.sequelize.sync({alter: true});
 // // drop the table if it already exists
 // db.sequelize.sync({ force: true }).then(() => {
 //   console.log("Drop and re-sync db.");
@@ -43,14 +43,19 @@ app.listen(PORT, () => {
 
     options.getHeadersInit().then(res => {
         console.log(res);
-        if(res){
+        if (res) {
             HEADERS = res;
         }
     }).catch(e => {
-       console.error("No headers defined!");
+        console.error("No headers defined!");
     });
 
     console.log(`Server is running on port ${PORT}.`);
+});
+
+// Health check
+app.get("/health", (req, res) => {
+    res.send("OK");
 });
 
 // Printer
