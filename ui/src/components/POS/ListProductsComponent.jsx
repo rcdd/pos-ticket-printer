@@ -9,7 +9,7 @@ export function ListProductsComponent({ products, addToCart }) {
                     <div className='pos-item px-3 text-center border'
                         onClick={() => addToCart(product)}>
                         <p>{product.name}</p>
-                        <img draggable="false" src={product.image} className="pos-item__image"
+                        <img draggable="false" src={product.image ?? "../imgs/menu.png"} className="pos-item__image"
                             alt={product.name} />
                         <p>{(product.price / 100).toFixed(2)}€</p>
                     </div>

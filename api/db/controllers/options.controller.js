@@ -16,9 +16,7 @@ exports.getPrinter = (req, res) => {
             if (data) {
                 res.send({name: data.value});
             } else {
-                res.status(404).send({
-                    message: "Not found printer"
-                });
+                res.send({name: null});
             }
         })
         .catch(err => {
@@ -209,9 +207,7 @@ exports.getHeaders = (req, res) => {
                         if (_second) {
                             res.send({firstLine: _first.value, secondLine: _second.value});
                         } else {
-                            res.status(404).send({
-                                message: "Not found second line header"
-                            });
+                            res.send({firstLine: _first.value, secondLine: null});
                         }
                     })
                     .catch(err => {
@@ -220,9 +216,7 @@ exports.getHeaders = (req, res) => {
                         });
                     });
             } else {
-                res.status(404).send({
-                    message: "Not found first line header"
-                });
+                res.send({firstLine: null, secondLine: null});
             }
         })
         .catch(err => {

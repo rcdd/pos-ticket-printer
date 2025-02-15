@@ -23,10 +23,10 @@ function HomePage() {
                 <h1>Bem-vindo ao sistema simples de talões POS</h1>
                 <p>Qualquer dúvida ou informação contactar <a
                     href="https://github.com/rcdd/" rel="noreferrer" target="_blank">Ruben Domingues</a> através do número
-                    918182831.
+                    918182831 ou email <a href="mailto:geral@rubendomingues.pt">geral@rubendomingues.pt</a>
                 </p>
                 <p>👇 Clique no botão seguinte "Iniciar" para abrir a aplicação.</p>
-                <Link to='/pos' className='btn btn-primary'>Iniciar</Link>
+                <Link to='/pos' className='btn btn-primary btn-lg'>Iniciar</Link>
                 <p></p>
                 <Button onClick={handleSetup} variant="outlined">Administração</Button>
             </div>

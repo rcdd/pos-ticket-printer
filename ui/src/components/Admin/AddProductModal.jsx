@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from 'react'
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
-import {Box, IconButton, InputAdornment} from "@mui/material";
+import {Box, IconButton, InputAdornment, ListSubheader, OutlinedInput} from "@mui/material";
 import TextField from "@mui/material/TextField";
 import DialogActions from "@mui/material/DialogActions";
 import Button from "@mui/material/Button";
@@ -12,40 +12,71 @@ import Select from "@mui/material/Select";
 import ProductService from "../../services/product.service";
 import {FileUploadOutlined} from "@mui/icons-material";
 import CloseIcon from "@mui/icons-material/Close";
+import MenuService from "../../services/menu.service";
+import Chip from "@mui/material/Chip";
 
 
-function AddProductModal({open, close}) {
+function AddProductModal({open, close, zone}) {
     const [openModal, setOpenModal] = React.useState(open);
     const [newName, setNewName] = useState(null);
     const [newPrice, setNewPrice] = useState(0);
     const [newImage, setNewImage] = useState(null);
-    const [newType, setNewType] = useState("Drink");
+    const [newProducts, setNewProducts] = useState([]);
+    const [products, setProducts] = useState([]);
+    const [newType, setNewType] = useState(zone === "food" ? "Food" : zone === "drink" ? "Drink" : zone === "menu" ? "Menu" : "Drink");
+
+    useEffect(() => {
+        ProductService.getAll().then((response) => {
+            setProducts(response.data);
+        }).catch((error) => {
+            console.log(error.response);
+            throw Error(error.response.data.message)
+        });
+    }, []);
 
     useEffect(() => {
         setOpenModal(open);
     }, [open]);
 
+    useEffect(() => {
+        setNewType(zone === "food" ? "Food" : zone === "drink" ? "Drink" : zone === "menu" ? "Menu" : "Drink");
+    }, [zone]);
+
     const handleCloseModal = async (status = false) => {
         if (status) {
-            const bodyRequest = {
-                name: newName,
-                price: newPrice.replace(",", ".") * 100,
-                image: newImage,
-                type: newType
-            };
-
-            await ProductService.create(bodyRequest).then((response) => {
-                setNewName(null);
-                setNewPrice(0);
-                setNewImage(null);
-                setNewType("Drink");
-            }).catch(
-                (error) => {
-                    console.log(error.response);
-                    throw Error(error.response.data.message)
+            if (newType === "Menu") {
+                const bodyRequest = {
+                    menu: {
+                        name: newName,
+                        price: newPrice.replace(",", ".") * 100
+                    },
+                    products: newProducts.map(p => p.id)
                 }
-            );
+                await MenuService.create(bodyRequest).then((response) => {
+                    setNewName(null);
+                    setNewPrice(0);
+                    setNewProducts([]);
+                });
+            } else {
+                const bodyRequest = {
+                    name: newName,
+                    price: newPrice.replace(",", ".") * 100,
+                    image: newImage,
+                    type: newType
+                };
 
+                await ProductService.create(bodyRequest).then((response) => {
+                    setNewName(null);
+                    setNewPrice(0);
+                    setNewImage(null);
+                    setNewType("Drink");
+                }).catch(
+                    (error) => {
+                        console.log(error.response);
+                        throw Error(error.response.data.message)
+                    }
+                );
+            }
         }
         close(false);
     };
@@ -58,6 +89,19 @@ function AddProductModal({open, close}) {
     const handleTypeSelect = (event) => {
         setNewType(event.target.value);
     }
+
+    const handleChangeProducts = (event) => {
+        const {
+            target: {value},
+        } = event;
+        const select = value.at(-1);
+        const product = products.find(p => p.id === select);
+        if (newProducts && newProducts.find(p => p.id === product.id)) {
+            setNewProducts(newProducts.filter(p => p.id !== product.id));
+        } else {
+            setNewProducts([...newProducts, product]);
+        }
+    };
 
     return (
         <Dialog open={openModal} onClose={() => handleCloseModal(false)}
@@ -88,6 +132,19 @@ function AddProductModal({open, close}) {
                         width: 'fit-content',
                     }}
                 >
+                    <InputLabel id="type-select-label" required>Tipo</InputLabel>
+                    <Select
+                        labelId="type-select-label"
+                        id="type-select"
+                        label="Tipo"
+                        value={newType}
+                        onChange={handleTypeSelect}
+                    >
+                        <MenuItem value={"Drink"}>Bebida</MenuItem>
+                        <MenuItem value={"Food"}>Comida</MenuItem>
+                        <MenuItem value={"Menu"}>Menu</MenuItem>
+                    </Select>
+
                     <TextField
                         margin="normal"
                         required
@@ -112,40 +169,75 @@ function AddProductModal({open, close}) {
                         }}
                         onChange={(value) => setNewPrice(value.target.value)}
                     />
-                    <InputLabel id="type-select-label" required>Tipo</InputLabel>
-                    <Select
-                        labelId="type-select-label"
-                        id="type-select"
-                        label="Tipo"
-                        value={newType}
-                        onChange={handleTypeSelect}
-                    >
-                        <MenuItem value={"Drink"}>Bebida</MenuItem>
-                        <MenuItem value={"Food"}>Comida</MenuItem>
-                    </Select>
 
-                    <TextField
-                        margin="normal"
-                        fullWidth
-                        id="image"
-                        label="Imagem"
-                        name="image"
-                        autoComplete="image"
-                        value={newImage ?? ''}
-                        InputProps={{
-                            endAdornment: (
-                                <IconButton component="label">
-                                    <FileUploadOutlined/>
-                                    <input
-                                        type="file"
-                                        hidden
-                                        onChange={handleUpload}
-                                    />
-                                </IconButton>
-                            ),
-                        }}
-                        onChange={(value) => setNewImage(value.target.value)}
-                    />
+                    {newType === "Menu" ?
+                        <Box>
+                            <InputLabel id="type-select-label">Produtos</InputLabel>
+                            <Select
+                                labelId="type-select-label-label"
+                                id="type-select-label"
+                                multiple
+                                value={newProducts}
+                                onChange={handleChangeProducts}
+                                input={<OutlinedInput id="select-multiple-chip" label="Chip"/>}
+                                renderValue={(selected) => (
+                                    <Box sx={{display: 'flex', flexWrap: 'wrap', gap: 0.5}}>
+                                        {selected.map((value) => (
+                                            <Chip key={value.id} label={value.name}/>
+                                        ))}
+                                    </Box>
+                                )}
+                                MenuProps={{
+                                    PaperProps: {
+                                        style: {
+                                            maxHeight: 48 * 4.5 + 8,
+                                            width: 250,
+                                        },
+                                    },
+                                }}
+                            >
+                                <ListSubheader>Bebidas</ListSubheader>
+                                {products.filter(p => p.type === "Drink").map((product) => (
+                                    <MenuItem
+                                        key={product.id}
+                                        value={product.id}
+                                    >
+                                        {product.name}
+                                    </MenuItem>
+                                ))}
+                                <ListSubheader>Comidas</ListSubheader>
+                                {products.filter(p => p.type === "Food").map((product) => (
+                                    <MenuItem
+                                        key={product.id}
+                                        value={product.id}
+                                    >
+                                        {product.name}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </Box>
+                        : <TextField
+                            margin="normal"
+                            fullWidth
+                            id="image"
+                            label="Imagem"
+                            name="image"
+                            autoComplete="image"
+                            value={newImage ?? ''}
+                            InputProps={{
+                                endAdornment: (
+                                    <IconButton component="label">
+                                        <FileUploadOutlined/>
+                                        <input
+                                            type="file"
+                                            hidden
+                                            onChange={handleUpload}
+                                        />
+                                    </IconButton>
+                                ),
+                            }}
+                            onChange={(value) => setNewImage(value.target.value)}
+                        />}
                 </Box>
             </DialogContent>
 

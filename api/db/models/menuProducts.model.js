@@ -1,26 +1,23 @@
 module.exports = (sequelize, Sequelize) => {
-    return sequelize.define("record", {
+    return sequelize.define("menuProduct", {
         id: {
             type: Sequelize.INTEGER,
             primaryKey: true,
             autoIncrement: true
         },
-        product: {
+        menuId: {
             type: Sequelize.INTEGER,
             references: {
-                model: "products",
-                key: "id"
+                model: 'menus',
+                key: 'id'
             }
         },
-        menu: {
+        productId: {
             type: Sequelize.INTEGER,
             references: {
-                model: "menus",
-                key: "id"
+                model: 'products',
+                key: 'id'
             }
-        },
-        quantity: {
-            type: Sequelize.INTEGER
         }
     });
 };

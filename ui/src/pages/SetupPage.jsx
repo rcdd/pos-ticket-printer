@@ -10,14 +10,20 @@ import TabContext from '@mui/lab/TabContext';
 import TabList from '@mui/lab/TabList';
 import TabPanel from '@mui/lab/TabPanel';
 import OptionService from "../services/option.service";
+import MenuService from "../services/menu.service";
+import ListMenuComponent from "../components/Admin/ListMenuComponent";
+import EditMenuModal from "../components/Admin/EditMenuModal";
 
 function SetupPage() {
     const [tabPosition, setTabPosition] = React.useState("1");
     const [openAddModal, setOpenAddModal] = React.useState(false);
-    const [openEditModal, setOpenEditModal] = React.useState(false);
+    const [openEditProductModal, setOpenEditProductModal] = React.useState(false);
+    const [openEditMenuModal, setOpenEditMenuModal] = React.useState(false);
     const [productsDrinks, setProductsDrinks] = React.useState([]);
     const [productsFoods, setProductsFoods] = React.useState([]);
+    const [productsMenus, setProductsMenus] = React.useState([]);
     const [productEdit, setProductEdit] = React.useState(null);
+    const [menuEdit, setMenuEdit] = React.useState(null);
     const [isLoading, setIsLoading] = React.useState(true);
     const [printerList, setPrinterList] = React.useState([]);
     const [printer, setPrinter] = React.useState([]);
@@ -31,12 +37,14 @@ function SetupPage() {
     useEffect(() => {
         getPrinterList().then(() => {
             fetchProducts().then(() => {
-                OptionService.getPrinter().then((response) => {
-                    setPrinter(response.data.name);
-                }).catch((error) => {
-                    console.log(error.response);
-                }).finally(() => {
-                    setIsLoading(false);
+                fetchMenus().then(() => {
+                    OptionService.getPrinter().then((response) => {
+                        setPrinter(response.data.name);
+                    }).catch((error) => {
+                        console.log(error.response);
+                    }).finally(() => {
+                        setIsLoading(false);
+                    });
                 });
             });
         });
@@ -52,6 +60,7 @@ function SetupPage() {
         await ProductService.getAll().then((response) => {
             const foods = [];
             const drinks = [];
+
             response.data.forEach(element => {
                 if (element.image === null) {
                     element.image = "../imgs/placeholder.png"
@@ -65,6 +74,7 @@ function SetupPage() {
                     foods.push(element);
                 }
             });
+
             setProductsFoods(foods);
             setProductsDrinks(drinks);
         }).catch((error) => {
@@ -73,23 +83,47 @@ function SetupPage() {
         });
     };
 
+    const fetchMenus = async () => {
+        await MenuService.getAll().then((response) => {
+            setProductsMenus(response.data);
+        }).catch((error) => {
+            console.log(error.response);
+            throw Error(error.response.data.message)
+        });
+    };
+
     const handleEditProduct = (product) => {
         setProductEdit(product);
-        setOpenEditModal(true);
+        setOpenEditProductModal(true);
+    }
+
+    const handleEditMenu = (menu) => {
+        setMenuEdit(menu);
+        setOpenEditMenuModal(true);
     }
 
     const onAddProductModalClose = () => {
         setOpenAddModal(false);
         setIsLoading(true);
         fetchProducts().then(() => {
-            setIsLoading(false);
+            fetchMenus().then(() => {
+                setIsLoading(false);
+            });
         });
     }
 
     const onEditProductModalClose = () => {
-        setOpenEditModal(false);
+        setOpenEditProductModal(false);
         setIsLoading(true);
         fetchProducts().then(() => {
+            setIsLoading(false);
+        });
+    }
+
+    const onEditMenuModalClose = () => {
+        setOpenEditMenuModal(false);
+        setIsLoading(true);
+        fetchMenus().then(() => {
             setIsLoading(false);
         });
     }
@@ -170,7 +204,7 @@ function SetupPage() {
                                             <div className='pos-item py-3 px-5' onClick={() => setZone(null)}>🔙
                                                 Retroceder
                                             </div>
-                                            <h3 className='p-1 px-5 text-center'>{zone === 'food' ? "Comidas" : "Bebidas"}</h3>
+                                            <h3 className='p-1 px-5 text-center'>{zone === 'food' ? "Comidas" : zone === "menu" ? "Menus" : "Bebidas"}</h3>
                                         </div>
                                         : null
                                 }
@@ -180,22 +214,31 @@ function SetupPage() {
                                                                             editProduct={handleEditProduct}/> :
                                         zone === 'drink' ? <ListProductComponent products={productsDrinks}
                                                                                  editProduct={handleEditProduct}/> :
-                                            <div className='mb-5'>
-                                                <div className='pos-item mt-5 mb-3 py-2 text-center border'
-                                                     onClick={() => setZone('food')}>
-                                                    <p>Comidas</p>
-                                                    <img draggable="false" src="../imgs/restaurant-icon.png"
-                                                         className="pos-item__image"
-                                                         alt=""/>
+                                            zone === 'menu' ? <ListMenuComponent menus={productsMenus}
+                                                                                 editMenu={handleEditMenu}/> :
+                                                <div className='mb-5'>
+                                                    <div className='pos-item mt-5 mb-3 py-2 text-center border'
+                                                         onClick={() => setZone('food')}>
+                                                        <p>Comidas</p>
+                                                        <img draggable="false" src="../imgs/restaurant-icon.png"
+                                                             className="pos-item__image"
+                                                             alt=""/>
+                                                    </div>
+                                                    <div className='pos-item mb-3 py-2 text-center border'
+                                                         onClick={() => setZone('drink')}>
+                                                        <p>Bebidas</p>
+                                                        <img draggable="false" src="../imgs/bar-icon.png"
+                                                             className="pos-item__image"
+                                                             alt=""/>
+                                                    </div>
+                                                    <div className='pos-item py-2 text-center border'
+                                                         onClick={() => setZone('menu')}>
+                                                        <p>Combinados</p>
+                                                        <img draggable="false" src="../imgs/combi.png"
+                                                             className="pos-item__image"
+                                                             alt=""/>
+                                                    </div>
                                                 </div>
-                                                <div className='pos-item py-2 text-center border'
-                                                     onClick={() => setZone('drink')}>
-                                                    <p>Bebidas</p>
-                                                    <img draggable="false" src="../imgs/bar-icon.png"
-                                                         className="pos-item__image"
-                                                         alt=""/>
-                                                </div>
-                                            </div>
                                 }
                             </div>
                         </TabPanel>
@@ -208,7 +251,7 @@ function SetupPage() {
                                     <Select
                                         labelId="printer-select"
                                         id="printer-select"
-                                        value={printer}
+                                        value={printer ?? ""}
                                         label="Impressora"
                                         defaultValue={printer}
                                         onChange={handlePrinterChange}
@@ -237,8 +280,9 @@ function SetupPage() {
                     </TabContext>
                 </div>
             }
-            <AddProductModal open={openAddModal} close={onAddProductModalClose}/>
-            <EditProductModal open={openEditModal} close={onEditProductModalClose} product={productEdit}/>
+            <AddProductModal open={openAddModal} zone={zone} close={onAddProductModalClose}/>
+            <EditProductModal open={openEditProductModal} close={onEditProductModalClose} product={productEdit}/>
+            <EditMenuModal open={openEditMenuModal} close={onEditMenuModalClose} menu={menuEdit}/>
         </div>
     )
 }

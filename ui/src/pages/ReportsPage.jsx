@@ -16,9 +16,11 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
+import MenuService from "../services/menu.service";
 
 function ReportsPage() {
     const [products, setProducts] = React.useState([]);
+    const [menus, setMenus] = React.useState([]);
     const [invoices, setInvoices] = React.useState([]);
     const [isLoading, setIsLoading] = React.useState(true);
     const [openModal, setOpenModel] = React.useState(false);
@@ -28,7 +30,6 @@ function ReportsPage() {
     const getInvoices = async () => {
         await InvoiceService.getInvoices().then((invoices) => {
             setInvoices(invoices);
-            console.log(invoices);
         });
     }
 
@@ -36,13 +37,15 @@ function ReportsPage() {
         getInvoices().then(() => {
             ProductService.getAll().then((products) => {
                 setProducts(products.data);
-                setIsLoading(false);
-                console.log(products.data);
+                MenuService.getAll().then((menus) => {
+                    setMenus(menus.data);
+                    setIsLoading(false);
+                });
             });
         });
     }, []);
 
-    const dateFormatter: GridColDef['dateFormatter'] = (value) =>
+    const dateFormatter = (value) =>
         new Date(value).toLocaleDateString('pt-Pt', {
             year: 'numeric',
             month: '2-digit',
@@ -54,7 +57,6 @@ function ReportsPage() {
 
     const showProducts = (params) => {
         const onClick = () => {
-            console.log(params.row);
             setSelectedInvoice(params.row);
             setOpenModel(true);
         };
@@ -84,18 +86,22 @@ function ReportsPage() {
         return products.find((product) => product.id === row.product);
     }
 
+    const getMenu = (value, row) => {
+        return menus.find((menu) => menu.id === row.menu);
+    }
+
     const getProductName = (value, row) => {
-        return getProduct(value, row)?.name ?? '(Produto eliminado)';
+        return getProduct(value, row)?.name ?? getMenu(value, row)?.name + " [Menu]" ?? '(Produto eliminado)';
     }
 
     const totalLineGetter = (value, row) => {
-        const product = getProduct(value, row);
+        const product = getProduct(value, row) ?? getMenu(value, row);
         const price = product ? (product.price / 100) : 0;
         return `${(price * row.quantity).toFixed(2)} €`;
     }
 
     const getProductPrice = (value, row) => {
-        const product = getProduct(value, row);
+        const product = getProduct(value, row) ?? getMenu(value, row);
         const price = product ? (product.price / 100) : 0;
         return `${(price).toFixed(2)} €`;
     }
@@ -104,14 +110,14 @@ function ReportsPage() {
         setOpenDialog(true);
     }
 
-    const columnsModal: GridColDef[] = [
+    const columnsModal = [
         {field: 'id', headerName: 'Produto', flex: 1, valueGetter: getProductName},
         {field: 'quantity', headerName: 'Quantidade', width: 150},
         {field: 'price', headerName: 'Preço (un)', width: 150, valueGetter: getProductPrice},
         {field: 'total', headerName: 'Total', width: 200, valueGetter: totalLineGetter}
     ];
 
-    const columns: GridColDef[] = [
+    const columns = [
         {field: 'id', headerName: 'Id', width: 100},
         {field: 'createdAt', headerName: 'Data', flex: 1, minWidth: 200, valueFormatter: dateFormatter},
         {field: 'total', headerName: 'Total', width: 150, valueGetter: (value) => `${value}€`},

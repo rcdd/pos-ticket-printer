@@ -31,6 +31,7 @@ const printer = require("./db/controllers/printer/printer.controller");
 const options = require("./db/controllers/options.controller");
 const products = require("./db/controllers/products.controller");
 const invoices = require("./db/controllers/invoices.controller");
+const menus = require("./db/controllers/menus.controller");
 
 // set port, listen for requests
 app.listen(PORT, () => {
@@ -92,3 +93,8 @@ app.delete("/db/product/:id", products.softDelete);
 app.post("/invoice/add", invoices.create);
 app.post("/invoice/all", invoices.getAll);
 app.post("/invoice/revoke", invoices.revoke);
+
+app.post("/menu/add", menus.create);
+app.get("/menus", menus.findAll);
+app.put("/menu/:id", menus.update);
+app.delete("/menu/:id", menus.delete);

@@ -23,9 +23,14 @@ db.products = require("./product.model")(sequelize, Sequelize);
 db.options = require("./option.model")(sequelize, Sequelize);
 db.records = require("./record.model")(sequelize, Sequelize);
 db.invoices = require("./invoice.model")(sequelize, Sequelize);
+db.menus = require("./menu.model")(sequelize, Sequelize);
+db.menuProducts = require("./menuProducts.model")(sequelize, Sequelize);
 
 // relations
 db.invoices.hasMany(db.records, { foreignKey: 'invoiceId' });
 db.records.belongsTo(db.invoices, { foreignKey: 'invoiceId' });
+
+db.menus.belongsToMany(db.products, { through: db.menuProducts });
+db.products.belongsToMany(db.menus, { through: db.menuProducts });
 
 module.exports = db;

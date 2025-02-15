@@ -1,15 +1,17 @@
-import React, { useEffect, useState } from 'react'
+import React, {useEffect, useState} from 'react'
 import MainLayout from '../layouts/MainLayout'
-import { PaymentModalComponent } from '../components/POS/PaymentModalComponent';
-import { CartComponent } from '../components/POS/CartComponent';
+import {PaymentModalComponent} from '../components/POS/PaymentModalComponent';
+import {CartComponent} from '../components/POS/CartComponent';
 import ProductService from "../services/product.service";
 import PrinterService from "../services/printer.service";
 import InvoiceService from "../services/invoice.service";
-import { ZoneSelectionComponent } from '../components/POS/ZoneSelectionComponent';
+import {ZoneSelectionComponent} from '../components/POS/ZoneSelectionComponent';
+import MenuService from "../services/menu.service";
 
 function POSPage() {
     const [productsFood, setProductsFood] = useState([]);
     const [productsDrink, setProductsDrink] = useState([]);
+    const [menus, setMenus] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [cart, setCart] = useState([]);
     const [invoiceId, setInvoiceId] = useState(null);
@@ -26,7 +28,7 @@ function POSPage() {
 
     const fetchProducts = async () => {
         setIsLoading(true);
-        await ProductService.getAll().then((response) => {
+        await ProductService.getAll().then(async (response) => {
             const foods = [];
             const drinks = [];
             response.data.forEach(element => {
@@ -44,7 +46,15 @@ function POSPage() {
             });
             setProductsFood(foods);
             setProductsDrink(drinks);
-            setIsLoading(false);
+
+            await MenuService.getAll().then((response) => {
+                response.data.forEach(menu => {
+                    menu.type = 'Menu';
+                });
+
+                setMenus(response.data);
+                setIsLoading(false);
+            });
         }).catch((error) => {
             throw Error(error.response.data.message)
         });
@@ -53,7 +63,7 @@ function POSPage() {
     const addProductToCart = async (product) => {
         // check if the adding product exist
         let findProductInCart = await cart.find(i => {
-            return i.id === product.id
+            return i.id === product.id && i.type === product.type;
         });
 
         if (findProductInCart) {
@@ -61,7 +71,7 @@ function POSPage() {
             let newItem;
 
             cart.forEach(cartItem => {
-                if (cartItem.id === product.id) {
+                if (cartItem.id === product.id && cartItem.type === product.type) {
                     newItem = {
                         ...cartItem,
                         quantity: cartItem.quantity + 1,
@@ -78,19 +88,20 @@ function POSPage() {
             let addingProduct = {
                 ...product, quantity: 1, totalAmount: formatterEUR.format(product.price),
             }
+
             setCart([...cart, addingProduct]);
         }
 
     }
 
     const removeProduct = async (product) => {
-        const newCart = cart.filter(cartItem => cartItem.id !== product.id);
+        const newCart = cart.filter(cartItem => cartItem.id !== product.id || cartItem.type !== product.type);
         setCart(newCart);
     }
 
     const increaseQuantity = async (product) => {
         const newCart = cart.map(cartItem => {
-            if (cartItem.id === product.id) {
+            if (cartItem.id === product.id && cartItem.type === product.type) {
                 const quantity = cartItem.quantity + 1;
                 cartItem.quantity = quantity;
                 cartItem.totalAmount = formatterEUR.format(cartItem.price) * quantity
@@ -126,6 +137,7 @@ function POSPage() {
         if (status) {
             setIsPrinted(false);
             setIsPrinting(true);
+
             const bodyRequest = {
                 items: cart,
                 totalAmount: (totalAmount / 100).toFixed(2),
@@ -161,8 +173,8 @@ function POSPage() {
 
     useEffect(() => {
         let newTotalAmount = 0;
-        cart.forEach(icart => {
-            newTotalAmount = parseFloat(newTotalAmount) + parseFloat(icart.totalAmount);
+        cart.forEach(cartItem => {
+            newTotalAmount = parseFloat(newTotalAmount) + parseFloat(cartItem.totalAmount);
         })
         setTotalAmount(newTotalAmount);
     }, [cart])
@@ -175,7 +187,8 @@ function POSPage() {
                 isLoading={isLoading}
                 productsFood={productsFood}
                 productsDrink={productsDrink}
-                addProductToCart={addProductToCart} />
+                menus={menus}
+                addProductToCart={addProductToCart}/>
 
             <CartComponent
                 cart={cart}
@@ -183,7 +196,7 @@ function POSPage() {
                 increaseQuantity={increaseQuantity}
                 decreaseQuantity={decreaseQuantity}
                 removeProduct={removeProduct}
-                handlePayment={handlePayment} />
+                handlePayment={handlePayment}/>
         </div>
 
         <PaymentModalComponent

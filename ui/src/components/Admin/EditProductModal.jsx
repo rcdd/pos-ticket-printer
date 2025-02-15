@@ -14,7 +14,7 @@ import ProductService from "../../services/product.service";
 import {FileUploadOutlined} from "@mui/icons-material";
 
 
-function AddProductModal({open, close, product}) {
+function EditProductModal({open, close, product}) {
     const [openModal, setOpenModal] = React.useState(open);
     const [newName, setNewName] = useState(product ? product.name : null);
     const [newPrice, setNewPrice] = useState(product ? product.price : 0);
@@ -180,4 +180,4 @@ function AddProductModal({open, close, product}) {
     )
 }
 
-export default AddProductModal
+export default EditProductModal

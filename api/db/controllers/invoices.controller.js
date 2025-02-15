@@ -13,10 +13,15 @@ exports.create = (req, res) => {
 
     const records = [];
     req.body.items.forEach(element => {
-        records.push({
-            product: element.id,
+        const item = {
             quantity: element.quantity
-        });
+        }
+        if (element.type === 'Menu') {
+            item.menu = element.id;
+        } else {
+            item.product = element.id;
+        }
+        records.push(item);
     });
     const total = req.body.totalAmount ?? 0;
 

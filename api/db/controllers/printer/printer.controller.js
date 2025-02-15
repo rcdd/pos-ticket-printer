@@ -103,7 +103,7 @@ async function printTotal(cart, total) {
     });
 }
 
-exports.printRequest = async(req, res) => {
+exports.printRequest = async (req, res) => {
     PRINTER_NAME = req.body.printer;
     HEADERS = req.body.headers;
 
@@ -111,10 +111,16 @@ exports.printRequest = async(req, res) => {
     const totalAmount = req.body.totalAmount;
     const totalOnly = req.body.totalOnly;
 
-    if(!totalOnly){
+    if (!totalOnly) {
         for await (const item of items) {
             for (let i = 0; i < item.quantity; i++) {
-                await printItem(item.name);
+                if (item.type === 'Menu') {
+                    for (const product of item.products) {
+                        await printItem(product.name);
+                    }
+                } else {
+                    await printItem(item.name);
+                }
             }
         }
     } else {
