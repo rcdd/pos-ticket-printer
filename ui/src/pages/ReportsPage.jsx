@@ -6,21 +6,16 @@ import {
     GridPrintExportMenuItem,
     GridToolbarExportContainer
 } from '@mui/x-data-grid';
-import {GridColDef} from "@mui/x-data-grid";
 import Button from "@mui/material/Button";
 import {Box, Modal} from "@mui/material";
-import ProductService from "../services/product.service";
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
-import MenuService from "../services/menu.service";
 
 function ReportsPage() {
-    const [products, setProducts] = React.useState([]);
-    const [menus, setMenus] = React.useState([]);
     const [invoices, setInvoices] = React.useState([]);
     const [isLoading, setIsLoading] = React.useState(true);
     const [openModal, setOpenModel] = React.useState(false);
@@ -35,13 +30,7 @@ function ReportsPage() {
 
     useEffect(() => {
         getInvoices().then(() => {
-            ProductService.getAll().then((products) => {
-                setProducts(products.data);
-                MenuService.getAll().then((menus) => {
-                    setMenus(menus.data);
-                    setIsLoading(false);
-                });
-            });
+            setIsLoading(false);
         });
     }, []);
 
@@ -82,26 +71,40 @@ function ReportsPage() {
         setOpenDialog(false);
     }
 
-    const getProduct = (value, row) => {
-        return products.find((product) => product.id === row.product);
+    const getProduct = (item) => {
+        if (item.productItem) {
+            return item.productItem;
+        }
+
+        return null;
     }
 
-    const getMenu = (value, row) => {
-        return menus.find((menu) => menu.id === row.menu);
+    const getMenu = (item) => {
+        if (item.menuItem) {
+            return item.menuItem;
+        }
+        return null;
     }
 
-    const getProductName = (value, row) => {
-        return getProduct(value, row)?.name ?? getMenu(value, row)?.name + " [Menu]" ?? '(Produto eliminado)';
+    const getProductName = (value, item) => {
+        if (item.productItem) {
+            return item.productItem.name + (item.productItem.isDeleted ? " (Eliminado)" : "");
+        }
+        if (item.menuItem) {
+            return item.menuItem.name + " [Menu]" + (item.menuItem.isDeleted ? " (Eliminado)" : "");
+        }
+
+        return '(Desconhecido eliminado)';
     }
 
-    const totalLineGetter = (value, row) => {
-        const product = getProduct(value, row) ?? getMenu(value, row);
+    const totalLineGetter = (value, item) => {
+        const product = getProduct(item) ?? getMenu(item);
         const price = product ? (product.price / 100) : 0;
-        return `${(price * row.quantity).toFixed(2)} €`;
+        return `${(price * item.quantity).toFixed(2)} €`;
     }
 
-    const getProductPrice = (value, row) => {
-        const product = getProduct(value, row) ?? getMenu(value, row);
+    const getProductPrice = (value, item) => {
+        const product = getProduct(item) ?? getMenu(item);
         const price = product ? (product.price / 100) : 0;
         return `${(price).toFixed(2)} €`;
     }

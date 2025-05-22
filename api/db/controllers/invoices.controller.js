@@ -33,21 +33,29 @@ exports.create = (req, res) => {
         })
         .catch(err => {
             res.status(500).send({
-                message:
-                    err.message || "Some error occurred while creating the Invoice."
+                message: err.message || "Some error occurred while creating the Invoice."
             });
         });
 };
 
 exports.getAll = (req, res) => {
-    Invoices.findAll({include: [db.records]})
+    Invoices.findAll({
+        include: [{
+            model: db.records, include: [{
+                model: db.products, as: 'productItem',
+            }, {
+                model: db.menus, as: 'menuItem', include: [{
+                    model: db.products, as: 'products'
+                }]
+            },]
+        }]
+    })
         .then(data => {
             res.send(data);
         })
         .catch(err => {
             res.status(500).send({
-                message:
-                    err.message || "Some error occurred while retrieving invoices."
+                message: err.message || "Some error occurred while retrieving invoices."
             });
         });
 }

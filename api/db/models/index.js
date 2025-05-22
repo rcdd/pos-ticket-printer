@@ -33,4 +33,7 @@ db.records.belongsTo(db.invoices, { foreignKey: 'invoiceId' });
 db.menus.belongsToMany(db.products, { through: db.menuProducts });
 db.products.belongsToMany(db.menus, { through: db.menuProducts });
 
+db.records.belongsTo(db.products, { foreignKey: 'product', as: 'productItem' });
+db.records.belongsTo(db.menus, { foreignKey: 'menu', as: 'menuItem' });
+
 module.exports = db;
