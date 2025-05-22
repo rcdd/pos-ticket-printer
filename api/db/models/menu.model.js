@@ -12,5 +12,9 @@ module.exports = (sequelize, Sequelize) => {
         price: {
             type: Sequelize.INTEGER
         },
+        isDeleted: {
+            type: Sequelize.BOOLEAN,
+            defaultValue: false
+        }
     });
 };

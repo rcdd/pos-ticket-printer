@@ -5,6 +5,7 @@ const Menus = db.menus;
 exports.findAll = async (req, res) => {
     try {
         const menus = await Menus.findAll({
+            where: {isDeleted: false},
             include: {
                 model: Products,
                 through: {attributes: []}, // Exclude join table attributes
@@ -128,13 +129,25 @@ exports.delete = async (req, res) => {
             return res.status(404).send({message: "Menu not found!"});
         }
 
-        // Remove associations from join table
-        await menu.setProducts([]); // Clears product associations
-
-        // Delete menu
-        await menu.destroy();
-
-        res.status(200).send({message: "Menu deleted successfully!"});
+        menu.update({isDeleted: true}, {
+            where: {id: menuId, isDeleted: false}
+        })
+            .then(menu => {
+                if (menu.dataValues.isDeleted === true) {
+                    res.status(200).send({
+                        message: "Menu was deleted successfully!"
+                    });
+                } else {
+                    res.status(404).send({
+                        message: `Cannot delete Menu with id=${menuId}. Maybe menu was already deleted?!`
+                    });
+                }
+            })
+            .catch(err => {
+                res.status(500).send({
+                    message: "Could not delete menu with id=" + menuId + ". Error: " + err.message,
+                });
+            });
     } catch (err) {
         console.error("Error deleting menu:", err);
         res.status(500).send({

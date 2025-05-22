@@ -19,9 +19,9 @@ import ListItemText from '@mui/material/ListItemText';
 import SettingsIcon from '@mui/icons-material/Settings';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import HomeIcon from '@mui/icons-material/Home';
-import {useNavigate} from "react-router-dom";
 import SetupPage from "./SetupPage";
 import ReportsPage from "./ReportsPage";
+import HomePage from "./HomePage";
 
 const drawerWidth = 240;
 
@@ -83,7 +83,6 @@ export default function AdminPage() {
     const theme = useTheme();
     const [open, setOpen] = React.useState(true);
     const [page, setPage] = React.useState("setup");
-    const nav = useNavigate();
 
     const handleDrawerOpen = () => {
         setOpen(true);
@@ -172,7 +171,7 @@ export default function AdminPage() {
             </Drawer>
             <Main open={open}>
                 <DrawerHeader/>
-                {page === "home" && nav("/")}
+                {page === "home" && <HomePage />}
                 {page === "setup" && <SetupPage />}
                 {page === "reports" && <ReportsPage/>}
             </Main>
