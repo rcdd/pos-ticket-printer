@@ -22,10 +22,6 @@ function POSPage() {
     const [isPrinted, setIsPrinted] = React.useState(false);
     const [zone, setZone] = React.useState(null);
 
-    const formatterEUR = new Intl.NumberFormat('pt-PT', {
-        maximumSignificantDigits: 2,
-    });
-
     const fetchProducts = async () => {
         setIsLoading(true);
         await ProductService.getAll().then(async (response) => {
@@ -61,21 +57,20 @@ function POSPage() {
     }
 
     const addProductToCart = async (product) => {
-        // check if the adding product exist
-        let findProductInCart = await cart.find(i => {
+        // check if the product to add already exists
+        let itemExists = await cart.find(i => {
             return i.id === product.id && i.type === product.type;
         });
 
-        if (findProductInCart) {
+        if (itemExists) {
             let newCart = [];
-            let newItem;
 
             cart.forEach(cartItem => {
                 if (cartItem.id === product.id && cartItem.type === product.type) {
-                    newItem = {
+                    let newItem = {
                         ...cartItem,
                         quantity: cartItem.quantity + 1,
-                        totalAmount: formatterEUR.format(cartItem.price) * (cartItem.quantity + 1)
+                        totalAmount: cartItem.price * (cartItem.quantity + 1)
                     }
                     newCart.push(newItem);
                 } else {
@@ -86,7 +81,7 @@ function POSPage() {
             setCart(newCart);
         } else {
             let addingProduct = {
-                ...product, quantity: 1, totalAmount: formatterEUR.format(product.price),
+                ...product, quantity: 1, totalAmount: product.price,
             }
 
             setCart([...cart, addingProduct]);
@@ -104,7 +99,7 @@ function POSPage() {
             if (cartItem.id === product.id && cartItem.type === product.type) {
                 const quantity = cartItem.quantity + 1;
                 cartItem.quantity = quantity;
-                cartItem.totalAmount = formatterEUR.format(cartItem.price) * quantity
+                cartItem.totalAmount = cartItem.price * quantity
                 return cartItem;
             } else {
                 return cartItem;
@@ -119,7 +114,7 @@ function POSPage() {
             if (cartItem.id === product.id) {
                 const quantity = cartItem.quantity - 1;
                 cartItem.quantity = quantity;
-                cartItem.totalAmount = formatterEUR.format(cartItem.price) * quantity
+                cartItem.totalAmount = cartItem.price * quantity
                 return cartItem;
             } else {
                 return cartItem;
