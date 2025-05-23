@@ -26,10 +26,12 @@ services:
     networks:
       - backend
 
+# Cannot do this because of the access to printer
 #  api:
 #    container_name: api
 #    depends_on:
 #      - mysqldb
+#    privileged: true
 #    build: ./api
 #    restart: unless-stopped
 #    env_file: ./.env
@@ -45,20 +47,20 @@ services:
 #    networks:
 #      - backend
 #      - frontend
-#
-#  ui:
-#    container_name: ui
+
+  ui:
+    container_name: ui
 #    depends_on:
 #      - api
-#    build:
-#      context: ./ui
-#      args:
-#        - REACT_APP_API_BASE_URL=$CLIENT_API_BASE_URL
-#    restart: unless-stopped
-#    ports:
-#      - $REACT_LOCAL_PORT:$REACT_DOCKER_PORT
-#    networks:
-#      - frontend
+    build:
+      context: ./ui
+      args:
+        - REACT_APP_API_BASE_URL=$CLIENT_API_BASE_URL
+    restart: unless-stopped
+    ports:
+      - $REACT_LOCAL_PORT:$REACT_DOCKER_PORT
+    networks:
+      - frontend
 
 volumes:
   db:
