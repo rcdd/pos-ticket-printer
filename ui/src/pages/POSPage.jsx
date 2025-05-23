@@ -1,5 +1,4 @@
 import React, {useEffect, useState} from 'react'
-import MainLayout from '../layouts/MainLayout'
 import {PaymentModalComponent} from '../components/POS/PaymentModalComponent';
 import {CartComponent} from '../components/POS/CartComponent';
 import ProductService from "../services/product.service";
@@ -174,38 +173,39 @@ function POSPage() {
         setTotalAmount(newTotalAmount);
     }, [cart])
 
-    return (<MainLayout>
-        <div className='row'>
-            <ZoneSelectionComponent
-                zone={zone}
-                setZone={setZone}
-                isLoading={isLoading}
-                productsFood={productsFood}
-                productsDrink={productsDrink}
-                menus={menus}
-                addProductToCart={addProductToCart}/>
+    return (
+        <div>
+            <div className='row'>
+                <ZoneSelectionComponent
+                    zone={zone}
+                    setZone={setZone}
+                    isLoading={isLoading}
+                    productsFood={productsFood}
+                    productsDrink={productsDrink}
+                    menus={menus}
+                    addProductToCart={addProductToCart}/>
 
-            <CartComponent
-                cart={cart}
+                <CartComponent
+                    cart={cart}
+                    totalAmount={totalAmount}
+                    increaseQuantity={increaseQuantity}
+                    decreaseQuantity={decreaseQuantity}
+                    removeProduct={removeProduct}
+                    handlePayment={handlePayment}/>
+            </div>
+
+            <PaymentModalComponent
+                openModal={openModal}
                 totalAmount={totalAmount}
-                increaseQuantity={increaseQuantity}
-                decreaseQuantity={decreaseQuantity}
-                removeProduct={removeProduct}
-                handlePayment={handlePayment}/>
-        </div>
-
-        <PaymentModalComponent
-            openModal={openModal}
-            totalAmount={totalAmount}
-            invoiceId={invoiceId}
-            isPrinted={isPrinted}
-            isPrinting={isPrinting}
-            changeValue={changeValue}
-            setChangeValue={setChangeValue}
-            handlePrint={handlePrint}
-            handleModalClose={handleModalClose}
-        />
-    </MainLayout>)
+                invoiceId={invoiceId}
+                isPrinted={isPrinted}
+                isPrinting={isPrinting}
+                changeValue={changeValue}
+                setChangeValue={setChangeValue}
+                handlePrint={handlePrint}
+                handleModalClose={handleModalClose}
+            />
+        </div>)
 }
 
 export default POSPage

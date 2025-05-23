@@ -8,9 +8,6 @@ export function CartComponent({ cart, totalAmount, increaseQuantity, decreaseQua
 
     return (
         <div className='col-lg-5'>
-            {/* <div style={{ display: "none" }}>
-                    <ComponentToPrint cart={cart} totalAmount={totalAmount} ref={componentRef} />
-                </div> */}
             <div className='table-responsive-wrapper bg-dark'>
                 <table className='table table-responsive table-dark table-hover'>
                     <thead>
