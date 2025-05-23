@@ -1,0 +1,30 @@
+name: Criar Release com ZIP
+
+on:
+  push:
+    tags:
+      - 'v*' # Só corre quando fazes push de uma tag tipo v1.0.0
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v3
+
+      - name: Instalar Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Gerar release.zip
+        run: npm run release
+
+      - name: Publicar release no GitHub
+        uses: softprops/action-gh-release@v1
+        with:
+          files: release.zip
