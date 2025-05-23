@@ -1,6 +1,5 @@
 const db = require("../models");
 const Invoices = db.invoices;
-const Op = db.Sequelize.Op;
 
 exports.create = (req, res) => {
     // Validate request
@@ -83,7 +82,7 @@ exports.revoke = (req, res) => {
                 });
             }
         })
-        .catch(err => {
+        .catch(() => {
             res.status(500).send({
                 message: "Error revoking Invoice with id=" + id
             });

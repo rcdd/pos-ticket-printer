@@ -38,7 +38,7 @@ app.listen(PORT, () => {
     printer.getPrintName().then(res => {
         console.log(res);
         PRINTER_NAME = res;
-    }).catch(e => {
+    }).catch(() => {
         console.error("No printer defined!");
     });
 
@@ -47,7 +47,7 @@ app.listen(PORT, () => {
         if (res) {
             HEADERS = res;
         }
-    }).catch(e => {
+    }).catch(() => {
         console.error("No headers defined!");
     });
 
@@ -63,7 +63,7 @@ app.get("/health", (req, res) => {
 app.get('/printer/list', printer.getPrinterList);
 
 app.post('/printer/print', async (req, res) => {
-    if(PRINTER_NAME === "null"){
+    if (PRINTER_NAME === "null") {
         return res.status(404).send("Printer not defined");
     }
 

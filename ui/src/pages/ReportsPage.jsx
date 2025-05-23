@@ -140,7 +140,7 @@ function ReportsPage() {
         p: 4,
     };
 
-    const CustomToolbar = ({csvOptions, printOptions, ...other}) => (
+    const CustomToolbar = ({csvOptions, printOptions}) => (
         <div style={{display: 'flex', justifyContent: 'end', width: '100%'}}>
             <GridToolbarExportContainer>
                 <GridPrintExportMenuItem options={printOptions}/>
