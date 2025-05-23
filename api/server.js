@@ -62,10 +62,15 @@ app.get("/health", (req, res) => {
 // Printer
 app.get('/printer/list', printer.getPrinterList);
 
-app.post('/printer/print', (req, res) => {
+app.post('/printer/print', async (req, res) => {
+    if(PRINTER_NAME === "null"){
+        return res.status(404).send("Printer not defined");
+    }
+
     req.body.printer = PRINTER_NAME;
     req.body.headers = HEADERS;
-    printer.printRequest(req, res);
+
+    await printer.printRequest(req, res);
 });
 
 // DB

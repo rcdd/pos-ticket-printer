@@ -138,7 +138,11 @@ function POSPage() {
                 totalOnly: totals,
             };
 
-            await PrinterService.print(bodyRequest);
+            await PrinterService.print(bodyRequest).catch((e) => {
+                setIsPrinting(false);
+                throw new Error(e.response.data);
+            });
+
             setInvoiceId(await InvoiceService.addInvoice(bodyRequest.items, bodyRequest.totalAmount));
 
             setIsPrinting(false);
