@@ -28,7 +28,6 @@ import Box from "@mui/material/Box";
 import POSPage from "./POSPage";
 import AboutPage from "./AboutPage";
 import LoginModal from "../components/Admin/LoginModal";
-import {Breadcrumbs, Icon} from "@mui/material";
 
 const drawerWidth = 240;
 

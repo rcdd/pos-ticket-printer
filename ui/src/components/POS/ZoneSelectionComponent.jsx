@@ -7,8 +7,6 @@ import TabPanel from "@mui/lab/TabPanel";
 import TabContext from "@mui/lab/TabContext";
 
 export function ZoneSelectionComponent({
-                                           zone,
-                                           setZone,
                                            isLoading,
                                            productsFood,
                                            productsDrink,
