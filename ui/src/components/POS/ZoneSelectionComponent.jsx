@@ -14,11 +14,23 @@ export function ZoneSelectionComponent({
                                            addProductToCart
                                        }) {
 
-    const [value, setValue] = React.useState('drink');
+    const [value, setValue] = React.useState(null);
 
     const handleTabChange = (event, newValue) => {
         setValue(newValue);
     };
+
+    React.useEffect(() => {
+        if (productsDrink.length > 0) {
+            setValue('drink');
+        } else if (productsFood.length > 0) {
+            setValue('food');
+        } else if (menus.length > 0) {
+            setValue('menu');
+        } else {
+            setValue(null);
+        }
+    }, [productsDrink, productsFood, menus]);
 
     return (
         <div className='products-wrapper col-lg-7 col-md-6'>
@@ -26,7 +38,7 @@ export function ZoneSelectionComponent({
 
             {productsFood.length === 0 && productsFood.length === 0 && menus.length === 0 ?
                 <h3>Sem produtos definidos!</h3> :
-                <TabContext value={value}>
+                value && <TabContext value={value}>
                     <Box sx={{width: '100%'}}>
                         <Tabs
                             value={value}
