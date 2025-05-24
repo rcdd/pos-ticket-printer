@@ -76,30 +76,26 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-echo 🔍 Verifying PM2 process 'api-pos' status...
+echo 🔍 Verifying PM2 process 'api-pos' status using Node.js...
 
-pm2.cmd jlist > pm2_status.json 2>nul
-
-if exist pm2_status.json (
-    findstr /i "\"name\": \"api-pos\"" pm2_status.json >nul
-    if %errorlevel% neq 0 (
-        echo ❌ 'api-pos' is not registered. Starting it...
-        pm2.cmd start ecosystem.config.js
-        pm2.cmd save
-    ) else (
-        findstr /c:"\"status\": \"stopped\"" pm2_status.json >nul
-        if %errorlevel% equ 0 (
-            echo 🔄 'api-pos' is registered but stopped. Restarting...
-            pm2.cmd restart api-pos
-        ) else (
-            echo ✅ 'api-pos' is running.
-        )
-    )
-    del pm2_status.json
-) else (
-    echo ⚠️ Could not read PM2 status. Restarting 'api-pos' as fallback...
-    pm2.cmd restart api-pos
-)
+node -e "const { execSync } = require('child_process');
+try {
+  const list = JSON.parse(execSync('pm2 jlist', { encoding: 'utf8' }));
+  const proc = list.find(p => p.name === 'api-pos');
+  if (!proc) {
+    console.log('❌ api-pos not found. Starting...');
+    execSync('pm2 start ecosystem.config.js');
+    execSync('pm2 save');
+  } else if (proc.pm2_env.status !== 'online') {
+    console.log('🔄 api-pos is ' + proc.pm2_env.status + '. Restarting...');
+    execSync('pm2 restart api-pos');
+  } else {
+    console.log('✅ api-pos is running.');
+  }
+} catch (err) {
+  console.error('⚠️ Failed to check PM2 process status. Restarting as fallback...');
+  execSync('pm2 restart api-pos');
+}"
 
 cd ..
 
