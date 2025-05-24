@@ -76,31 +76,9 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-echo 🔍 Verifying PM2 process 'api-pos' status using Node.js...
-
-echo Creating temporary Node.js script to check PM2...
-
-echo const { execSync } = require('child_process'); > check-pm2.js
-echo try { >> check-pm2.js
-echo   const list = JSON.parse(execSync('pm2 jlist', { encoding: 'utf8' })); >> check-pm2.js
-echo   const proc = list.find(p => p.name === 'api-pos'); >> check-pm2.js
-echo   if (!proc) { >> check-pm2.js
-echo     console.log('api-pos not found. Starting...'); >> check-pm2.js
-echo     execSync('pm2 start ecosystem.config.js'); >> check-pm2.js
-echo     execSync('pm2 save'); >> check-pm2.js
-echo   } else if (proc.pm2_env.status !== 'online') { >> check-pm2.js
-echo     console.log('api-pos is ' + proc.pm2_env.status + '. Restarting...'); >> check-pm2.js
-echo     execSync('pm2 restart api-pos'); >> check-pm2.js
-echo   } else { >> check-pm2.js
-echo     console.log('api-pos is running.'); >> check-pm2.js
-echo   } >> check-pm2.js
-echo } catch (err) { >> check-pm2.js
-echo   console.error('PM2 status check failed. Restarting as fallback...'); >> check-pm2.js
-echo   execSync('pm2 restart api-pos'); >> check-pm2.js
-echo } >> check-pm2.js
+echo 🔍 Verifying PM2 process 'api-pos' status via Node...
 
 node check-pm2.js
-del check-pm2.js
 
 cd ..
 
