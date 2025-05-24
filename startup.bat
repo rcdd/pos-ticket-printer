@@ -43,7 +43,7 @@ if %errorlevel% neq 0 (
 )
 
 REM --- PM2 ---
-where pm2 >nul 2>&1
+where pm2.cmd >nul 2>&1
 if %errorlevel% neq 0 (
     echo ⚙️ Installing PM2 globally...
     npm install -g pm2
@@ -69,24 +69,21 @@ if not exist "ecosystem.config.js" (
     exit /b 1
 )
 
-where pm2 >nul 2>&1
+where pm2.cmd >nul 2>&1
 if %errorlevel% neq 0 (
-    echo ❌ ERROR: PM2 not found in PATH.
+    echo ❌ ERROR: PM2 is not available.
     pause
     exit /b 1
 )
 
-pm2 describe api-pos >nul 2>&1
+pm2.cmd describe api-pos >nul 2>&1
 if %errorlevel% neq 0 (
     echo 🔧 Starting API via ecosystem.config.js...
-    pm2 start ecosystem.config.js
-    pm2 save
-
-    echo 🔧 Setting PowerShell policy for PM2...
-    powershell -NoProfile -Command "Set-ExecutionPolicy Bypass -Scope Process -Force"
+    pm2.cmd start ecosystem.config.js
+    pm2.cmd save
 
     echo 🔧 Setting PM2 to run on startup...
-    for /f "delims=" %%i in ('pm2 startup ^| findstr /i "Register"') do (
+    for /f "delims=" %%i in ('pm2.cmd startup ^| findstr /i "Register"') do (
         call %%i
     )
 ) else (
@@ -110,5 +107,5 @@ exit /b
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
 "Set-ExecutionPolicy Bypass -Scope Process -Force; ^
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; ^
-iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))"
+iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1')) -y"
 goto :eof
