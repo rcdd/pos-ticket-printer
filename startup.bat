@@ -9,14 +9,15 @@ REM --- Chocolatey ---
 where choco >nul 2>&1
 if %errorlevel% neq 0 (
     echo ⚙️ Installing Chocolatey...
+
     powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-     "Set-ExecutionPolicy Bypass -Scope Process -Force; ^
-      [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; ^
-      iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))"
+    "Set-ExecutionPolicy Bypass -Scope Process -Force; ^
+    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; ^
+    iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))"
 )
 
 REM --- Node.js 18 ---
-node -v > nul 2>&1
+where node >nul 2>&1
 if %errorlevel% neq 0 (
     echo ⚙️ Installing Node.js 18...
     choco install nodejs-lts -y
@@ -63,9 +64,11 @@ if %errorlevel% neq 0 (
     echo 🔧 Starting API via ecosystem.config.js...
     pm2 start ecosystem.config.js
     pm2 save
-    pm2 startup | findstr Register > temp_pm2_cmd.bat
-    call temp_pm2_cmd.bat
-    del temp_pm2_cmd.bat
+
+    echo 🔧 Setting PM2 to run on startup...
+    for /f "delims=" %%i in ('pm2 startup ^| findstr /i "Register"') do (
+        call %%i
+    )
 ) else (
     echo ✅ API already registered with PM2.
 )
