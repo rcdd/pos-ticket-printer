@@ -6,6 +6,7 @@ try {
 
     if (!proc) {
         console.log('api-pos not found. Starting...');
+        execSync('pm2 delete all || true');
         execSync('pm2 start ecosystem.config.js');
         execSync('pm2 save');
     } else if (proc.pm2_env.status !== 'online') {
