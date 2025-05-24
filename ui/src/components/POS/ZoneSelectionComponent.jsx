@@ -36,8 +36,8 @@ export function ZoneSelectionComponent({
                             aria-label="Item tabs"
                             style={{borderBottom: 1, borderColor: 'divider'}}
                         >
-                            {productsFood.length && <Tab style={{fontSize: 20 + "px"}} value="drink" label="Bebidas"/>}
-                            {productsDrink.length && <Tab style={{fontSize: 20 + "px"}} value="food" label="Comidas"/>}
+                            {productsDrink.length && <Tab style={{fontSize: 20 + "px"}} value="drink" label="Bebidas"/>}
+                            {productsFood.length && <Tab style={{fontSize: 20 + "px"}} value="food" label="Comidas"/>}
                             {menus.length && <Tab style={{fontSize: 20 + "px"}} value="menu" label="Menus"/>}
                         </Tabs>
                         <TabPanel value="drink">
