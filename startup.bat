@@ -76,7 +76,7 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-pm2.cmd describe api-pos >nul 2>&1
+pm2.cmd list | findstr /i "api-pos" >nul
 if %errorlevel% neq 0 (
     echo 🔧 Starting API via ecosystem.config.js...
     pm2.cmd start ecosystem.config.js
