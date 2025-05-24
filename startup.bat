@@ -69,6 +69,18 @@ if not exist "ecosystem.config.js" (
     exit /b 1
 )
 
+if not exist "node_modules\" (
+    echo 📦 Installing dependencies for API...
+    npm install
+    if %errorlevel% neq 0 (
+        echo ❌ Failed to install API dependencies.
+        pause
+        exit /b 1
+    )
+) else (
+    echo ✅ API dependencies already installed.
+)
+
 where pm2.cmd >nul 2>&1
 if %errorlevel% neq 0 (
     echo ❌ ERROR: PM2 is not available.
