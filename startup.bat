@@ -61,7 +61,7 @@ if not exist "api\" (
     exit /b 1
 )
 
-cd api
+cd api/
 
 if not exist "ecosystem.config.js" (
     echo ❌ ERROR: File 'ecosystem.config.js' not found.
@@ -91,6 +91,35 @@ if %errorlevel% neq 0 (
 )
 
 cd ..
+
+echo ===============================
+echo 🐳 Checking Docker daemon status...
+echo ===============================
+
+docker info >nul 2>&1
+if %errorlevel% neq 0 (
+    echo 🔧 Docker daemon is not running. Attempting to start Docker Desktop...
+
+    start "" "C:\Program Files\Docker\Docker\Docker Desktop.exe"
+
+    set RETRIES=0
+    :wait_for_docker
+    timeout /t 6 >nul
+    docker info >nul 2>&1
+    if %errorlevel% neq 0 (
+        set /a RETRIES+=1
+        if !RETRIES! GEQ 10 (
+            echo ❌ ERROR: Docker Desktop did not start in time.
+            pause
+            exit /b 1
+        )
+        echo ⏳ Waiting for Docker... (!RETRIES!/10)
+        goto :wait_for_docker
+    )
+    echo ✅ Docker is now running!
+) else (
+    echo ✅ Docker daemon is already running.
+)
 
 echo ===============================
 echo 🐳 Starting Docker containers (frontend and database)...
