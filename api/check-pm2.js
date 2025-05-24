@@ -6,16 +6,24 @@ try {
 
     if (!proc) {
         console.log('api-pos not found. Starting...');
-        execSync('pm2 delete all || true');
+        try {
+            execSync('pm2 delete all');
+        } catch (_) {
+            // no processes to delete
+        }
         execSync('pm2 start ecosystem.config.js');
         execSync('pm2 save');
     } else if (proc.pm2_env.status !== 'online') {
         console.log(`api-pos is ${proc.pm2_env.status}. Restarting...`);
         execSync('pm2 restart api-pos');
     } else {
-        console.log('api-pos is running.');
+        console.log('✅ api-pos is running.');
     }
 } catch (err) {
-    console.error('PM2 status check failed. Restarting as fallback...');
-    execSync('pm2 restart api-pos');
+    console.error('⚠️ PM2 status check failed. Restarting as fallback...');
+    try {
+        execSync('pm2 restart api-pos');
+    } catch (e) {
+        console.error('❌ Failed to restart api-pos:', e.message);
+    }
 }
