@@ -54,13 +54,36 @@ echo 🚀 Registering API with PM2 (ecosystem config)
 echo ===============================
 
 cd /d "%~dp0"
+
+if not exist "api\" (
+    echo ❌ ERROR: Folder 'api' not found.
+    pause
+    exit /b 1
+)
+
 cd api
+
+if not exist "ecosystem.config.js" (
+    echo ❌ ERROR: File 'ecosystem.config.js' not found.
+    pause
+    exit /b 1
+)
+
+where pm2 >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ❌ ERROR: PM2 not found in PATH.
+    pause
+    exit /b 1
+)
 
 pm2 describe api-pos >nul 2>&1
 if %errorlevel% neq 0 (
     echo 🔧 Starting API via ecosystem.config.js...
     pm2 start ecosystem.config.js
     pm2 save
+
+    echo 🔧 Setting PowerShell policy for PM2...
+    powershell -NoProfile -Command "Set-ExecutionPolicy Bypass -Scope Process -Force"
 
     echo 🔧 Setting PM2 to run on startup...
     for /f "delims=" %%i in ('pm2 startup ^| findstr /i "Register"') do (
