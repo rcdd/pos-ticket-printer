@@ -76,36 +76,26 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-pm2.cmd list | findstr /i "api-pos" >nul
+echo 🔍 Verifying PM2 process 'api-pos' status...
+
+pm2.cmd jlist > pm2_status.json
+
+findstr /i "\"name\": \"api-pos\"" pm2_status.json >nul
 if %errorlevel% neq 0 (
-    echo 🔧 Starting API via ecosystem.config.js...
+    echo ❌ 'api-pos' is not registered. Starting it...
     pm2.cmd start ecosystem.config.js
     pm2.cmd save
-
-    echo 🔧 Setting PM2 to run on startup...
-    for /f "delims=" %%i in ('pm2.cmd startup ^| findstr /i "Register"') do (
-        call %%i
-    )
 ) else (
-    echo 🔍 Checking if PM2 process 'api-pos' is running...
-
-    for /f "tokens=1,2" %%a in ('pm2.cmd list ^| findstr /i "api-pos"') do (
-        set STATUS=%%b
-    )
-
-    if not defined STATUS (
-        echo ❌ 'api-pos' is not registered. Starting it...
-        pm2.cmd start ecosystem.config.js
-        pm2.cmd save
+    findstr /i "\"status\": \"stopped\"" pm2_status.json >nul
+    if %errorlevel% equ 0 (
+        echo 🔄 'api-pos' is registered but stopped. Restarting...
+        pm2.cmd restart api-pos
     ) else (
-        if /I "!STATUS!"=="stopped" (
-            echo 🔄 'api-pos' is stopped. Restarting...
-            pm2.cmd restart api-pos
-        ) else (
-            echo ✅ 'api-pos' is already running.
-        )
+        echo ✅ 'api-pos' is running.
     )
 )
+
+del pm2_status.json
 
 cd ..
 
