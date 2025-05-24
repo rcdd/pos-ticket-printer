@@ -1,20 +1,83 @@
 @echo off
-REM Navigate to the project directory
+setlocal enabledelayedexpansion
+
+echo ===============================
+echo 🔍 Checking prerequisites...
+echo ===============================
+
+REM --- Chocolatey ---
+where choco >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ⚙️ Installing Chocolatey...
+    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+     "Set-ExecutionPolicy Bypass -Scope Process -Force; ^
+      [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; ^
+      iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))"
+)
+
+REM --- Node.js 18 ---
+node -v > nul 2>&1
+if %errorlevel% neq 0 (
+    echo ⚙️ Installing Node.js 18...
+    choco install nodejs-lts -y
+)
+
+REM --- Docker Desktop ---
+where docker >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ⚙️ Installing Docker Desktop...
+    choco install docker-desktop -y
+)
+
+REM --- Python 3.6 ---
+python --version >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ⚙️ Installing Python 3.6...
+    choco install python --version=3.6.8 -y
+)
+
+REM --- Visual Studio Build Tools ---
+where cl >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ⚙️ Installing Visual Studio Build Tools...
+    choco install visualstudio2022-workload-vctools -y
+)
+
+REM --- PM2 ---
+where pm2 >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ⚙️ Installing PM2 globally...
+    npm install -g pm2
+)
+
+echo ===============================
+echo 🚀 Registering API with PM2 (ecosystem config)
+echo ===============================
+
 cd /d "%~dp0"
+cd api
 
-REM Run the Node.js script to start the app
-echo Starting the application...
-node startup.js
+REM Check if PM2 process is already registered
+pm2 describe api-pos >nul 2>&1
+if %errorlevel% neq 0 (
+    echo 🔧 Starting API via ecosystem.config.js...
+    pm2 start ecosystem.config.js
+    pm2 save
+    pm2 startup | findstr Register > temp_pm2_cmd.bat
+    call temp_pm2_cmd.bat
+    del temp_pm2_cmd.bat
+) else (
+    echo ✅ API already registered with PM2.
+)
 
-REM Wait for the server to initialize (optional, adjust the time as needed)
-timeout /t 10 > nul
+cd ..
 
-REM Open the browser in kiosk mode (use Chrome or Edge)
-echo Opening browser in kiosk mode...
-start chrome --app=http://localhost:3000 --kiosk
+echo ===============================
+echo 🐳 Starting Docker containers (frontend and database)...
+echo ===============================
+docker compose up -d
 
-REM Alternatively, for Microsoft Edge, uncomment the following line:
-REM start msedge --app=http://localhost:3000 --kiosk
+echo 🌐 Launching browser in kiosk mode...
+start msedge --app=http://localhost:3000 --kiosk
 
-REM Keep the console open in case of errors
 pause
