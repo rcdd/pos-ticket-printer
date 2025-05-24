@@ -87,7 +87,24 @@ if %errorlevel% neq 0 (
         call %%i
     )
 ) else (
-    echo ✅ API already registered with PM2.
+    echo 🔍 Checking if PM2 process 'api-pos' is running...
+
+    for /f "tokens=1,2" %%a in ('pm2.cmd list ^| findstr /i "api-pos"') do (
+        set STATUS=%%b
+    )
+
+    if not defined STATUS (
+        echo ❌ 'api-pos' is not registered. Starting it...
+        pm2.cmd start ecosystem.config.js
+        pm2.cmd save
+    ) else (
+        if /I "!STATUS!"=="stopped" (
+            echo 🔄 'api-pos' is stopped. Restarting...
+            pm2.cmd restart api-pos
+        ) else (
+            echo ✅ 'api-pos' is already running.
+        )
+    )
 )
 
 cd ..
