@@ -18,6 +18,10 @@ code {
     font-weight: bold;
 }
 
+.pos-item__name {
+    font-size: 24px;
+}
+
 .pos-item:hover {
     background: rgb(2, 85, 162);
     color: white;
@@ -30,7 +34,7 @@ code {
 }
 
 .table-responsive-wrapper {
-    height: calc(100vh - 260px);
+    height: calc(100vh - 280px);
 }
 
 .modal__title {
@@ -51,7 +55,7 @@ code {
     margin-bottom: 32px;
 }
 
-.modal__receive-value__input input{
+.modal__receive-value__input input {
     font-size: 48px;
 }
 
@@ -61,9 +65,15 @@ code {
     margin-bottom: 32px;
 }
 
+.products-wrapper {
+    display: flex;
+    flex-direction: column;
+    max-width: 80%;
+}
+
 .products-list {
     display: block;
-    height: calc(100vh - 180px);
+    height: calc(100vh - 240px);
     overflow-x: hidden;
     overflow-y: auto;
 }
@@ -71,5 +81,16 @@ code {
 .products-table {
     display: table-caption;
     height: calc(100vh - 300px);
-    overflow: auto; 
+    overflow: auto;
+}
+
+.cart-item {
+    display: flex;
+
+    td {
+        display: flex;
+        align-items: center;
+        height: 57px;
+    }
+
 }

@@ -8,6 +8,7 @@ import IconButton from "@mui/material/IconButton";
 import MenuIcon from "@mui/icons-material/Menu";
 import LogoutIcon from '@mui/icons-material/Logout';
 import LoginIcon from '@mui/icons-material/Login';
+import InfoIcon from '@mui/icons-material/Info';
 import Typography from "@mui/material/Typography";
 import Drawer from "@mui/material/Drawer";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
@@ -27,6 +28,7 @@ import Box from "@mui/material/Box";
 import POSPage from "./POSPage";
 import AboutPage from "./AboutPage";
 import LoginModal from "../components/Admin/LoginModal";
+import {Breadcrumbs, Icon} from "@mui/material";
 
 const drawerWidth = 240;
 
@@ -101,7 +103,7 @@ function HomePage() {
         <CssBaseline/>
         <AppBar position="fixed" open={open}>
             <Toolbar>
-                <IconButton
+                {login && <IconButton
                     color="inherit"
                     aria-label="open drawer"
                     onClick={handleDrawerOpen}
@@ -111,7 +113,7 @@ function HomePage() {
                     }, open && {display: 'none'},]}
                 >
                     <MenuIcon/>
-                </IconButton>
+                </IconButton>}
                 <IconButton
                     color="inherit"
                     onClick={() => handlePage('pos')}
@@ -120,13 +122,30 @@ function HomePage() {
                         POS-TicketPrint {page !== 'pos' && page !== 'about' ? " - Administração" : nav.name}
                     </Typography>
                 </IconButton>
+                <h3 style={{margin: "0 12px"}}> | </h3>
+                {!login && <IconButton
+                    color="inherit"
+                    onClick={() => handleLogin()}
+                >
+                    <Typography variant="h6" noWrap component="div">
+                        <LoginIcon/> Login
+                    </Typography>
+                </IconButton>}
+                {login && <IconButton
+                    color="inherit"
+                    onClick={() => handleLogout()}
+                >
+                    <Typography variant="h6" noWrap component="div">
+                        <LogoutIcon/> Logout
+                    </Typography>
+                </IconButton>}
                 <div style={{flexGrow: 1}}/>
                 <IconButton
                     color="inherit"
                     onClick={() => handlePage('about')}
                 >
                     <Typography variant="h6" noWrap component="div">
-                        Sobre
+                        <InfoIcon/>
                     </Typography>
                 </IconButton>
             </Toolbar>
@@ -147,17 +166,7 @@ function HomePage() {
                 </IconButton>
             </DrawerHeader>
             <Divider/>
-            {!login && <List>
-                <ListItem disablePadding onClick={() => handleLogin()}>
-                    <ListItemButton>
-                        <ListItemIcon>
-                            <LoginIcon/>
-                        </ListItemIcon>
-                        <ListItemText primary={"Login"}/>
-                    </ListItemButton>
-                </ListItem>
-            </List>}
-            {login && <List>
+            <List>
                 <ListItem disablePadding onClick={() => handlePage('pos')}>
                     <ListItemButton>
                         <ListItemIcon>
@@ -166,9 +175,9 @@ function HomePage() {
                         <ListItemText primary={"POS"}/>
                     </ListItemButton>
                 </ListItem>
-            </List>}
+            </List>
             <Divider/>
-            {login && <List>
+            <List>
                 <ListItem disablePadding onClick={() => handlePage('setup')}>
                     <ListItemButton>
                         <ListItemIcon>
@@ -185,9 +194,9 @@ function HomePage() {
                         <ListItemText primary={"Movimentos"}/>
                     </ListItemButton>
                 </ListItem>
-            </List>}
+            </List>
             <Divider/>
-            {login && <List>
+            <List>
                 <ListItem disablePadding onClick={() => handleLogout()}>
                     <ListItemButton>
                         <ListItemIcon>
@@ -196,7 +205,7 @@ function HomePage() {
                         <ListItemText primary={"Logout"}/>
                     </ListItemButton>
                 </ListItem>
-            </List>}
+            </List>
         </Drawer>
         <Main open={open}>
             <DrawerHeader/>

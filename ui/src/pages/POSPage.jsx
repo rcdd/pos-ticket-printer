@@ -19,7 +19,6 @@ function POSPage() {
     const [openModal, setOpenModal] = React.useState(false);
     const [isPrinting, setIsPrinting] = React.useState(false);
     const [isPrinted, setIsPrinted] = React.useState(false);
-    const [zone, setZone] = React.useState(null);
 
     const fetchProducts = async () => {
         setIsLoading(true);
@@ -160,7 +159,6 @@ function POSPage() {
             setTotalAmount(0);
             setChangeValue(0);
             setIsPrinted(false);
-            setZone(null);
             setInvoiceId(null);
         }
     }
@@ -181,8 +179,6 @@ function POSPage() {
         <div>
             <div className='row'>
                 <ZoneSelectionComponent
-                    zone={zone}
-                    setZone={setZone}
                     isLoading={isLoading}
                     productsFood={productsFood}
                     productsDrink={productsDrink}
