@@ -78,24 +78,28 @@ if %errorlevel% neq 0 (
 
 echo 🔍 Verifying PM2 process 'api-pos' status...
 
-pm2.cmd jlist > pm2_status.json
+pm2.cmd jlist > pm2_status.json 2>nul
 
-findstr /i "\"name\": \"api-pos\"" pm2_status.json >nul
-if %errorlevel% neq 0 (
-    echo ❌ 'api-pos' is not registered. Starting it...
-    pm2.cmd start ecosystem.config.js
-    pm2.cmd save
-) else (
-    findstr /i "\"status\": \"stopped\"" pm2_status.json >nul
-    if %errorlevel% equ 0 (
-        echo 🔄 'api-pos' is registered but stopped. Restarting...
-        pm2.cmd restart api-pos
+if exist pm2_status.json (
+    findstr /i "\"name\": \"api-pos\"" pm2_status.json >nul
+    if %errorlevel% neq 0 (
+        echo ❌ 'api-pos' is not registered. Starting it...
+        pm2.cmd start ecosystem.config.js
+        pm2.cmd save
     ) else (
-        echo ✅ 'api-pos' is running.
+        findstr /c:"\"status\": \"stopped\"" pm2_status.json >nul
+        if %errorlevel% equ 0 (
+            echo 🔄 'api-pos' is registered but stopped. Restarting...
+            pm2.cmd restart api-pos
+        ) else (
+            echo ✅ 'api-pos' is running.
+        )
     )
+    del pm2_status.json
+) else (
+    echo ⚠️ Could not read PM2 status. Restarting 'api-pos' as fallback...
+    pm2.cmd restart api-pos
 )
-
-del pm2_status.json
 
 cd ..
 
