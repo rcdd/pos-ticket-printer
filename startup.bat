@@ -8,13 +8,10 @@ echo ===============================
 REM --- Chocolatey ---
 where choco >nul 2>&1
 if %errorlevel% neq 0 (
-    echo ⚙️ Installing Chocolatey...
-
-    set "psCommand=Set-ExecutionPolicy Bypass -Scope Process -Force; ^
-[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; ^
-iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))"
-
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "!psCommand!"
+    echo ⚙️ Chocolatey not found. Installing...
+    goto :installChoco
+) else (
+    echo ✅ Chocolatey is already installed.
 )
 
 REM --- Node.js 18 ---
@@ -59,7 +56,6 @@ echo ===============================
 cd /d "%~dp0"
 cd api
 
-REM Check if PM2 process is already registered
 pm2 describe api-pos >nul 2>&1
 if %errorlevel% neq 0 (
     echo 🔧 Starting API via ecosystem.config.js...
@@ -85,3 +81,11 @@ echo 🌐 Launching browser in kiosk mode...
 start msedge --app=http://localhost:3000 --kiosk
 
 pause
+exit /b
+
+:installChoco
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+"Set-ExecutionPolicy Bypass -Scope Process -Force; ^
+[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; ^
+iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))"
+goto :eof
