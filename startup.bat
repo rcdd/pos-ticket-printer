@@ -127,7 +127,7 @@ echo ===============================
 docker compose up -d
 
 echo 🌐 Launching browser in kiosk mode...
-start msedge --app=http://localhost:3000 --kiosk
+start msedge --app=http://localhost:8888 --kiosk
 
 pause
 exit /b
