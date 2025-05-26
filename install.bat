@@ -64,6 +64,7 @@ if %errorlevel% neq 0 (
         pm2 delete api-pos >nul 2>&1
         if %errorlevel% EQU 0 (
             echo [OK] PM2 process 'api-pos' removed.
+            timeout /t 2 >nul
         ) else (
             echo [WARN] Could not delete PM2 process 'api-pos'.
         )
