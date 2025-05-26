@@ -50,49 +50,32 @@ if %errorlevel% neq 0 (
 )
 
 echo ===============================
-echo Checking for and removing existing PM2 process...
+echo Checking for existing PM2 process...
 echo ===============================
 
 where pm2.cmd >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [WARN] PM2 not available. Skipping process check.
-) else (
-    echo [INFO] Checking if PM2 process 'api-pos' exists...
+if %errorlevel% EQU 0 (
     pm2 jlist > temp_pm2_list.txt 2>nul
     findstr /C:"api-pos" temp_pm2_list.txt >nul 2>&1
-
     if %errorlevel% EQU 0 (
-        echo [INFO] Process found. Deleting...
-        start "" cmd /c "pm2 delete api-pos >nul 2>&1"
-        timeout /t 2 >nul
+        echo [WARN] PM2 process 'api-pos' appears to be running.
+        echo [WARN] Please stop or delete it manually before running startup.bat
     ) else (
-        echo [INFO] No PM2 process named 'api-pos' found.
+        echo [OK] No active PM2 process found.
     )
-
-    if exist temp_pm2_list.txt (
-        del /f /q temp_pm2_list.txt >nul 2>&1
-    )
+    del /f /q temp_pm2_list.txt >nul 2>&1
+) else (
+    echo [INFO] PM2 is not installed yet or unavailable.
 )
 
 echo ===============================
-echo Installing node_modules...
+echo Installing backend dependencies...
 echo ===============================
 
-REM Root project
-if exist "package.json" (
-    if not exist "node_modules\" (
-        echo [INFO] Installing root dependencies...
-        call npm install
-    ) else (
-        echo [OK] Root node_modules already installed.
-    )
-)
-
-REM API
 if exist "api\package.json" (
     cd api
     if not exist "node_modules\" (
-        echo [INFO] Installing API dependencies...
+        echo [INFO] Installing dependencies for API...
         call npm install
     ) else (
         echo [OK] API node_modules already installed.
@@ -101,11 +84,11 @@ if exist "api\package.json" (
 )
 
 echo ===============================
-echo Creating Docker containers (first-time setup)...
+echo Building Docker containers (UI + DB)...
 echo ===============================
 docker compose up -d --build
 
-echo [OK] Installation complete!
+echo [OK] Installation complete.
 pause
 exit /b
 
