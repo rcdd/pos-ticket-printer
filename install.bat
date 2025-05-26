@@ -53,8 +53,12 @@ echo ===============================
 echo Checking for and removing existing PM2 process...
 echo ===============================
 
-pm2 jlist | findstr "api-pos" >nul 2>&1
-if %errorlevel% EQU 0 (
+set "PM2_PROCESS_FOUND=0"
+for /f %%i in ('pm2 jlist ^| findstr "api-pos"') do (
+    set "PM2_PROCESS_FOUND=1"
+)
+
+if "!PM2_PROCESS_FOUND!"=="1" (
     echo [INFO] Stopping and deleting existing PM2 process 'api-pos'...
     pm2 delete api-pos >nul 2>&1
     if %errorlevel% EQU 0 (
@@ -65,6 +69,7 @@ if %errorlevel% EQU 0 (
 ) else (
     echo [INFO] No existing PM2 process named 'api-pos' found.
 )
+
 
 echo ===============================
 echo Installing node_modules...
