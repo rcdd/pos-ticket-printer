@@ -57,16 +57,21 @@ where pm2.cmd >nul 2>&1
 if %errorlevel% neq 0 (
     echo [WARN] PM2 not available. Skipping process check.
 ) else (
+    echo [INFO] Checking if PM2 process 'api-pos' exists...
     pm2 jlist > temp_pm2_list.txt 2>nul
     findstr /C:"api-pos" temp_pm2_list.txt >nul 2>&1
+
     if %errorlevel% EQU 0 (
-        echo [INFO] PM2 process 'api-pos' found. Deleting in background...
+        echo [INFO] Process found. Deleting...
         start "" cmd /c "pm2 delete api-pos >nul 2>&1"
-        timeout /t 3 >nul
+        timeout /t 2 >nul
     ) else (
-        echo [INFO] PM2 process 'api-pos' not found. Nothing to remove.
+        echo [INFO] No PM2 process named 'api-pos' found.
     )
-    del temp_pm2_list.txt >nul 2>&1
+
+    if exist temp_pm2_list.txt (
+        del /f /q temp_pm2_list.txt >nul 2>&1
+    )
 )
 
 echo ===============================
