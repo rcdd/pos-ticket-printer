@@ -50,6 +50,16 @@ if %errorlevel% neq 0 (
 )
 
 echo ===============================
+echo Checking for and removing existing PM2 service...
+echo ===============================
+pm2 delete api-pos >nul 2>&1
+if %errorlevel% EQU 0 (
+    echo [OK] PM2 process 'api-pos' removed.
+) else (
+    echo [INFO] PM2 process 'api-pos' was not found (no removal needed).
+)
+
+echo ===============================
 echo Installing node_modules...
 echo ===============================
 
