@@ -51,30 +51,10 @@ if %errorlevel% neq 0 (
     set "PATH=%PATH%;%AppData%\npm"
 )
 
-
 echo ===============================
 echo Checking if PM2 process 'api-pos' is running...
 echo ===============================
-
-where pm2.cmd >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [INFO] PM2 not found. Skipping check.
-) else (
-    pm2 jlist > temp_pm2_list.txt 2>nul
-    if exist temp_pm2_list.txt (
-        findstr /C:"api-pos" temp_pm2_list.txt >nul 2>&1
-        if %errorlevel% EQU 0 (
-            echo [WARN] PM2 process 'api-pos' appears to be running.
-            echo [WARN] Please stop or delete it manually before running startup.bat
-        ) else (
-            echo [OK] No active PM2 process named 'api-pos' found.
-        )
-        del /f /q temp_pm2_list.txt >nul 2>&1
-    ) else (
-        echo [WARN] Failed to execute 'pm2 jlist'. Skipping check.
-    )
-)
-
+echo [WARN] Couldn't be possible to check. Please stop or delete it manually before running startup.bat
 
 echo ===============================
 echo Installing backend dependencies...
