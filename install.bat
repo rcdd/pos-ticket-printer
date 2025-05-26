@@ -53,12 +53,16 @@ echo ===============================
 echo Checking for and removing existing PM2 process...
 echo ===============================
 
-set "PM2_PROCESS_FOUND=0"
-for /f %%i in ('pm2 jlist ^| findstr "api-pos"') do (
-    set "PM2_PROCESS_FOUND=1"
+REM Definir variável de controlo
+set "PM2_PROCESS_FOUND=false"
+
+REM Procurar o processo na lista do PM2
+for /f "tokens=*" %%i in ('pm2 jlist ^| findstr "api-pos"') do (
+    set PM2_PROCESS_FOUND=true
 )
 
-if "!PM2_PROCESS_FOUND!"=="1" (
+REM Verificar e apagar
+if "%PM2_PROCESS_FOUND%"=="true" (
     echo [INFO] Stopping and deleting existing PM2 process 'api-pos'...
     pm2 delete api-pos >nul 2>&1
     if %errorlevel% EQU 0 (
@@ -69,6 +73,7 @@ if "!PM2_PROCESS_FOUND!"=="1" (
 ) else (
     echo [INFO] No existing PM2 process named 'api-pos' found.
 )
+
 
 
 echo ===============================
