@@ -36,7 +36,6 @@ if %errorlevel% neq 0 (
 REM Wait for Docker to become ready
 set RETRIES=0
 :wait_for_docker
-timeout /t 6 >nul
 docker ps >nul 2>&1
 if %errorlevel% neq 0 (
     set /a RETRIES+=1
@@ -45,6 +44,7 @@ if %errorlevel% neq 0 (
         pause
         exit /b 1
     )
+    timeout /t 6 >nul
     call echo ⏳ Waiting for Docker... !RETRIES!/10
     goto :wait_for_docker
 )
@@ -62,7 +62,7 @@ cd ..
 echo ===============================
 echo 🐳 Starting Docker containers (frontend and database)...
 echo ===============================
-docker compose up -d
+docker compose start
 
 echo 🌐 Launching browser in kiosk mode...
 start msedge --app=http://localhost:8888 --kiosk

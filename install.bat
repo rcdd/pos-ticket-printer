@@ -1,6 +1,8 @@
 @echo off
 setlocal enabledelayedexpansion
 
+cd /d "%~dp0"
+
 echo ===============================
 echo ⚙️ INSTALL: Checking system dependencies
 echo ===============================
@@ -48,22 +50,47 @@ if %errorlevel% neq 0 (
 )
 
 echo ===============================
-echo 📦 INSTALL: Installing node_modules in root and api/
+echo 📦 INSTALL: Installing node_modules
 echo ===============================
 
-cd /d "%~dp0"
-
-if not exist "node_modules\" (
-    echo Installing dependencies for root project...
-    call npm install
+REM Root project (optional)
+if exist "package.json" (
+    if not exist "node_modules\" (
+        echo Installing dependencies for root project...
+        call npm install
+    ) else (
+        echo ✅ Root node_modules already installed.
+    )
 )
 
-cd api
-if not exist "node_modules\" (
-    echo Installing dependencies for API...
-    call npm install
+REM API
+if exist "api\package.json" (
+    cd api
+    if not exist "node_modules\" (
+        echo Installing dependencies for API...
+        call npm install
+    ) else (
+        echo ✅ API node_modules already installed.
+    )
+    cd ..
 )
-cd ..
+
+REM UI
+if exist "ui\package.json" (
+    cd ui
+    if not exist "node_modules\" (
+        echo Installing dependencies for UI...
+        call npm install
+    ) else (
+        echo ✅ UI node_modules already installed.
+    )
+    cd ..
+)
+
+echo ===============================
+echo 🐳 Docker: Creating containers (first time only)
+echo ===============================
+docker compose up -d --build
 
 echo ✅ Installation complete!
 pause
