@@ -1,14 +1,65 @@
-# React and NodeJS | POS - TicketPrint
+# 📘 POS Ticket Print — Installation & Startup Guide
 
-This project was made to help my association to get a system that 
-can generate tickets of drinks and food to the custumer can get them in the bar/coffe/restaurant. 
+Welcome to the POS Ticket Print system! This project includes:
 
-## How run the project:
-- Clone this respository to your computer
-- Access to the project folder on the computer via Termaial or Git Bash
-- Excute `npm install` to download all necessary packages
-- Open `/server/index.js` file and update `PRINTER` variable with your printer name
-- Excute `npm run start` to start the FE project
-- Excute `npm run server` to start the server project
-- Or execute `npm run dev` to start all the project (Server and FE)
-- Open [http://localhost:3000](http://localhost:3000)
+- 🧠 **Backend** in Node.js (Express)
+- 🌐 **Frontend** in React
+- 🐳 **Docker**-managed services (UI, Database, phpMyAdmin)
+- 🔁 **PM2** for API background process management
+
+---
+
+## ⚙️ 1. First-Time Setup (Run Once)
+
+### 👉 Step 1: Execute
+
+```bat
+install.bat
+```
+
+This script will:
+
+- Install all required software: Node.js, Docker Desktop, Python, Visual Studio Tools, etc.
+- Install project dependencies (`node_modules`) for both the `api/` and `ui/` folders
+
+> ⏳ This may take a few minutes depending on your internet speed and system performance.
+
+---
+
+## 🔁 2. Daily Use / Automatic Startup
+
+To launch the system, run:
+
+```bat
+startup.bat
+```
+
+This script will:
+
+- Ensure Docker is running (starts Docker Desktop if needed)
+- Start the backend API using PM2
+- Launch frontend and database containers via Docker Compose
+- Open the POS in fullscreen (kiosk) mode in your browser
+
+> 💡 You can place `startup.bat` in your Windows Startup folder to have it run automatically when your PC boots.
+
+---
+
+## 🛠️ Access Points
+
+| Service       | URL                                 |
+|---------------|--------------------------------------|
+| POS UI        | [http://localhost:8888](http://localhost:8888) |
+| API           | [http://localhost:9393](http://localhost:9393) |
+| phpMyAdmin    | [http://localhost:8080](http://localhost:8080) |
+
+---
+
+## ❓ Support
+
+For any help or questions, feel free to contact:
+
+- 📧 **Email**: [geral@rubendomingues.pt](mailto:geral@rubendomingues.pt)
+- 📞 **Phone**: +351 918 182 831
+
+---
