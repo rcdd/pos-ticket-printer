@@ -4,20 +4,40 @@ setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
 echo ===============================
+echo 🐳 Checking if Docker CLI is available in PATH...
+echo ===============================
+
+where docker >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ❗ Docker not found in PATH. Attempting to add it temporarily...
+    set "PATH=%PATH%;C:\Program Files\Docker\Docker\resources\bin"
+    where docker >nul 2>&1
+    if %errorlevel% neq 0 (
+        echo ❌ Docker CLI is still not found. Please verify your installation.
+        pause
+        exit /b 1
+    ) else (
+        echo ✅ Docker CLI found after updating PATH.
+    )
+) else (
+    echo ✅ Docker CLI is available.
+)
+
+echo ===============================
 echo 🐳 Checking Docker daemon status...
 echo ===============================
 
-docker info >nul 2>&1
+docker ps >nul 2>&1
 if %errorlevel% neq 0 (
     echo 🔧 Docker is not running. Attempting to start Docker Desktop...
     start "" "C:\Program Files\Docker\Docker\Docker Desktop.exe"
 )
 
-REM Wait for Docker to become ready (always)
+REM Wait for Docker to become ready
 set RETRIES=0
 :wait_for_docker
 timeout /t 6 >nul
-docker info >nul 2>&1
+docker ps >nul 2>&1
 if %errorlevel% neq 0 (
     set /a RETRIES+=1
     if !RETRIES! GEQ 10 (
@@ -25,7 +45,7 @@ if %errorlevel% neq 0 (
         pause
         exit /b 1
     )
-    echo ⏳ Waiting for Docker... (!RETRIES!/10)
+    call echo ⏳ Waiting for Docker... !RETRIES!/10
     goto :wait_for_docker
 )
 
