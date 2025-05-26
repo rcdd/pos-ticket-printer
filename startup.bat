@@ -9,25 +9,27 @@ echo ===============================
 
 docker info >nul 2>&1
 if %errorlevel% neq 0 (
-    echo Starting Docker Desktop...
+    echo 🔧 Docker is not running. Attempting to start Docker Desktop...
     start "" "C:\Program Files\Docker\Docker\Docker Desktop.exe"
-
-    set RETRIES=0
-    :wait_for_docker
-    timeout /t 6 >nul
-    docker info >nul 2>&1
-    if %errorlevel% neq 0 (
-        set /a RETRIES+=1
-        if !RETRIES! GEQ 10 (
-            echo ❌ Docker Desktop did not start in time.
-            pause
-            exit /b 1
-        )
-        echo ⏳ Waiting for Docker... (!RETRIES!/10)
-        goto :wait_for_docker
-    )
-    echo ✅ Docker is now running!
 )
+
+REM Wait for Docker to become ready (always)
+set RETRIES=0
+:wait_for_docker
+timeout /t 6 >nul
+docker info >nul 2>&1
+if %errorlevel% neq 0 (
+    set /a RETRIES+=1
+    if !RETRIES! GEQ 10 (
+        echo ❌ Docker Desktop did not start in time.
+        pause
+        exit /b 1
+    )
+    echo ⏳ Waiting for Docker... (!RETRIES!/10)
+    goto :wait_for_docker
+)
+
+echo ✅ Docker is now running!
 
 echo ===============================
 echo 🚀 Ensuring API is running via PM2
