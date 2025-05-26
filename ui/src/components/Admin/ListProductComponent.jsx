@@ -9,7 +9,7 @@ function ListProductComponent({products, editProduct}) {
                         <div key={key} className='col-lg-4 mb-4'>
                             <div className='pos-item px-3 text-center border'
                                  onClick={() => editProduct(product)}>
-                                <p>{product.name}</p>
+                                <p className="pos-item__name">{product.name}</p>
                                 {product.image === null && <p>Imagem não disponível</p>}
                                 {product.image && <img draggable="false" src={product.image}
                                                        className="pos-item__image"

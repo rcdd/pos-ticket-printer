@@ -7,12 +7,12 @@ import {Button, IconButton} from "@mui/material";
 export function CartComponent({cart, totalAmount, increaseQuantity, decreaseQuantity, removeProduct, handlePayment}) {
 
     return (
-        <div className='col-lg-5 col-md-6 cart-wrapper'>
+        <div className='col-xl-5 col-lg-6 col-md-6 cart-wrapper'>
             <div className='table-responsive-wrapper bg-dark'>
                 <table className='table table-responsive table-dark table-hover'>
                     <thead>
                     <tr>
-                        <td width={"25%"}>Quantidade</td>
+                        <td width={"20%"} align={"center"}>Qtd</td>
                         <td width={"35%"}>Item</td>
                         <td width={"20%"}>Preço</td>
                         <td width={"15%"}>Total</td>
@@ -21,8 +21,8 @@ export function CartComponent({cart, totalAmount, increaseQuantity, decreaseQuan
                     </thead>
                     <tbody className='products-table'>
                     {cart ? cart.map((cartProduct, key) =>
-                        <tr key={key} className='cart-item'>
-                            <td width={"25%"} align={"left"}>
+                        <tr key={key} className='products-table__item'>
+                            <td className="products-table__item__quantity" width={"18%"} align={"center"}>
                                 <IconButton color="primary" aria-label="reduce quantity"
                                             onClick={() => decreaseQuantity(cartProduct)}>
                                     <RemoveIcon/>
@@ -33,10 +33,10 @@ export function CartComponent({cart, totalAmount, increaseQuantity, decreaseQuan
                                     <AddIcon/>
                                 </IconButton>
                             </td>
-                            <td width={"35%"} valign={"middle"}>{cartProduct.name}</td>
-                            <td width={"20%"} valign={"middle"}>{(cartProduct.price / 100).toFixed(2)}€</td>
-                            <td width={"15%"} valign={"middle"}>{(cartProduct.totalAmount / 100).toFixed(2)}€</td>
-                            <td width={"10%"} align={"center"}>
+                            <td width={"35%"}><p className="products-table__item__name">{cartProduct.name}</p></td>
+                            <td width={"20%"}>{(cartProduct.price / 100).toFixed(2)}€</td>
+                            <td width={"15%"}>{(cartProduct.totalAmount / 100).toFixed(2)}€</td>
+                            <td width={"10%"}>
                                 <IconButton
                                     color="error"
                                     aria-label="delete"

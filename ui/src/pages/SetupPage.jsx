@@ -27,7 +27,7 @@ function SetupPage() {
     const [isLoading, setIsLoading] = React.useState(true);
     const [printerList, setPrinterList] = React.useState([]);
     const [printer, setPrinter] = React.useState([]);
-    const [zone, setZone] = React.useState([]);
+    const [zone, setZone] = React.useState(null);
 
     const [firstLine, setFirstLine] = React.useState();
     const [secondLine, setSecondLine] = React.useState();

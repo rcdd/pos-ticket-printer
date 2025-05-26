@@ -19,7 +19,14 @@ code {
 }
 
 .pos-item__name {
-    font-size: 24px;
+    font-size: 18px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.pos-item__price {
+    font-size: 20px;
 }
 
 .pos-item:hover {
@@ -29,12 +36,12 @@ code {
 
 .pos-item img {
     width: 100%;
-    max-height: 100px;
+    max-height: 80px;
     object-fit: scale-down;
 }
 
 .table-responsive-wrapper {
-    height: calc(100vh - 280px);
+    height: calc(100vh - 260px);
 }
 
 .modal__title {
@@ -73,7 +80,7 @@ code {
 
 .products-list {
     display: block;
-    height: calc(100vh - 240px);
+    height: calc(100vh - 210px);
     overflow-x: hidden;
     overflow-y: auto;
 }
@@ -84,7 +91,7 @@ code {
     overflow: auto;
 }
 
-.cart-item {
+.products-table__item {
     display: flex;
 
     td {
@@ -93,4 +100,17 @@ code {
         height: 57px;
     }
 
+}
+
+.products-table__item__quantity {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.products-table__item__name {
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+    margin: 0;
 }

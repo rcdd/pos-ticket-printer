@@ -11,7 +11,7 @@ export function ListProductsComponent({ products, addToCart }) {
                         <p className="pos-item__name">{product.name}</p>
                         <img draggable="false" src={product.image ?? "../imgs/menu.png"} className="pos-item__image"
                             alt={product.name} />
-                        <p>{(product.price / 100).toFixed(2)}€</p>
+                        <p className="pos-item__price">{(product.price / 100).toFixed(2)}€</p>
                     </div>
                 </div>) : <h4>Sem produtos</h4>}
             </div>
