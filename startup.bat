@@ -33,7 +33,6 @@ if %errorlevel% neq 0 (
     start "" "C:\Program Files\Docker\Docker\Docker Desktop.exe"
 )
 
-REM Wait for Docker to become ready
 set RETRIES=0
 :wait_for_docker
 docker ps >nul 2>&1
@@ -56,11 +55,12 @@ echo 🚀 Ensuring API is running via PM2
 echo ===============================
 
 cd api
+timeout /t 2 >nul
 call node check-pm2.js
 cd ..
 
 echo ===============================
-echo 🐳 Starting Docker containers (frontend and database)...
+echo 🐳 Starting existing Docker containers (frontend and database)...
 echo ===============================
 docker compose start
 

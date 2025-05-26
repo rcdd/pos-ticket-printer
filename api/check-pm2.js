@@ -9,7 +9,7 @@ try {
         try {
             execSync('pm2 delete all', { stdio: 'ignore' });
         } catch (_) {
-            // No processes to delete or delete failed — continue anyway
+            // no processes to delete
         }
 
         execSync('pm2 start ecosystem.config.js', { stdio: 'inherit' });
@@ -24,10 +24,11 @@ try {
         }
     }
 } catch (err) {
-    console.error('⚠️ PM2 check failed. Trying to restart as fallback...');
+    console.error('⚠️ PM2 check failed. Trying to start from ecosystem.config.js as fallback...');
     try {
-        execSync('pm2 restart api-pos', { stdio: 'inherit' });
+        execSync('pm2 start ecosystem.config.js', { stdio: 'inherit' });
+        execSync('pm2 save', { stdio: 'inherit' });
     } catch (e) {
-        console.error('❌ Fallback restart failed:', e.message);
+        console.error('❌ Fallback start also failed:', e.message);
     }
 }

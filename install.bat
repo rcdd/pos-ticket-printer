@@ -53,7 +53,7 @@ echo ===============================
 echo 📦 INSTALL: Installing node_modules
 echo ===============================
 
-REM Root project (optional)
+REM Root project
 if exist "package.json" (
     if not exist "node_modules\" (
         echo Installing dependencies for root project...
@@ -71,18 +71,6 @@ if exist "api\package.json" (
         call npm install
     ) else (
         echo ✅ API node_modules already installed.
-    )
-    cd ..
-)
-
-REM UI
-if exist "ui\package.json" (
-    cd ui
-    if not exist "node_modules\" (
-        echo Installing dependencies for UI...
-        call npm install
-    ) else (
-        echo ✅ UI node_modules already installed.
     )
     cd ..
 )
