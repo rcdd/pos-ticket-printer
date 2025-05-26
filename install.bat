@@ -47,6 +47,8 @@ where pm2.cmd >nul 2>&1
 if %errorlevel% neq 0 (
     echo [INFO] Installing PM2 globally...
     npm install -g pm2
+    echo [INFO] Ensuring PM2 is available in PATH...
+    set "PATH=%PATH%;%AppData%\npm"
 )
 
 
