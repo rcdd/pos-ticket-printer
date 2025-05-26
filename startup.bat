@@ -55,7 +55,6 @@ echo Ensuring API is running via PM2...
 echo ===============================
 
 cd api
-REM timeout /t 2 >nul
 call node check-pm2.js
 cd ..
 

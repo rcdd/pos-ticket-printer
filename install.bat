@@ -4,62 +4,62 @@ setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
 echo ===============================
-echo ⚙️ INSTALL: Checking system dependencies
+echo Checking system dependencies...
 echo ===============================
 
 REM Chocolatey
 where choco >nul 2>&1
 if %errorlevel% neq 0 (
-    echo Installing Chocolatey...
+    echo [INFO] Installing Chocolatey...
     goto :installChoco
 )
 
 REM Node.js
 where node >nul 2>&1
 if %errorlevel% neq 0 (
-    echo Installing Node.js...
+    echo [INFO] Installing Node.js...
     choco install nodejs-lts -y
 )
 
 REM Docker Desktop
 where docker >nul 2>&1
 if %errorlevel% neq 0 (
-    echo Installing Docker Desktop...
+    echo [INFO] Installing Docker Desktop...
     choco install docker-desktop -y
 )
 
 REM Python 3.6
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo Installing Python 3.6...
+    echo [INFO] Installing Python 3.6...
     choco install python --version=3.6.8 -y
 )
 
 REM Visual Studio Build Tools
 where cl >nul 2>&1
 if %errorlevel% neq 0 (
-    echo Installing Visual Studio Build Tools...
+    echo [INFO] Installing Visual Studio Build Tools...
     choco install visualstudio2022-workload-vctools -y
 )
 
 REM PM2
 where pm2.cmd >nul 2>&1
 if %errorlevel% neq 0 (
-    echo Installing PM2 globally...
+    echo [INFO] Installing PM2 globally...
     npm install -g pm2
 )
 
 echo ===============================
-echo 📦 INSTALL: Installing node_modules
+echo Installing node_modules...
 echo ===============================
 
 REM Root project
 if exist "package.json" (
     if not exist "node_modules\" (
-        echo Installing dependencies for root project...
+        echo [INFO] Installing root dependencies...
         call npm install
     ) else (
-        echo ✅ Root node_modules already installed.
+        echo [OK] Root node_modules already installed.
     )
 )
 
@@ -67,20 +67,20 @@ REM API
 if exist "api\package.json" (
     cd api
     if not exist "node_modules\" (
-        echo Installing dependencies for API...
+        echo [INFO] Installing API dependencies...
         call npm install
     ) else (
-        echo ✅ API node_modules already installed.
+        echo [OK] API node_modules already installed.
     )
     cd ..
 )
 
 echo ===============================
-echo 🐳 Docker: Creating containers (first time only)
+echo Creating Docker containers (first-time setup)...
 echo ===============================
 docker compose up -d --build
 
-echo ✅ Installation complete!
+echo [OK] Installation complete!
 pause
 exit /b
 
