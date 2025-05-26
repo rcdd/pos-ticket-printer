@@ -50,13 +50,20 @@ if %errorlevel% neq 0 (
 )
 
 echo ===============================
-echo Checking for and removing existing PM2 service...
+echo Checking for and removing existing PM2 process...
 echo ===============================
-pm2 delete api-pos >nul 2>&1
+
+pm2 jlist | findstr "api-pos" >nul 2>&1
 if %errorlevel% EQU 0 (
-    echo [OK] PM2 process 'api-pos' removed.
+    echo [INFO] Stopping and deleting existing PM2 process 'api-pos'...
+    pm2 delete api-pos >nul 2>&1
+    if %errorlevel% EQU 0 (
+        echo [OK] PM2 process 'api-pos' removed.
+    ) else (
+        echo [WARN] Failed to delete 'api-pos' process (may not be running).
+    )
 ) else (
-    echo [INFO] PM2 process 'api-pos' was not found (no removal needed).
+    echo [INFO] No existing PM2 process named 'api-pos' found.
 )
 
 echo ===============================
