@@ -48,10 +48,15 @@ if %errorlevel% neq 0 (
 )
 
 echo ===============================
-echo 📦 INSTALL: Installing node_modules in api/ and ui/
+echo 📦 INSTALL: Installing node_modules in root, api/ and ui/
 echo ===============================
 
 cd /d "%~dp0"
+
+if not exist "node_modules\" (
+    echo Installing dependencies for root project...
+    npm install
+)
 
 cd api
 if not exist "node_modules\" (
