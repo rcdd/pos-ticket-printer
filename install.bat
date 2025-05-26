@@ -53,28 +53,22 @@ echo ===============================
 echo Checking for and removing existing PM2 process...
 echo ===============================
 
-set PM2_PROCESS_FOUND=false
-
-REM Use a temporary file to store the pm2 list output and search in it
 pm2 jlist > temp_pm2_list.txt 2>nul
-findstr "api-pos" temp_pm2_list.txt >nul 2>&1
+findstr /C:"api-pos" temp_pm2_list.txt >nul 2>&1
+
 if %errorlevel% EQU 0 (
-    set PM2_PROCESS_FOUND=true
-)
-
-del temp_pm2_list.txt >nul 2>&1
-
-if "%PM2_PROCESS_FOUND%"=="true" (
-    echo [INFO] Stopping and deleting existing PM2 process 'api-pos'...
+    echo [INFO] PM2 process 'api-pos' found. Deleting...
     pm2 delete api-pos >nul 2>&1
     if %errorlevel% EQU 0 (
         echo [OK] PM2 process 'api-pos' removed.
     ) else (
-        echo [WARN] Failed to delete 'api-pos' process (may not be running).
+        echo [WARN] Could not delete PM2 process 'api-pos'.
     )
 ) else (
-    echo [INFO] No existing PM2 process named 'api-pos' found.
+    echo [INFO] PM2 process 'api-pos' not found. Nothing to remove.
 )
+
+del temp_pm2_list.txt >nul 2>&1
 
 echo ===============================
 echo Installing node_modules...
