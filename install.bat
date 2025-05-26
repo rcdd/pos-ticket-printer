@@ -53,22 +53,25 @@ echo ===============================
 echo Checking for and removing existing PM2 process...
 echo ===============================
 
-pm2 jlist > temp_pm2_list.txt 2>nul
-findstr /C:"api-pos" temp_pm2_list.txt >nul 2>&1
-
-if %errorlevel% EQU 0 (
-    echo [INFO] PM2 process 'api-pos' found. Deleting...
-    pm2 delete api-pos >nul 2>&1
-    if %errorlevel% EQU 0 (
-        echo [OK] PM2 process 'api-pos' removed.
-    ) else (
-        echo [WARN] Could not delete PM2 process 'api-pos'.
-    )
+where pm2.cmd >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [WARN] PM2 not available. Skipping process check.
 ) else (
-    echo [INFO] PM2 process 'api-pos' not found. Nothing to remove.
+    pm2 jlist > temp_pm2_list.txt 2>nul
+    findstr /C:"api-pos" temp_pm2_list.txt >nul 2>&1
+    if %errorlevel% EQU 0 (
+        echo [INFO] PM2 process 'api-pos' found. Deleting...
+        pm2 delete api-pos >nul 2>&1
+        if %errorlevel% EQU 0 (
+            echo [OK] PM2 process 'api-pos' removed.
+        ) else (
+            echo [WARN] Could not delete PM2 process 'api-pos'.
+        )
+    ) else (
+        echo [INFO] PM2 process 'api-pos' not found. Nothing to remove.
+    )
+    del temp_pm2_list.txt >nul 2>&1
 )
-
-del temp_pm2_list.txt >nul 2>&1
 
 echo ===============================
 echo Installing node_modules...
