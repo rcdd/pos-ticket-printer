@@ -56,7 +56,7 @@ echo 🚀 Ensuring API is running via PM2
 echo ===============================
 
 cd api
-node check-pm2.js
+call node check-pm2.js
 cd ..
 
 echo ===============================
