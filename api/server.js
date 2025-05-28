@@ -26,6 +26,7 @@ db.sequelize.sync({alter: true});
 const PORT = process.env.NODE_DOCKER_PORT || 9393;
 let PRINTER_NAME = "null";
 let HEADERS = {firstLine: null, secondLine: null};
+let PRINT_TYPE = "totals"; // totals, tickets, both
 
 const printer = require("./db/controllers/printer/printer.controller");
 const options = require("./db/controllers/options.controller");
@@ -36,19 +37,27 @@ const menus = require("./db/controllers/menus.controller");
 // set port, listen for requests
 app.listen(PORT, () => {
     printer.getPrintName().then(res => {
-        console.log(res);
         PRINTER_NAME = res;
     }).catch(() => {
         console.error("No printer defined!");
     });
 
     options.getHeadersInit().then(res => {
-        console.log(res);
         if (res) {
             HEADERS = res;
         }
     }).catch(() => {
         console.error("No headers defined!");
+    });
+
+    options.getPrintType().then(res => {
+        if (res) {
+            PRINT_TYPE = res;
+        } else {
+            PRINT_TYPE = "totals"; // default value
+        }
+    }).catch(() => {
+        console.error("No totals value defined!");
     });
 
     console.log(`Server is running on port ${PORT}.`);
@@ -69,6 +78,7 @@ app.post('/printer/print', async (req, res) => {
 
     req.body.printer = PRINTER_NAME;
     req.body.headers = HEADERS;
+    req.body.printType = PRINT_TYPE;
 
     await printer.printRequest(req, res);
 });
@@ -89,6 +99,13 @@ app.post("/option/set-second-header", (req, res) => {
     HEADERS.secondLine = req.body.secondLine;
 });
 app.get("/option/get-header", options.getHeaders);
+
+app.post("/option/set-print-type", (req, res) => {
+    options.setTypePrint(req, res);
+    PRINT_TYPE = req.body.printType;
+});
+
+app.get("/option/get-print-type", options.getPrintType);
 
 app.post("/db/product", products.create);
 app.get("/db/products", products.findAll);

@@ -126,7 +126,7 @@ function POSPage() {
         setOpenModal(true)
     }
 
-    const handlePrint = async (status = false, totals = false) => {
+    const handlePrint = async (status = false) => {
         if (status) {
             setIsPrinted(false);
             setIsPrinting(true);
@@ -134,7 +134,6 @@ function POSPage() {
             const bodyRequest = {
                 items: cart,
                 totalAmount: (totalAmount / 100).toFixed(2),
-                totalOnly: totals,
             };
 
             await PrinterService.print(bodyRequest).catch((e) => {

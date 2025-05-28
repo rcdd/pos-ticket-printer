@@ -109,9 +109,9 @@ exports.printRequest = async (req, res) => {
 
     const items = req.body.items;
     const totalAmount = req.body.totalAmount;
-    const totalOnly = req.body.totalOnly;
+    const printType = req.body.printType;
 
-    if (!totalOnly) {
+    if (printType === 'totals' || printType === 'both') {
         for await (const item of items) {
             for (let i = 0; i < item.quantity; i++) {
                 if (item.type === 'Menu') {
@@ -123,7 +123,9 @@ exports.printRequest = async (req, res) => {
                 }
             }
         }
-    } else {
+    }
+
+    if (printType === 'tickets' || printType === 'both') {
         await printTotal(items, totalAmount);
     }
 

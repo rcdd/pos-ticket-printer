@@ -22,6 +22,14 @@ class OptionService {
     getHeaders() {
         return http.get(this.BASE_URL + "/option/get-header");
     }
+
+    getPrintType() {
+        return http.get(this.BASE_URL + "/option/get-print-type");
+    }
+
+    setPrintType(printType) {
+        return http.post(this.BASE_URL + "/option/set-print-type", {printType});
+    }
 }
 
 export default new OptionService();

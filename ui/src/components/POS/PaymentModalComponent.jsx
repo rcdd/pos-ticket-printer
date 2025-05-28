@@ -76,14 +76,9 @@ export function PaymentModalComponent({
                 {!isPrinted && <LoadingButton loading={isPrinting} loadingIndicator="A imprimir.."
                     variant="contained" fullWidth={true} size="large"
                     onClick={() => handlePrint(true)}>
-                    Imprimir (Senhas)
+                    Imprimir
                 </LoadingButton>}
 
-                {!isPrinted && <LoadingButton loading={isPrinting} loadingIndicator="A imprimir.."
-                    variant="contained" fullWidth={true} size="large"
-                    onClick={() => handlePrint(true, true)}>
-                    Imprimir (Totais)
-                </LoadingButton>}
                 {isPrinted && <Button variant="contained" fullWidth={true} size="large"
                     onClick={handleModalClose}>Fechar</Button>}
             </DialogActions>

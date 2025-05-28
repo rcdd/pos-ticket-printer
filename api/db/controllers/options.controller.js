@@ -1,10 +1,10 @@
 const db = require("../models");
 const Option = db.options;
-const Op = db.Sequelize.Op;
 
 const optionPrintName = 'printer';
 const optionFirstLine = 'firstLine';
 const optionSecondLine = 'secondLine';
+const optionPrintType = 'printOptionType';
 
 exports.getPrinter = (req, res) => {
     Option.findOne({
@@ -190,6 +190,67 @@ exports.setHeaderSecondLine = (req, res) => {
     });
 }
 
+exports.setTypePrint = (req, res) => {
+    // Validate request
+    if (!req.body.printType) {
+        res.status(400).send({
+            message: "Option must be defined!"
+        });
+        return;
+    }
+
+    const printOptionType = req.body.printType;
+
+    if (printOptionType !== 'totals' && printOptionType !== 'tickets' && printOptionType !== 'both') {
+        res.status(400).send({
+            message: "Invalid print totals option! Must be 'totals', 'tickets' or 'both'."
+        });
+        return;
+    }
+
+    Option.findOne({
+        where: {
+            name: optionPrintType
+        }
+    }).then(data => {
+        if (data) {
+            Option.update({value: printOptionType}, {
+                where: {name: printOptionType}
+            })
+                .then(num => {
+                    if (num.includes(1)) {
+                        res.send({
+                            message: "Print Totals options was updated successfully."
+                        });
+                    } else {
+                        res.send({
+                            message: `Cannot update print totals. Value: ${printOptionType}!`
+                        });
+                    }
+                })
+                .catch(err => {
+                    res.status(500).send({
+                        message: "Error updating print totals value with " + printOptionType,
+                        error: err
+                    });
+                });
+
+            return;
+        }
+
+        Option.create({name: optionPrintType, value: printOptionType})
+            .then(data => {
+                res.send({text: data.value});
+            })
+            .catch(err => {
+                res.status(500).send({
+                    message:
+                        err.message || "Some error occurred while creating the option."
+                });
+            });
+    });
+}
+
 exports.getHeaders = (req, res) => {
     return Option.findOne({
         where: {
@@ -226,7 +287,6 @@ exports.getHeaders = (req, res) => {
         });
 }
 
-
 exports.getHeadersInit = () => {
     return Option.findOne({
         where: {
@@ -256,5 +316,25 @@ exports.getHeadersInit = () => {
         })
         .catch(err => {
             return false;
+        });
+}
+
+exports.getPrintType = (req, res) => {
+    return Option.findOne({
+        where: {
+            name: optionPrintType
+        }
+    })
+        .then(value => {
+            if (value) {
+                res.send(value.value);
+            } else {
+                res.send('totals');
+            }
+        })
+        .catch(err => {
+            res.status(500).send({
+                message: "Error retrieving option"
+            });
         });
 }

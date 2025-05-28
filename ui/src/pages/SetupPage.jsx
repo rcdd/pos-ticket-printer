@@ -27,6 +27,7 @@ function SetupPage() {
     const [isLoading, setIsLoading] = React.useState(true);
     const [printerList, setPrinterList] = React.useState([]);
     const [printer, setPrinter] = React.useState([]);
+    const [printType, setPrintType] = React.useState("totals");
     const [zone, setZone] = React.useState(null);
 
     const [firstLine, setFirstLine] = React.useState();
@@ -40,6 +41,13 @@ function SetupPage() {
                 fetchMenus().then(() => {
                     OptionService.getPrinter().then((response) => {
                         setPrinter(response.data.name);
+                        OptionService.getPrintType().then((response) => {
+                            if (response.data) {
+                                setPrintType(response.data);
+                            } else {
+                                setPrintType("totals"); // default value
+                            }
+                        })
                     }).catch((error) => {
                         console.log(error.response);
                     }).finally(() => {
@@ -137,6 +145,15 @@ function SetupPage() {
     const handlePrinterChange = (event) => {
         OptionService.setPrinter(event.target.value).then(() => {
             setPrinter(event.target.value);
+        }).catch((error) => {
+            console.log(error.response);
+            throw Error(error.response.data.message)
+        });
+    }
+
+    const handlePrintTypeChange = (event) => {
+        OptionService.setPrintType(event.target.value).then(() => {
+            setPrintType(event.target.value);
         }).catch((error) => {
             console.log(error.response);
             throw Error(error.response.data.message)
@@ -245,6 +262,28 @@ function SetupPage() {
                                                 <MenuItem key={_printer.name} id={_printer.name}
                                                           value={_printer.name}>{_printer.name}</MenuItem>)
                                         })}
+                                    </Select>
+                                </FormControl>
+                                <h2 className="mt-16"><br/></h2>
+                                <FormControl fullWidth>
+                                    <InputLabel id="print-type-select">Tipo de Impressão</InputLabel>
+                                    <Select
+                                        labelId="print-type-select"
+                                        id="print-type-select"
+                                        value={printType ?? "totals"}
+                                        label="Tipo de Impressão"
+                                        variant="standard"
+                                        defaultValue={printType}
+                                        onChange={handlePrintTypeChange}
+                                    >
+                                        <MenuItem key="totals" id="totals"
+                                                  value="totals">Totais</MenuItem>
+
+                                        <MenuItem key="tickets" id="tickets"
+                                                  value="tickets">Tickets</MenuItem>
+
+                                        <MenuItem key="both" id="both"
+                                                  value="both">Ambos</MenuItem>
                                     </Select>
                                 </FormControl>
                             </div>
