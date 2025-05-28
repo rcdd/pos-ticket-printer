@@ -16,6 +16,7 @@ import EditMenuModal from "../components/Admin/EditMenuModal";
 
 function SetupPage() {
     const [tabPosition, setTabPosition] = React.useState("1");
+    const [tabProductsPosition, setTabProductsPosition] = React.useState("drink");
     const [openAddModal, setOpenAddModal] = React.useState(false);
     const [openEditProductModal, setOpenEditProductModal] = React.useState(false);
     const [openEditMenuModal, setOpenEditMenuModal] = React.useState(false);
@@ -177,6 +178,11 @@ function SetupPage() {
         setTabPosition(newValue);
     };
 
+    const handleTabProductsChange = (event, newValue) => {
+        setTabProductsPosition(newValue);
+        setZone(newValue);
+    }
+
     return (
         <div>
             <h1 className={"mb-4"}>Configurações</h1>
@@ -197,50 +203,28 @@ function SetupPage() {
                             <Button variant="contained" fullWidth={false} size="large"
                                     onClick={() => setOpenAddModal(true)}>
                                 Adicionar Produto</Button>
-                            <div style={{marginTop: "16px"}}>
-                                {
-                                    zone !== null ?
-                                        <div style={{display: "flex", alignItems: "center"}} className='mb-3'>
-                                            <div className='pos-item py-3 px-5' onClick={() => setZone(null)}>🔙
-                                                Retroceder
-                                            </div>
-                                            <h3 className='p-1 px-5 text-center'>{zone === 'food' ? "Comidas" : zone === "menu" ? "Menus" : "Bebidas"}</h3>
-                                        </div>
-                                        : null
-                                }
 
-                                {
-                                    zone === 'food' ? <ListProductComponent products={productsFoods}
-                                                                            editProduct={handleEditProduct}/> :
-                                        zone === 'drink' ? <ListProductComponent products={productsDrinks}
-                                                                                 editProduct={handleEditProduct}/> :
-                                            zone === 'menu' ? <ListMenuComponent menus={productsMenus}
-                                                                                 editMenu={handleEditMenu}/> :
-                                                <div className='mb-5'>
-                                                    <div className='pos-item mt-5 mb-3 py-2 text-center border'
-                                                         onClick={() => setZone('food')}>
-                                                        <p>Comidas</p>
-                                                        <img draggable="false" src="../imgs/restaurant-icon.png"
-                                                             className="pos-item__image"
-                                                             alt=""/>
-                                                    </div>
-                                                    <div className='pos-item mb-3 py-2 text-center border'
-                                                         onClick={() => setZone('drink')}>
-                                                        <p>Bebidas</p>
-                                                        <img draggable="false" src="../imgs/bar-icon.png"
-                                                             className="pos-item__image"
-                                                             alt=""/>
-                                                    </div>
-                                                    <div className='pos-item py-2 text-center border'
-                                                         onClick={() => setZone('menu')}>
-                                                        <p>Combinados</p>
-                                                        <img draggable="false" src="../imgs/combi.png"
-                                                             className="pos-item__image"
-                                                             alt=""/>
-                                                    </div>
-                                                </div>
-                                }
-                            </div>
+                            <TabContext value={tabProductsPosition}>
+                                <Box sx={{borderBottom: 1, borderColor: 'divider'}}>
+                                    <TabList onChange={handleTabProductsChange} aria-label="lab API tabs example">
+                                        <Tab label="Bebidas" value="drink"/>
+                                        <Tab label="Comidas" value="food"/>
+                                        <Tab label="Menus" value="menu"/>
+                                    </TabList>
+                                </Box>
+                                <TabPanel value="drink">
+                                    <ListProductComponent products={productsDrinks}
+                                                          editProduct={handleEditProduct}/>
+                                </TabPanel>
+                                <TabPanel value="food">
+                                    <ListProductComponent products={productsFoods}
+                                                          editProduct={handleEditProduct}/>
+                                </TabPanel>
+                                <TabPanel value="menu">
+                                    <ListProductComponent products={productsMenus}
+                                                          editProduct={handleEditMenu}/>
+                                </TabPanel>
+                            </TabContext>
                         </TabPanel>
 
                         <TabPanel value="2">

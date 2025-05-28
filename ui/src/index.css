@@ -36,6 +36,7 @@ code {
 
 .pos-item img {
     width: 100%;
+    min-height: 80px;
     max-height: 80px;
     object-fit: scale-down;
 }
@@ -99,7 +100,6 @@ code {
         align-items: center;
         height: 57px;
     }
-
 }
 
 .products-table__item__quantity {
