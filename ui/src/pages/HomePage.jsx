@@ -76,6 +76,19 @@ function HomePage() {
 
     const nav = useNavigate();
 
+    React.useEffect(() => {
+        const loginData = localStorage.getItem("login");
+        if (loginData) {
+            const loginTime = new Date(loginData);
+            const currentTime = new Date();
+            if (currentTime - loginTime < 1000 * 60 * 60 * 24) { // 1 day
+                setLogin(true);
+            } else {
+                localStorage.removeItem("login");
+            }
+        }
+    }, []);
+
     const handleDrawerOpen = () => {
         setOpen(true);
     };
@@ -96,6 +109,7 @@ function HomePage() {
         setLogin(false);
         setPage("pos");
         setOpen(false);
+        localStorage.removeItem("login");
     }
 
     return (<Box sx={{display: 'flex'}}>
