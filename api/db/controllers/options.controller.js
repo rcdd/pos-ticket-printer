@@ -19,7 +19,7 @@ exports.getPrinter = (req, res) => {
                 res.send({name: null});
             }
         })
-        .catch(err => {
+        .catch(() => {
             res.status(500).send({
                 message: "Error retrieving printer"
             });
@@ -271,7 +271,7 @@ exports.getHeaders = (req, res) => {
                             res.send({firstLine: _first.value, secondLine: null});
                         }
                     })
-                    .catch(err => {
+                    .catch(() => {
                         res.status(500).send({
                             message: "Error retrieving header"
                         });
@@ -280,7 +280,7 @@ exports.getHeaders = (req, res) => {
                 res.send({firstLine: null, secondLine: null});
             }
         })
-        .catch(err => {
+        .catch(() => {
             res.status(500).send({
                 message: "Error retrieving header"
             });
@@ -307,14 +307,14 @@ exports.getHeadersInit = () => {
                             return false;
                         }
                     })
-                    .catch(err => {
+                    .catch(() => {
                         return false;
                     });
             } else {
                 return false;
             }
         })
-        .catch(err => {
+        .catch(() => {
             return false;
         });
 }
@@ -334,7 +334,7 @@ exports.getPrintType = (req, res) => {
         })
         .catch(err => {
             res.status(500).send({
-                message: "Error retrieving option"
+                message: "Error retrieving option: " + err.message
             });
         });
 }

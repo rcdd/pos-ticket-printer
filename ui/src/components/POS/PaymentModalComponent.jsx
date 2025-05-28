@@ -60,7 +60,7 @@ export function PaymentModalComponent({
                                 endAdornment: <InputAdornment position="start">€</InputAdornment>,
                             }}
                             onChange={(value) => setChangeValue(value.target.value.replace(",", "."))}
-                            onKeyPress={(e) => {
+                            onKeyUp={(e) => {
                                 if (e.key === 'Enter') {
                                     e.preventDefault();
                                     !isPrinted ? handlePrint(true) : handleModalClose();

@@ -4,7 +4,6 @@ const cmds = require("./lib/commands");
 
 const db = require("../../models");
 const Option = db.options;
-const Op = db.Sequelize.Op;
 
 let PRINTER_NAME = 'undefined';
 let HEADERS = {
@@ -64,7 +63,7 @@ async function printText(printJob) {
 }
 
 async function printItem(productName) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve ) => {
         const printJob = new PrintJobs();
         printJob.setTextFormat('wide');
         printJob.newLine(2);
@@ -72,14 +71,14 @@ async function printItem(productName) {
         printJob.setTextFormat('normal');
         printHeader(printJob);
 
-        printText(printJob).then(r => {
+        printText(printJob).then(() => {
             resolve();
         });
     });
 }
 
 async function printTotal(cart, total) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         const printJob = new PrintJobs();
 
         printJob.setTextFormat('normal');
@@ -97,7 +96,7 @@ async function printTotal(cart, total) {
         printJob.raw(cmds.EURO);
         printHeader(printJob);
 
-        printText(printJob).then(r => {
+        printText(printJob).then(() => {
             return resolve();
         });
     });
@@ -134,7 +133,7 @@ exports.printRequest = async (req, res) => {
     return res.send("OK");
 }
 
-exports.getPrintName = async (res, req) => {
+exports.getPrintName = async () => {
     return Option.findOne({
         where: {
             name: "printer"
@@ -148,7 +147,7 @@ exports.getPrintName = async (res, req) => {
             }
         })
         .catch(err => {
-            throw new Error("Error retrieving printer");
+            throw new Error("Error retrieving printer: " + err.message);
         });
 }
 
