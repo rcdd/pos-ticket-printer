@@ -43,12 +43,17 @@ if %errorlevel% neq 0 (
         pause
         exit /b 1
     )
-    timeout /t 6 >nul
+    timeout /t 5 >nul
     call echo [WAIT] Waiting for Docker... !RETRIES!/10
     goto :wait_for_docker
 )
 
 echo [OK] Docker is now running!
+
+echo ===============================
+echo Starting existing Docker containers (frontend and database)...
+echo ===============================
+docker compose start
 
 echo ===============================
 echo Ensuring API is running via PM2...
@@ -57,11 +62,6 @@ echo ===============================
 cd api
 call node check-pm2.js
 cd ..
-
-echo ===============================
-echo Starting existing Docker containers (frontend and database)...
-echo ===============================
-docker compose start
 
 echo Launching browser in kiosk mode...
 start msedge --app=http://localhost:8888 --kiosk
