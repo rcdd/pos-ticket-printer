@@ -11,7 +11,6 @@ import TabList from '@mui/lab/TabList';
 import TabPanel from '@mui/lab/TabPanel';
 import OptionService from "../services/option.service";
 import MenuService from "../services/menu.service";
-import ListMenuComponent from "../components/Admin/ListMenuComponent";
 import EditMenuModal from "../components/Admin/EditMenuModal";
 
 function SetupPage() {
@@ -136,7 +135,7 @@ function SetupPage() {
     };
 
     const handlePrinterChange = (event) => {
-        OptionService.setPrinter(event.target.value).then((response) => {
+        OptionService.setPrinter(event.target.value).then(() => {
             setPrinter(event.target.value);
         }).catch((error) => {
             console.log(error.response);
@@ -151,7 +150,7 @@ function SetupPage() {
         }
 
         setFirstLineError(false);
-        OptionService.setHeaderFirstLine(event.target.value).then((response) => {
+        OptionService.setHeaderFirstLine(event.target.value).then(() => {
             setFirstLine(event.target.value);
         }).catch((error) => {
             console.log(error.response);
@@ -166,7 +165,7 @@ function SetupPage() {
         }
 
         setSecondLineError(false);
-        OptionService.setHeaderSecondLine(event.target.value).then((response) => {
+        OptionService.setHeaderSecondLine(event.target.value).then(() => {
             setSecondLine(event.target.value);
         }).catch((error) => {
             console.log(error.response);
@@ -237,6 +236,7 @@ function SetupPage() {
                                         id="printer-select"
                                         value={printer ?? ""}
                                         label="Impressora"
+                                        variant="standard"
                                         defaultValue={printer}
                                         onChange={handlePrinterChange}
                                     >
