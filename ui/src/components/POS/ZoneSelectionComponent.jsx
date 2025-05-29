@@ -5,6 +5,7 @@ import Tab from '@mui/material/Tab';
 import {Tabs} from "@mui/material";
 import TabPanel from "@mui/lab/TabPanel";
 import TabContext from "@mui/lab/TabContext";
+import TabList from "@mui/lab/TabList";
 
 export function ZoneSelectionComponent({
                                            isLoading,
@@ -35,22 +36,19 @@ export function ZoneSelectionComponent({
     return (
         <div className='products-wrapper col-xl-7 col-lg-6 col-md-6'>
             {isLoading ? 'Loading...' :
-            productsFood.length === 0 && productsFood.length === 0 && menus.length === 0 ?
-                <h3>Sem produtos definidos!</h3> :
-                value && <TabContext value={value}>
-                    <Box sx={{width: '100%'}}>
-                        <Tabs
-                            value={value}
-                            onChange={handleTabChange}
-                            textColor="primary"
-                            indicatorColor="primary"
-                            aria-label="Item tabs"
-                            style={{borderBottom: 1, borderColor: 'divider'}}
-                        >
-                            {productsDrink.length && <Tab style={{fontSize: 16 + "px"}} value="drink" label="Bebidas"/>}
-                            {productsFood.length && <Tab style={{fontSize: 16 + "px"}} value="food" label="Comidas"/>}
-                            {menus.length && <Tab style={{fontSize: 16 + "px"}} value="menu" label="Menus"/>}
-                        </Tabs>
+                productsFood.length === 0 && productsFood.length === 0 && menus.length === 0 ?
+                    <h3>Sem produtos definidos!</h3> :
+                    value && <TabContext value={value}>
+                        <Box sx={{borderBottom: 1, borderColor: 'divider'}}>
+                            <TabList
+                                value={value}
+                                onChange={handleTabChange}
+                            >
+                                {productsDrink.length && <Tab style={{fontSize: 16 + "px"}} value="drink" label="Bebidas"/>}
+                                {productsFood.length && <Tab style={{fontSize: 16 + "px"}} value="food" label="Comidas"/>}
+                                {menus.length && <Tab style={{fontSize: 16 + "px"}} value="menu" label="Menus"/>}
+                            </TabList>
+                        </Box>
                         <TabPanel value="drink">
                             <ListProductsComponent products={productsDrink} addToCart={addProductToCart}/>
                         </TabPanel>
@@ -60,8 +58,7 @@ export function ZoneSelectionComponent({
                         <TabPanel value="menu">
                             <ListProductsComponent products={menus} addToCart={addProductToCart}/>
                         </TabPanel>
-                    </Box>
-                </TabContext>
+                    </TabContext>
             }
         </div>
     )

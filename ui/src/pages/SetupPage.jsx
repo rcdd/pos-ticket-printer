@@ -253,7 +253,7 @@ function SetupPage() {
                                         id="printer-select"
                                         value={printer ?? ""}
                                         label="Impressora"
-                                        variant="standard"
+                                        variant="outlined"
                                         defaultValue={printer}
                                         onChange={handlePrinterChange}
                                     >
@@ -272,7 +272,7 @@ function SetupPage() {
                                         id="print-type-select"
                                         value={printType ?? "totals"}
                                         label="Tipo de Impressão"
-                                        variant="standard"
+                                        variant="outlined"
                                         defaultValue={printType}
                                         onChange={handlePrintTypeChange}
                                     >
@@ -293,10 +293,10 @@ function SetupPage() {
                             <h2>Cabeçalho</h2>
                             <FormControl fullWidth>
                                 <TextField error={firstLineError} id="firstLine" label="Primeira Linha"
-                                           variant="standard" defaultValue={firstLine}
+                                           variant="outlined" defaultValue={firstLine} style={{marginBottom: "8px"}}
                                            onChange={handlerHeaderFirstLine}/>
                                 <TextField error={secondLineError} id="secondLine" label="Segunda Linha"
-                                           variant="standard" defaultValue={secondLine}
+                                           variant="outlined" defaultValue={secondLine}
                                            onChange={handlerHeaderSecondLine}/>
                             </FormControl>
                         </TabPanel>
