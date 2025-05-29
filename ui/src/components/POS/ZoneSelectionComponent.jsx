@@ -2,7 +2,6 @@ import React from 'react'
 import {ListProductsComponent} from './ListProductsComponent';
 import Box from '@mui/material/Box';
 import Tab from '@mui/material/Tab';
-import {Tabs} from "@mui/material";
 import TabPanel from "@mui/lab/TabPanel";
 import TabContext from "@mui/lab/TabContext";
 import TabList from "@mui/lab/TabList";
