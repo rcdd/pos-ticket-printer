@@ -140,6 +140,7 @@ function EditProductModal({open, close, product}) {
                         id="type-select"
                         value={newType ? newType : product ? product.type : null}
                         label="Tipo"
+                        variant="outlined"
                         onChange={handleTypeSelect}
                     >
                         <MenuItem value={"Drink"}>Bebida</MenuItem>
