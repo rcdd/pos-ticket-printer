@@ -75,6 +75,7 @@ function EditProductModal({open, close, product}) {
     };
 
     const handleTypeSelect = (event) => {
+        console.log(event);
         setNewType(event.target.value);
     }
 
@@ -137,7 +138,7 @@ function EditProductModal({open, close, product}) {
                     <Select
                         labelId="type-select-label"
                         id="type-select"
-                        value={product ? product.type : null}
+                        value={newType ? newType : product ? product.type : null}
                         label="Tipo"
                         onChange={handleTypeSelect}
                     >

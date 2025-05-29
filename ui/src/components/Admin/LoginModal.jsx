@@ -20,7 +20,7 @@ export default function LoginModal({open, close, setLogin}) {
     const handleCloseModal = (login = false) => {
         if (login) {
             if (password === 'admin') {
-                localStorage.setItem("login", new Date() + 1000 * 60 * 60 * 24); // 1 day
+                localStorage.setItem("login", new Date() + 1000 * 60 * 60); // 1 hour
                 setErrorText(false);
                 setOpenModal(false);
                 close(true);

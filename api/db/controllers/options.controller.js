@@ -199,9 +199,9 @@ exports.setTypePrint = (req, res) => {
         return;
     }
 
-    const printOptionType = req.body.printType;
+    const printOptionTypeValue = req.body.printType;
 
-    if (printOptionType !== 'totals' && printOptionType !== 'tickets' && printOptionType !== 'both') {
+    if (printOptionTypeValue !== 'totals' && printOptionTypeValue !== 'tickets' && printOptionTypeValue !== 'both') {
         res.status(400).send({
             message: "Invalid print totals option! Must be 'totals', 'tickets' or 'both'."
         });
@@ -214,8 +214,8 @@ exports.setTypePrint = (req, res) => {
         }
     }).then(data => {
         if (data) {
-            Option.update({value: printOptionType}, {
-                where: {name: printOptionType}
+            Option.update({value: printOptionTypeValue}, {
+                where: {name: optionPrintType}
             })
                 .then(num => {
                     if (num.includes(1)) {
@@ -224,13 +224,13 @@ exports.setTypePrint = (req, res) => {
                         });
                     } else {
                         res.send({
-                            message: `Cannot update print totals. Value: ${printOptionType}!`
+                            message: `Cannot update print totals. Value: ${printOptionTypeValue}!`
                         });
                     }
                 })
                 .catch(err => {
                     res.status(500).send({
-                        message: "Error updating print totals value with " + printOptionType,
+                        message: "Error updating print totals value with " + printOptionTypeValue,
                         error: err
                     });
                 });
@@ -238,7 +238,7 @@ exports.setTypePrint = (req, res) => {
             return;
         }
 
-        Option.create({name: optionPrintType, value: printOptionType})
+        Option.create({name: optionPrintType, value: printOptionTypeValue})
             .then(data => {
                 res.send({text: data.value});
             })

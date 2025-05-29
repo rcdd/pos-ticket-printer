@@ -81,10 +81,11 @@ function HomePage() {
         if (loginData) {
             const loginTime = new Date(loginData);
             const currentTime = new Date();
-            if (currentTime - loginTime < 1000 * 60 * 60 * 24) { // 1 day
+            if (currentTime - loginTime < 1000 * 60 * 60) { // 1 hour
                 setLogin(true);
             } else {
                 localStorage.removeItem("login");
+                setPage("pos");
             }
         }
     }, []);
