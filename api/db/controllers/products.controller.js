@@ -51,6 +51,7 @@ exports.create = (req, res) => {
             price: req.body.price,
             type: req.body.type,
             image: req.body.image ? req.body.image : null, // update to default one
+            position: req.body.position ? req.body.position : 0,
             isDeleted: false
         };
 
@@ -93,7 +94,7 @@ exports.findOne = (req, res) => {
         .then(data => {
             res.send(data);
         })
-        .catch(err => {
+        .catch(() => {
             res.status(500).send({
                 message: "Error retrieving Product with id=" + id
             });
@@ -144,7 +145,7 @@ exports.softDelete = (req, res) => {
                 });
             }
         })
-        .catch(err => {
+        .catch(() => {
             res.status(500).send({
                 message: "Could not delete Product with id=" + id
             });
@@ -168,7 +169,7 @@ exports.delete = (req, res) => {
                 });
             }
         })
-        .catch(err => {
+        .catch(() => {
             res.status(500).send({
                 message: "Could not delete Product with id=" + id
             });
@@ -188,6 +189,34 @@ exports.deleteAll = (req, res) => {
             res.status(500).send({
                 message:
                     err.message || "Some error occurred while removing all tutorials."
+            });
+        });
+};
+
+// Update the position of products
+exports.updatePositions = (req, res) => {
+    const products = req.body.products;
+
+    if (!Array.isArray(products) || products.length === 0) {
+        return res.status(400).send({
+            message: "Products array is required and cannot be empty."
+        });
+    }
+
+    const updates = products.map(product => {
+        return Product.update({ position: product.position }, {
+            where: { id: product.id }
+        });
+    });
+
+    Promise.all(updates)
+        .then(() => {
+            res.send({ message: "Product positions updated successfully." });
+        })
+        .catch(err => {
+            res.status(500).send({
+                message: "Error updating product positions.",
+                error: err
             });
         });
 };

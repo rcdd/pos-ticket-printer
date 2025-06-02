@@ -24,6 +24,10 @@ module.exports = (sequelize, Sequelize) => {
             values: Object.values(this.TypeStatus),
             defaultValue: this.TypeStatus.Drink
         },
+        position: {
+            type: Sequelize.INTEGER,
+            defaultValue: 0
+        },
         isDeleted: {
             type: Sequelize.BOOLEAN,
             defaultValue: false

@@ -111,6 +111,7 @@ app.post("/db/product", products.create);
 app.get("/db/products", products.findAll);
 app.put("/db/product", products.update);
 app.delete("/db/product/:id", products.softDelete);
+app.post("/db/product/reorder", products.updatePositions);
 
 app.post("/invoice/add", invoices.create);
 app.post("/invoice/all", invoices.getAll);

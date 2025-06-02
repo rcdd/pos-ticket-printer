@@ -90,22 +90,6 @@ function HomePage() {
         }
     }, []);
 
-    const handleDrawerOpen = () => {
-        setOpen(true);
-    };
-
-    const handleDrawerClose = () => {
-        setOpen(false);
-    };
-
-    const handlePage = (page) => {
-        setPage(page);
-    }
-
-    const handleLogin = () => {
-        setLoginModal(true);
-    }
-
     const handleLogout = () => {
         setLogin(false);
         setPage("pos");
@@ -120,7 +104,7 @@ function HomePage() {
                 {login && <IconButton
                     color="inherit"
                     aria-label="open drawer"
-                    onClick={handleDrawerOpen}
+                    onClick={() => setOpen(true)}
                     edge="start"
                     sx={[{
                         mr: 2,
@@ -130,7 +114,7 @@ function HomePage() {
                 </IconButton>}
                 <IconButton
                     color="inherit"
-                    onClick={() => handlePage('pos')}
+                    onClick={() => setPage('pos')}
                 >
                     <Typography variant="h6" noWrap component="div">
                         POS-TicketPrint {page !== 'pos' && page !== 'about' ? " - Administração" : nav.name}
@@ -139,7 +123,7 @@ function HomePage() {
                 <h3 style={{margin: "0 12px"}}> | </h3>
                 {!login && <IconButton
                     color="inherit"
-                    onClick={() => handleLogin()}
+                    onClick={() => setLoginModal(true)}
                 >
                     <Typography variant="h6" noWrap component="div">
                         <LoginIcon/> Login
@@ -156,7 +140,7 @@ function HomePage() {
                 <div style={{flexGrow: 1}}/>
                 <IconButton
                     color="inherit"
-                    onClick={() => handlePage('about')}
+                    onClick={() => setPage('about')}
                 >
                     <Typography variant="h6" noWrap component="div">
                         <InfoIcon/>
@@ -175,13 +159,13 @@ function HomePage() {
             open={open}
         >
             <DrawerHeader>
-                <IconButton onClick={handleDrawerClose}>
+                <IconButton onClick={() => setOpen(false)}>
                     {theme.direction === 'ltr' ? <ChevronLeftIcon/> : <ChevronRightIcon/>}
                 </IconButton>
             </DrawerHeader>
             <Divider/>
             <List>
-                <ListItem disablePadding onClick={() => handlePage('pos')}>
+                <ListItem disablePadding onClick={() => setPage('pos')}>
                     <ListItemButton>
                         <ListItemIcon>
                             <HomeIcon/>
@@ -192,7 +176,7 @@ function HomePage() {
             </List>
             <Divider/>
             <List>
-                <ListItem disablePadding onClick={() => handlePage('setup')}>
+                <ListItem disablePadding onClick={() => setPage('setup')}>
                     <ListItemButton>
                         <ListItemIcon>
                             <SettingsIcon/>
@@ -200,7 +184,7 @@ function HomePage() {
                         <ListItemText primary={"Configurações"}/>
                     </ListItemButton>
                 </ListItem>
-                <ListItem disablePadding onClick={() => handlePage('reports')}>
+                <ListItem disablePadding onClick={() => setPage('reports')}>
                     <ListItemButton>
                         <ListItemIcon>
                             <AssessmentIcon/>

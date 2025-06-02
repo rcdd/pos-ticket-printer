@@ -19,6 +19,7 @@ export default function LoginModal({open, close, setLogin}) {
 
     const handleCloseModal = (login = false) => {
         if (login) {
+            // todo: implement a proper authentication system
             if (password === 'admin') {
                 localStorage.setItem("login", new Date() + 1000 * 60 * 60); // 1 hour
                 setErrorText(false);

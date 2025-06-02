@@ -18,6 +18,10 @@ class ProductService {
     delete(id) {
         return http.delete(this.BASE_URL + `/db/product/${id}`);
     }
+
+    reorder(data) {
+        return http.post(this.BASE_URL + "/db/product/reorder", {products: data});
+    }
 }
 
 export default new ProductService();

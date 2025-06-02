@@ -128,6 +128,11 @@ function SetupPage() {
         });
     }
 
+    const handleOrder = () => {
+        fetchProducts().then(() => {
+        });
+    }
+
     const onEditMenuModalClose = () => {
         setOpenEditMenuModal(false);
         setIsLoading(true);
@@ -199,99 +204,97 @@ function SetupPage() {
         setZone(newValue);
     }
 
-    return (
-        <div>
+    return (<div>
             <h1 className={"mb-4"}>Configurações</h1>
             {isLoading && <p>Loading...</p>}
-            {!isLoading &&
-                <div>
-                    <TabContext value={tabPosition}>
-                        <Box sx={{borderBottom: 1, borderColor: 'divider'}}>
-                            <TabList onChange={handleTabChange} aria-label="lab API tabs example">
-                                <Tab label="Produtos" value="1"/>
-                                <Tab label="Impressora" value="2"/>
-                                <Tab label="Cabeçalhos" value="3"/>
-                            </TabList>
-                        </Box>
-                        <TabPanel value="1">
-                            <h2>Produtos</h2>
-                            <p>Adicione, edite ou remova produtos</p>
-                            <Button variant="contained" fullWidth={false} size="large"
-                                    onClick={() => setOpenAddModal(true)}>
-                                Adicionar Produto</Button>
+            {!isLoading && <div>
+                <TabContext value={tabPosition}>
+                    <Box sx={{borderBottom: 1, borderColor: 'divider'}}>
+                        <TabList onChange={handleTabChange} aria-label="lab API tabs example">
+                            <Tab label="Produtos" value="1"/>
+                            <Tab label="Impressora" value="2"/>
+                        </TabList>
+                    </Box>
 
-                            <TabContext value={tabProductsPosition}>
-                                <Box sx={{borderBottom: 1, borderColor: 'divider'}}>
-                                    <TabList onChange={handleTabProductsChange} aria-label="lab API tabs example">
-                                        <Tab label="Bebidas" value="drink"/>
-                                        <Tab label="Comidas" value="food"/>
-                                        <Tab label="Menus" value="menu"/>
-                                    </TabList>
-                                </Box>
-                                <TabPanel value="drink">
-                                    <ListProductComponent products={productsDrinks}
-                                                          editProduct={handleEditProduct}/>
-                                </TabPanel>
-                                <TabPanel value="food">
-                                    <ListProductComponent products={productsFoods}
-                                                          editProduct={handleEditProduct}/>
-                                </TabPanel>
-                                <TabPanel value="menu">
-                                    <ListProductComponent products={productsMenus}
-                                                          editProduct={handleEditMenu}/>
-                                </TabPanel>
-                            </TabContext>
-                        </TabPanel>
+                    <TabPanel value="1">
+                        <h2>Produtos</h2>
+                        <p>Adicione, edite ou remova produtos</p>
+                        <Button variant="contained" fullWidth={false} size="large"
+                                onClick={() => setOpenAddModal(true)}>
+                            Adicionar Produto</Button>
 
-                        <TabPanel value="2">
-                            <div style={{marginBottom: "32px"}}>
-                                <h2>Impressora</h2>
-                                <FormControl fullWidth>
-                                    <InputLabel id="printer-select">Impressora</InputLabel>
-                                    <Select
-                                        labelId="printer-select"
-                                        id="printer-select"
-                                        value={printer ?? ""}
-                                        label="Impressora"
-                                        variant="outlined"
-                                        defaultValue={printer}
-                                        onChange={handlePrinterChange}
-                                    >
-                                        {printerList.map((_printer) => {
-                                            return (
-                                                <MenuItem key={_printer.name} id={_printer.name}
-                                                          value={_printer.name}>{_printer.name}</MenuItem>)
-                                        })}
-                                    </Select>
-                                </FormControl>
-                                <h2 className="mt-16"><br/></h2>
-                                <FormControl fullWidth>
-                                    <InputLabel id="print-type-select">Tipo de Impressão</InputLabel>
-                                    <Select
-                                        labelId="print-type-select"
-                                        id="print-type-select"
-                                        value={printType ?? "totals"}
-                                        label="Tipo de Impressão"
-                                        variant="outlined"
-                                        defaultValue={printType}
-                                        onChange={handlePrintTypeChange}
-                                    >
-                                        <MenuItem key="totals" id="totals"
-                                                  value="totals">Totais</MenuItem>
+                        <TabContext value={tabProductsPosition}>
+                            <Box sx={{borderBottom: 1, borderColor: 'divider'}}>
+                                <TabList onChange={handleTabProductsChange} aria-label="lab API tabs example">
+                                    <Tab label="Bebidas" value="drink"/>
+                                    <Tab label="Comidas" value="food"/>
+                                    <Tab label="Menus" value="menu"/>
+                                </TabList>
+                            </Box>
+                            <TabPanel value="drink">
+                                <ListProductComponent products={productsDrinks}
+                                                      editProduct={handleEditProduct}
+                                                      updateOrder={handleOrder}/>
+                            </TabPanel>
+                            <TabPanel value="food">
+                                <ListProductComponent products={productsFoods}
+                                                      editProduct={handleEditProduct}
+                                                      updateOrder={handleOrder}/>
+                            </TabPanel>
+                            <TabPanel value="menu">
+                                <ListProductComponent products={productsMenus}
+                                                      editProduct={handleEditMenu}
+                                                      updateOrder={handleOrder}/>
+                            </TabPanel>
+                        </TabContext>
+                    </TabPanel>
 
-                                        <MenuItem key="tickets" id="tickets"
-                                                  value="tickets">Tickets</MenuItem>
-
-                                        <MenuItem key="both" id="both"
-                                                  value="both">Ambos</MenuItem>
-                                    </Select>
-                                </FormControl>
-                            </div>
-
-                        </TabPanel>
-                        <TabPanel value="3">
-                            <h2>Cabeçalho</h2>
+                    <TabPanel value="2">
+                        <div style={{marginBottom: "32px"}}>
+                            <h3>Impressora</h3>
                             <FormControl fullWidth>
+                                <InputLabel id="printer-select">Impressora</InputLabel>
+                                <Select
+                                    labelId="printer-select"
+                                    id="printer-select"
+                                    value={printer ?? ""}
+                                    label="Impressora"
+                                    variant="outlined"
+                                    defaultValue={printer}
+                                    onChange={handlePrinterChange}
+                                    style={{marginBottom: "8px"}}
+                                >
+                                    {printerList.map((_printer) => {
+                                        return (<MenuItem key={_printer.name} id={_printer.name}
+                                                          value={_printer.name}>{_printer.name}</MenuItem>)
+                                    })}
+                                </Select>
+                            </FormControl>
+
+                            <FormControl fullWidth>
+                                <InputLabel id="print-type-select">Tipo de Impressão</InputLabel>
+                                <Select
+                                    labelId="print-type-select"
+                                    id="print-type-select"
+                                    value={printType ?? "totals"}
+                                    label="Tipo de Impressão"
+                                    variant="outlined"
+                                    defaultValue={printType}
+                                    onChange={handlePrintTypeChange}
+                                >
+                                    <MenuItem key="totals" id="totals"
+                                              value="totals">Totais</MenuItem>
+
+                                    <MenuItem key="tickets" id="tickets"
+                                              value="tickets">Tickets</MenuItem>
+
+                                    <MenuItem key="both" id="both"
+                                              value="both">Ambos</MenuItem>
+                                </Select>
+
+                                <h2 className="mt-16"><br/></h2>
+
+                                <h2>Cabeçalho</h2>
                                 <TextField error={firstLineError} id="firstLine" label="Primeira Linha"
                                            variant="outlined" defaultValue={firstLine} style={{marginBottom: "8px"}}
                                            onChange={handlerHeaderFirstLine}/>
@@ -299,15 +302,15 @@ function SetupPage() {
                                            variant="outlined" defaultValue={secondLine}
                                            onChange={handlerHeaderSecondLine}/>
                             </FormControl>
-                        </TabPanel>
-                    </TabContext>
-                </div>
-            }
+                        </div>
+
+                    </TabPanel>
+                </TabContext>
+            </div>}
             <AddProductModal open={openAddModal} zone={zone} close={onAddProductModalClose}/>
             <EditProductModal open={openEditProductModal} close={onEditProductModalClose} product={productEdit}/>
             <EditMenuModal open={openEditMenuModal} close={onEditMenuModalClose} menu={menuEdit}/>
-        </div>
-    )
+        </div>)
 }
 
 export default SetupPage
