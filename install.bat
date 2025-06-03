@@ -62,9 +62,11 @@ if %errorlevel% equ 0 (
     pm2 del api-pos
     if %errorlevel% neq 0 (
         echo [ERROR] Failed to delete PM2 process 'api-pos'. Please stop or delete it manually before running startup.bat.
+        echo [INFO] Start installation again after resolving the issue.
         pause
     ) else (
         echo [OK] PM2 process 'api-pos' deleted successfully.
+        echo [INFO] Start installation again.
         pause
     )
 ) else (

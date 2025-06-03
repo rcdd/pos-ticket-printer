@@ -3,7 +3,7 @@ import {CSS} from "@dnd-kit/utilities";
 import {Box, Card, CardMedia, Typography} from "@mui/material";
 import React from "react";
 
-export function ProductComponent({item}) {
+export function ProductComponent({item, allowDrag = true}) {
     const {
         attributes,
         listeners,
@@ -20,14 +20,14 @@ export function ProductComponent({item}) {
     return (
         <Box ref={setNodeRef} style={style} {...attributes} {...listeners}>
             <Card variant="outlined"
-                  sx={{p: 2, textAlign: 'center', cursor: 'pointer'}}>
+                  sx={{p: 2, fontSize: '12px', textAlign: 'center', cursor: 'pointer', touchAction: allowDrag ? 'auto' : 'none'}}>
                 <Typography variant="h6" noWrap>{item.name}</Typography>
                 <CardMedia
                     draggable="false"
                     component="img"
                     image={item.image}
                     alt={item.name}
-                    sx={{height: 80, objectFit: 'contain', my: 1}}
+                    sx={{height: 50, objectFit: 'contain', my: 1}}
                 />
                 <Typography variant="h6">{(item.price / 100).toFixed(2)}€</Typography>
             </Card>

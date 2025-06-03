@@ -12,17 +12,17 @@ export function CartComponent({cart, totalAmount, increaseQuantity, decreaseQuan
                 <table className='table table-responsive table-dark table-hover'>
                     <thead>
                     <tr>
-                        <td width={"20%"} align={"center"}>Qtd</td>
-                        <td width={"35%"}>Item</td>
-                        <td width={"20%"}>Preço</td>
-                        <td width={"15%"}>Total</td>
-                        <td width={"10%"}>{/* options */}</td>
+                        <th style={{width: "100px", textAlign: 'center'}}>Qth</th>
+                        <th style={{width: "200px"}}>Item</th>
+                        <th style={{width: "100px"}}>Preço</th>
+                        <th style={{width: "150px"}}>Total</th>
+                        <th style={{width: "20px"}}>{/* options */}</th>
                     </tr>
                     </thead>
                     <tbody className='products-table'>
                     {cart ? cart.map((cartProduct, key) =>
                         <tr key={key} className='products-table__item'>
-                            <td className="products-table__item__quantity" width={"18%"} align={"center"}>
+                            <td className="products-table__item__quantity" style={{width: "85px", textAlign: 'center'}}>
                                 <IconButton color="primary" aria-label="reduce quantity"
                                             onClick={() => decreaseQuantity(cartProduct)}>
                                     <RemoveIcon/>
@@ -33,10 +33,10 @@ export function CartComponent({cart, totalAmount, increaseQuantity, decreaseQuan
                                     <AddIcon/>
                                 </IconButton>
                             </td>
-                            <td width={"35%"}><p className="products-table__item__name">{cartProduct.name}</p></td>
-                            <td width={"20%"}>{(cartProduct.price / 100).toFixed(2)}€</td>
-                            <td width={"15%"}>{(cartProduct.totalAmount / 100).toFixed(2)}€</td>
-                            <td width={"10%"}>
+                            <td style={{width: "175px"}}><p className="products-table__item__name">{cartProduct.name}</p></td>
+                            <td style={{width: "80px"}}>{(cartProduct.price / 100).toFixed(2)}€</td>
+                            <td style={{width: "80px"}}>{(cartProduct.totalAmount / 100).toFixed(2)}€</td>
+                            <td style={{width: "50px"}}>
                                 <IconButton
                                     color="error"
                                     aria-label="delete"

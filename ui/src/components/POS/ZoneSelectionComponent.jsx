@@ -48,13 +48,13 @@ export function ZoneSelectionComponent({
                                 {menus.length && <Tab style={{fontSize: 16 + "px"}} value="menu" label="Menus"/>}
                             </TabList>
                         </Box>
-                        <TabPanel value="drink">
+                        <TabPanel style={{padding: "20px 0"}} value="drink">
                             <ListProductsComponent products={productsDrink} addToCart={addProductToCart}/>
                         </TabPanel>
-                        <TabPanel value="food">
+                        <TabPanel style={{padding: "20px 0"}} value="food">
                             <ListProductsComponent products={productsFood} addToCart={addProductToCart}/>
                         </TabPanel>
-                        <TabPanel value="menu">
+                        <TabPanel style={{padding: "20px 0"}} value="menu">
                             <ListProductsComponent products={menus} addToCart={addProductToCart}/>
                         </TabPanel>
                     </TabContext>

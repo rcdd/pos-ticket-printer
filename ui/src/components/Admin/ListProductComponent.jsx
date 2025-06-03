@@ -1,6 +1,6 @@
 import React, {useRef, useState} from 'react'
 import {arrayMove, rectSortingStrategy, SortableContext} from "@dnd-kit/sortable";
-import {closestCenter, DndContext} from "@dnd-kit/core";
+import {closestCenter, DndContext, PointerSensor, TouchSensor, useSensor, useSensors} from "@dnd-kit/core";
 import ProductService from "../../services/product.service";
 import {ProductComponent} from "./ProductComponent";
 import {Box} from "@mui/material";
@@ -47,8 +47,21 @@ function ListProductComponent({products, editProduct, updateOrder}) {
         )
     };
 
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(TouchSensor, {
+            activationConstraint: {
+                delay: 150,
+                tolerance: 10,
+            },
+        })
+    );
+
     return (
-        <DndContext collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <DndContext sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}>
             <SortableContext
                 items={productsDraggable.map(p => p.id)}
                 strategy={rectSortingStrategy}
@@ -56,7 +69,7 @@ function ListProductComponent({products, editProduct, updateOrder}) {
                 <Box
                     sx={{
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
                         gap: 2,
                         px: 2,
                         py: 2,
@@ -65,7 +78,7 @@ function ListProductComponent({products, editProduct, updateOrder}) {
                     {productsDraggable
                         .sort((a, b) => a.position - b.position)
                         .map((item) => (
-                            <ProductComponent key={item.id} item={item}/>
+                            <ProductComponent key={item.id} item={item} allowDrag={false}/>
                         ))}
                 </Box>
             </SortableContext>
