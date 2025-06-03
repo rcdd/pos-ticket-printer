@@ -286,7 +286,7 @@ function SetupPage() {
                                               value="totals">Totais</MenuItem>
 
                                     <MenuItem key="tickets" id="tickets"
-                                              value="tickets">Tickets</MenuItem>
+                                              value="tickets">Individuais</MenuItem>
 
                                     <MenuItem key="both" id="both"
                                               value="both">Ambos</MenuItem>

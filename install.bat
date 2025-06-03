@@ -39,7 +39,7 @@ REM Visual Studio Build Tools
 where cl >nul 2>&1
 if %errorlevel% neq 0 (
     echo [INFO] Installing Visual Studio Build Tools...
-    choco install visualstudio2022-workload-vctools -y
+    choco install visualstudio2022-workload-vctools
 )
 
 REM PM2
@@ -54,7 +54,20 @@ if %errorlevel% neq 0 (
 echo ===============================
 echo Checking if PM2 process 'api-pos' is running...
 echo ===============================
-echo [WARN] Couldn't be possible to check. Please stop or delete it manually before running startup.bat
+
+pm2 list | findstr /C:"api-pos" >nul 2>&1
+if %errorlevel% equ 0 (
+    echo [WARN] PM2 process 'api-pos' exists.
+    echo trying to delete it...:
+    pm2 del api-pos
+    if %errorlevel% neq 0 (
+        echo [ERROR] Failed to delete PM2 process 'api-pos'. Please stop or delete it manually before running startup.bat.
+    ) else (
+        echo [OK] PM2 process 'api-pos' deleted successfully.
+    )
+) else (
+    echo [OK] PM2 process 'api-pos' not found.
+)
 
 echo ===============================
 echo Installing backend dependencies...
@@ -74,7 +87,7 @@ if exist "api\package.json" (
 echo ===============================
 echo Building Docker containers (UI + DB)...
 echo ===============================
-docker compose up -d --build
+docker compose up -d --build --force-recreate
 
 echo [OK] Installation complete.
 pause
