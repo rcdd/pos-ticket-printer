@@ -62,16 +62,15 @@ if %errorlevel% equ 0 (
     pm2 del api-pos
     if %errorlevel% neq 0 (
         echo [ERROR] Failed to delete PM2 process 'api-pos'. Please stop or delete it manually before running startup.bat.
-        goto :installBackendDependencies
+        pause
     ) else (
         echo [OK] PM2 process 'api-pos' deleted successfully.
-        goto :installBackendDependencies
+        pause
     )
 ) else (
     echo [OK] PM2 process 'api-pos' not found.
 )
 
-:installBackendDependencies
 echo ===============================
 echo Installing backend dependencies...
 echo ===============================
@@ -95,7 +94,6 @@ docker rm -f mysqldb phpmyadmin ui >nul 2>&1
 echo ===============================
 echo Building Docker containers (UI + DB)...
 echo ===============================
-set COMPOSE_BAKE=true
 docker compose up -d --build
 
 echo [OK] Installation complete.
