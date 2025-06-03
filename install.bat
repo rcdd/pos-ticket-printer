@@ -87,6 +87,7 @@ if exist "api\package.json" (
 echo ===============================
 echo Building Docker containers (UI + DB)...
 echo ===============================
+set COMPOSE_BAKE=true
 docker compose up -d --build --force-recreate
 
 echo [OK] Installation complete.
