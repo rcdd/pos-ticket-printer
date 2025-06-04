@@ -35,6 +35,8 @@ services:
     restart: unless-stopped
     ports:
       - $REACT_LOCAL_PORT:$REACT_DOCKER_PORT
+    volumes:
+      - "./ui/public/imgs/:/usr/share/nginx/html/imgs/"
     networks:
       - frontend
 
