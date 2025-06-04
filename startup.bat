@@ -55,6 +55,8 @@ echo Starting existing Docker containers (frontend and database)...
 echo ===============================
 docker compose start
 
+echo [OK] Existing containers started.
+
 echo ===============================
 echo Ensuring API is running via PM2...
 echo ===============================
