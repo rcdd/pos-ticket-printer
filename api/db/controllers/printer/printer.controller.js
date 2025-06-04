@@ -23,9 +23,6 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const printHeader = (printJob) => {
     const date = new Date().toLocaleString('pt-PT', { timeZone: 'Europe/Lisbon' });
 
-    // const date = new Date().toISOString().replace(/T/, ' ').      // replace T with a space
-    //     replace(/\..+/, '');
-
     printJob.newLine(3);
     printJob.setFont('A');
     printJob.setTextAlignment('center');
