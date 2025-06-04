@@ -263,6 +263,18 @@ Printjob.prototype = {
         var init = new Buffer.from(cmds.HW_INIT);
 
         var queue = this._queue.slice(0);	// Clone queue
+
+        for (let i = 0; i < queue.length; i++) {
+            if (queue[i] instanceof Buffer) {
+                queue[i] = queue[i].toString('binary');
+            } else if (typeof queue[i] === 'string') {
+                queue[i] = iconv.encode(queue[i], 'cp437').toString('binary');
+            }
+        }
+        queue = queue.map(function (item) {
+            return Buffer.from(item, 'binary');
+        });
+
         queue.unshift(init);				// Prepend init command
 
         return Buffer.concat(queue);
