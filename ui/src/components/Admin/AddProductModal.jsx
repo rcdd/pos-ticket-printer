@@ -73,9 +73,9 @@ function AddProductModal({open, close, zone}) {
             } else {
                 const bodyRequest = {
                     name: newName,
-                    price: newPrice.replace(",", ".") * 100,
+                    price: newPrice > 0 ? newPrice.replace(",", ".") * 100 : 0,
                     image: newImage,
-                    zone: newZone
+                    zoneId: newZone
                 };
 
                 await ProductService.create(bodyRequest).then((response) => {
@@ -145,18 +145,18 @@ function AddProductModal({open, close, zone}) {
                         width: 'fit-content',
                     }}
                 >
-                    <InputLabel id="type-select-label" required>Tipo</InputLabel>
+                    <InputLabel id="type-select-label" required>Zona</InputLabel>
                     <Select
                         labelId="type-select-label"
                         id="type-select"
-                        label="Tipo"
+                        label="Zona"
                         value={newZone}
                         onChange={handleTypeSelect}
                     >
                         {zones && zones.map((zone) => (
                             <MenuItem key={zone.id} value={zone.id}>{zone.name}</MenuItem>
                         ))}
-                        <MenuItem value={"Menu"}>Menu</MenuItem>
+                        {/*<MenuItem value={"Menu"}>Menu</MenuItem>*/}
                     </Select>
 
                     <TextField

@@ -11,7 +11,7 @@ exports.create = (req, res) => {
         });
         return;
     }
-    if (!req.body.price) {
+    if (req.body.price == null) {
         res.status(400).send({
             message: "Price can not be empty!"
         });

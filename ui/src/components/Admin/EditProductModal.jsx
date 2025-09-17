@@ -67,7 +67,6 @@ function EditProductModal({open, close, product}) {
             };
 
             await ProductService.update(bodyRequest).then((response) => {
-                console.log(response);
                 setNewName(null);
                 setNewPrice(0);
                 setNewImage(null);
