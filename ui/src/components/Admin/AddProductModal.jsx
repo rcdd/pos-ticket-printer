@@ -14,6 +14,7 @@ import {FileUploadOutlined} from "@mui/icons-material";
 import CloseIcon from "@mui/icons-material/Close";
 import MenuService from "../../services/menu.service";
 import Chip from "@mui/material/Chip";
+import ZoneService from "../../services/zone.service";
 
 
 function AddProductModal({open, close, zone}) {
@@ -23,28 +24,40 @@ function AddProductModal({open, close, zone}) {
     const [newImage, setNewImage] = useState(null);
     const [newProducts, setNewProducts] = useState([]);
     const [products, setProducts] = useState([]);
-    const [newType, setNewType] = useState(zone === "food" ? "Food" : zone === "drink" ? "Drink" : zone === "menu" ? "Menu" : "Drink");
+    const [newZone, setNewZone] = useState(null);
+    const [zones, setZones] = useState(null);
 
     useEffect(() => {
-        ProductService.getAll().then((response) => {
-            setProducts(response.data);
+        fetchZones().then(() => {
+            ProductService.getAll().then((response) => {
+                setNewZone(zone ?? null);
+                setProducts(response.data);
+            }).catch((error) => {
+                console.log(error.response);
+                throw Error(error.response.data.message)
+            });
         }).catch((error) => {
             console.log(error.response);
             throw Error(error.response.data.message)
         });
-    }, []);
+    }, [zone]);
 
     useEffect(() => {
         setOpenModal(open);
     }, [open]);
 
-    useEffect(() => {
-        setNewType(zone === "food" ? "Food" : zone === "drink" ? "Drink" : zone === "menu" ? "Menu" : "Drink");
-    }, [zone]);
+    const fetchZones = async () => {
+        await ZoneService.getAll().then((response) => {
+            setZones(response.data);
+        }).catch((error) => {
+            console.log(error.response);
+            throw Error(error.response.data.message)
+        });
+    }
 
     const handleCloseModal = async (status = false) => {
         if (status) {
-            if (newType === "Menu") {
+            if (newZone === "Menu") {
                 const bodyRequest = {
                     menu: {
                         name: newName,
@@ -62,14 +75,14 @@ function AddProductModal({open, close, zone}) {
                     name: newName,
                     price: newPrice.replace(",", ".") * 100,
                     image: newImage,
-                    type: newType
+                    zone: newZone
                 };
 
                 await ProductService.create(bodyRequest).then((response) => {
                     setNewName(null);
                     setNewPrice(0);
                     setNewImage(null);
-                    setNewType("Drink");
+                    setNewZone(null);
                 }).catch(
                     (error) => {
                         console.log(error.response);
@@ -87,7 +100,7 @@ function AddProductModal({open, close, zone}) {
     };
 
     const handleTypeSelect = (event) => {
-        setNewType(event.target.value);
+        setNewZone(event.target.value);
     }
 
     const handleChangeProducts = (event) => {
@@ -137,11 +150,12 @@ function AddProductModal({open, close, zone}) {
                         labelId="type-select-label"
                         id="type-select"
                         label="Tipo"
-                        value={newType}
+                        value={newZone}
                         onChange={handleTypeSelect}
                     >
-                        <MenuItem value={"Drink"}>Bebida</MenuItem>
-                        <MenuItem value={"Food"}>Comida</MenuItem>
+                        {zones && zones.map((zone) => (
+                            <MenuItem key={zone.id} value={zone.id}>{zone.name}</MenuItem>
+                        ))}
                         <MenuItem value={"Menu"}>Menu</MenuItem>
                     </Select>
 
@@ -170,7 +184,7 @@ function AddProductModal({open, close, zone}) {
                         onChange={(value) => setNewPrice(value.target.value)}
                     />
 
-                    {newType === "Menu" ?
+                    {newZone === "Menu" ?
                         <Box>
                             <InputLabel id="type-select-label">Produtos</InputLabel>
                             <Select

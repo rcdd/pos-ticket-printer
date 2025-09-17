@@ -8,8 +8,8 @@ import TabList from "@mui/lab/TabList";
 
 export function ZoneSelectionComponent({
                                            isLoading,
-                                           productsFood,
-                                           productsDrink,
+                                           zones,
+                                           products,
                                            menus,
                                            addProductToCart
                                        }) {
@@ -21,39 +21,35 @@ export function ZoneSelectionComponent({
     };
 
     React.useEffect(() => {
-        if (productsDrink.length > 0) {
-            setValue('drink');
-        } else if (productsFood.length > 0) {
-            setValue('food');
-        } else if (menus.length > 0) {
-            setValue('menu');
-        } else {
-            setValue(null);
-        }
-    }, [productsDrink, productsFood, menus]);
+        setValue(zones.length ? zones[0].name : menus.length ? "menu" : null);
+    }, [products, zones, menus]);
 
     return (
         <div className='products-wrapper col-xl-7 col-lg-6 col-md-6'>
             {isLoading ? 'Loading...' :
-                productsFood.length === 0 && productsFood.length === 0 && menus.length === 0 ?
+                products.length === 0 && menus.length === 0 ?
                     <h3>Sem produtos definidos!</h3> :
-                    value && <TabContext value={value}>
+                    value && <TabContext value={value ?? null}>
                         <Box sx={{borderBottom: 1, borderColor: 'divider'}}>
                             <TabList
                                 value={value}
                                 onChange={handleTabChange}
                             >
-                                {productsDrink.length && <Tab style={{fontSize: 16 + "px"}} value="drink" label="Bebidas"/>}
-                                {productsFood.length && <Tab style={{fontSize: 16 + "px"}} value="food" label="Comidas"/>}
+                                {zones && zones.map((zone) => (
+                                    <Tab style={{fontSize: 16 + "px"}} key={zone.id} label={zone.name} value={zone.name}/>
+                                ))}
+
                                 {menus.length && <Tab style={{fontSize: 16 + "px"}} value="menu" label="Menus"/>}
                             </TabList>
                         </Box>
-                        <TabPanel style={{padding: "20px 0"}} value="drink">
-                            <ListProductsComponent products={productsDrink} addToCart={addProductToCart}/>
-                        </TabPanel>
-                        <TabPanel style={{padding: "20px 0"}} value="food">
-                            <ListProductsComponent products={productsFood} addToCart={addProductToCart}/>
-                        </TabPanel>
+
+                        {zones && zones.map((zone) => (
+                            <TabPanel style={{padding: "20px 0"}} key={zone.id} value={zone.name}>
+                                <ListProductsComponent products={products.filter(p => p.zoneId === zone.id)}
+                                                       addToCart={addProductToCart}/>
+                            </TabPanel>
+                        ))}
+
                         <TabPanel style={{padding: "20px 0"}} value="menu">
                             <ListProductsComponent products={menus} addToCart={addProductToCart}/>
                         </TabPanel>

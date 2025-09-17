@@ -2,7 +2,7 @@ import React, {useRef, useState} from 'react'
 import {arrayMove, rectSortingStrategy, SortableContext} from "@dnd-kit/sortable";
 import {closestCenter, DndContext, PointerSensor, TouchSensor, useSensor, useSensors} from "@dnd-kit/core";
 import ProductService from "../../services/product.service";
-import {ProductComponent} from "./ProductComponent";
+import {ProductComponent} from "../Common/ProductComponent";
 import {Box} from "@mui/material";
 
 function ListProductComponent({products, editProduct, updateOrder}) {

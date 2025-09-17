@@ -1,5 +1,5 @@
 import React from 'react'
-import {ProductComponent} from "../Admin/ProductComponent";
+import {ProductComponent} from "../Common/ProductComponent";
 
 export function ListProductsComponent({products, addToCart}) {
 

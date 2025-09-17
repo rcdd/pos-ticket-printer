@@ -6,10 +6,11 @@ import PrinterService from "../services/printer.service";
 import InvoiceService from "../services/invoice.service";
 import {ZoneSelectionComponent} from '../components/POS/ZoneSelectionComponent';
 import MenuService from "../services/menu.service";
+import ZoneService from "../services/zone.service";
 
 function POSPage() {
-    const [productsFood, setProductsFood] = useState([]);
-    const [productsDrink, setProductsDrink] = useState([]);
+    const [products, setProducts] = useState([]);
+    const [zones, setZones] = useState([]);
     const [menus, setMenus] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [cart, setCart] = useState([]);
@@ -20,26 +21,26 @@ function POSPage() {
     const [isPrinting, setIsPrinting] = React.useState(false);
     const [isPrinted, setIsPrinted] = React.useState(false);
 
+    const fetchZones = async () => {
+        setIsLoading(true);
+        await ZoneService.getAll().then((response) => {
+            setZones(response.data.sort((a, b) => a.position > b.position ? 1 : -1));
+            setIsLoading(false);
+        }).catch((error) => {
+            throw Error(error.response.data.message)
+        });
+    }
     const fetchProducts = async () => {
         setIsLoading(true);
         await ProductService.getAll().then(async (response) => {
-            const foods = [];
-            const drinks = [];
+            const products = [];
             response.data.forEach(element => {
                 if (element.image === null) {
                     element.image = "../imgs/placeholder.png"
                 }
-
-                if (element.type === 'Drink') {
-                    drinks.push(element);
-                }
-
-                if (element.type === 'Food') {
-                    foods.push(element);
-                }
+                products.push(element);
             });
-            setProductsFood(foods);
-            setProductsDrink(drinks);
+            setProducts(products);
 
             await MenuService.getAll().then((response) => {
                 response.data.forEach(menu => {
@@ -163,7 +164,9 @@ function POSPage() {
     }
 
     useEffect(() => {
-        fetchProducts();
+        fetchZones().then(() => {
+            fetchProducts();
+        });
     }, []);
 
     useEffect(() => {
@@ -179,8 +182,8 @@ function POSPage() {
             <div className='row'>
                 <ZoneSelectionComponent
                     isLoading={isLoading}
-                    productsFood={productsFood}
-                    productsDrink={productsDrink}
+                    zones={zones}
+                    products={products}
                     menus={menus}
                     addProductToCart={addProductToCart}/>
 
