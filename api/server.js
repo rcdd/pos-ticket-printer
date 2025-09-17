@@ -33,6 +33,7 @@ const options = require("./db/controllers/options.controller");
 const products = require("./db/controllers/products.controller");
 const invoices = require("./db/controllers/invoices.controller");
 const menus = require("./db/controllers/menus.controller");
+const zones = require("./db/controllers/zones.controller");
 
 // set port, listen for requests
 app.listen(PORT, () => {
@@ -121,3 +122,9 @@ app.post("/menu/add", menus.create);
 app.get("/menus", menus.findAll);
 app.put("/menu/:id", menus.update);
 app.delete("/menu/:id", menus.delete);
+
+app.post("/zone/add", zones.create);
+app.put("/zone/update", zones.update);
+app.delete("/zone/:id", zones.softDelete);
+app.post("/zone/reorder", zones.updatePositions);
+app.get("/zones", zones.findAll);

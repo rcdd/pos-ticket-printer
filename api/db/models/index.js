@@ -25,6 +25,7 @@ db.records = require("./record.model")(sequelize, Sequelize);
 db.invoices = require("./invoice.model")(sequelize, Sequelize);
 db.menus = require("./menu.model")(sequelize, Sequelize);
 db.menuProducts = require("./menuProducts.model")(sequelize, Sequelize);
+db.zones = require("./zones.model")(sequelize, Sequelize);
 
 // relations
 db.invoices.hasMany(db.records, { foreignKey: 'invoiceId' });
@@ -35,5 +36,8 @@ db.products.belongsToMany(db.menus, { through: db.menuProducts });
 
 db.records.belongsTo(db.products, { foreignKey: 'product', as: 'productItem' });
 db.records.belongsTo(db.menus, { foreignKey: 'menu', as: 'menuItem' });
+
+db.products.belongsTo(db.zones, { foreignKey: 'zoneId', as: 'zone' });
+db.zones.hasMany(db.products, { foreignKey: 'zoneId', as: 'products' });
 
 module.exports = db;

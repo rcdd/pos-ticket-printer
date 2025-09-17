@@ -17,16 +17,10 @@ exports.create = (req, res) => {
         });
         return;
     }
-    if (!req.body.type) {
-        res.status(400).send({
-            message: "Type can not be empty!"
-        });
-        return;
-    }
 
-    if (req.body.type !== "Drink" && req.body.type !== "Food") {
+    if (!req.body.zoneId) {
         res.status(400).send({
-            message: "Type must be do type Drink or Food!"
+            message: "Zone must cannot be empty!"
         });
         return;
     }
@@ -52,6 +46,7 @@ exports.create = (req, res) => {
             type: req.body.type,
             image: req.body.image ? req.body.image : null, // update to default one
             position: req.body.position ? req.body.position : 0,
+            zoneId: req.body.zoneId,
             isDeleted: false
         };
 
@@ -72,9 +67,16 @@ exports.create = (req, res) => {
 // Retrieve all Products from the database.
 exports.findAll = (req, res) => {
     const title = req.query.title;
-    var condition = title ? { title: { [Op.like]: `%${title}%` }, isDeleted: false } : { isDeleted: false };
+    var condition = title ? {title: {[Op.like]: `%${title}%`}, isDeleted: false} : {isDeleted: false};
 
-    Product.findAll({ where: condition, attributes: { exclude: ['isDeleted'] } })
+    Product.findAll({
+        where: condition,
+        attributes: {exclude: ['isDeleted']},
+        include: [{
+            model: db.zones,
+            as: 'zone'
+        }]
+    })
         .then(data => {
             res.send(data);
         })
@@ -106,7 +108,7 @@ exports.update = (req, res) => {
     const id = req.body.id;
 
     Product.update(req.body, {
-        where: { id: id }
+        where: {id: id}
     })
         .then(num => {
             if (num === 1) {
@@ -130,8 +132,8 @@ exports.update = (req, res) => {
 exports.softDelete = (req, res) => {
     const id = req.params.id;
 
-    Product.update({ isDeleted: true }, {
-        where: { id: id, isDeleted: false }
+    Product.update({isDeleted: true}, {
+        where: {id: id, isDeleted: false}
     })
         .then(num => {
             console.log(num);
@@ -156,7 +158,7 @@ exports.delete = (req, res) => {
     const id = req.params.id;
 
     Product.destroy({
-        where: { id: id }
+        where: {id: id}
     })
         .then(num => {
             if (num === 1) {
@@ -183,7 +185,7 @@ exports.deleteAll = (req, res) => {
         truncate: false
     })
         .then(nums => {
-            res.send({ message: `${nums} Products were deleted successfully!` });
+            res.send({message: `${nums} Products were deleted successfully!`});
         })
         .catch(err => {
             res.status(500).send({
@@ -204,14 +206,14 @@ exports.updatePositions = (req, res) => {
     }
 
     const updates = products.map(product => {
-        return Product.update({ position: product.position }, {
-            where: { id: product.id }
+        return Product.update({position: product.position}, {
+            where: {id: product.id}
         });
     });
 
     Promise.all(updates)
         .then(() => {
-            res.send({ message: "Product positions updated successfully." });
+            res.send({message: "Product positions updated successfully."});
         })
         .catch(err => {
             res.status(500).send({

@@ -68,6 +68,9 @@ async function printItem(productName) {
         printJob.newLine(2);
         printJob.text('1 ' + productName);
         printJob.setTextFormat('normal');
+
+        printJob.cashdraw();
+
         printHeader(printJob);
 
         printText(printJob).then(() => {
@@ -112,7 +115,7 @@ exports.printRequest = async (req, res) => {
     if (printType === 'tickets' || printType === 'both') {
         for await (const item of items) {
             for (let i = 0; i < item.quantity; i++) {
-                if (item.type === 'Menu') {
+                if (item.type && item.type === 'Menu') {
                     for (const product of item.products) {
                         await printItem(product.name);
                     }

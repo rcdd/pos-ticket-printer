@@ -1,5 +1,5 @@
 module.exports = (sequelize, Sequelize) => {
-    return sequelize.define("product", {
+    return sequelize.define("zones", {
         id: {
             type: Sequelize.INTEGER,
             primaryKey: true,
@@ -7,20 +7,6 @@ module.exports = (sequelize, Sequelize) => {
         },
         name: {
             type: Sequelize.STRING
-        },
-        price: {
-            type: Sequelize.INTEGER
-        },
-        image: {
-            type: Sequelize.STRING
-        },
-        zoneId: {
-            type: Sequelize.INTEGER,
-            references: {
-                model: 'zones',
-                key: 'id'
-            },
-            allowNull: true
         },
         position: {
             type: Sequelize.INTEGER,
