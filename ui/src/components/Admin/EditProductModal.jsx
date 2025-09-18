@@ -95,7 +95,7 @@ function EditProductModal({open, close, product}) {
 
     return (
         <Dialog open={openModal} onClose={() => handleCloseModal(false)}
-                fullWidth={true}
+                fullwidth="true"
                 maxWidth='sm'
         >
             <DialogTitle className='modal__title'>Editar Produto</DialogTitle>
@@ -125,7 +125,7 @@ function EditProductModal({open, close, product}) {
                     <TextField
                         margin="normal"
                         required
-                        fullWidth
+                        fullwidth="true"
                         id="name"
                         label="Nome"
                         name="name"
@@ -137,7 +137,7 @@ function EditProductModal({open, close, product}) {
                     <TextField
                         margin="normal"
                         required
-                        fullWidth
+                        fullwidth="true"
                         id="price"
                         label="Preço"
                         name="price"
@@ -164,7 +164,7 @@ function EditProductModal({open, close, product}) {
 
                     <TextField
                         margin="normal"
-                        fullWidth
+                        fullwidth="true"
                         id="image"
                         label="Imagem URL"
                         name="image"
@@ -188,9 +188,9 @@ function EditProductModal({open, close, product}) {
             </DialogContent>
 
             <DialogActions>
-                <Button variant="contained" fullWidth={true} size="large" color="error"
+                <Button variant="contained" fullwidth="true" size="large" color="error"
                         onClick={handleRemoveProduct}>Remover</Button>
-                <Button variant="contained" fullWidth={true} size="large"
+                <Button variant="contained" fullwidth="true" size="large"
                         onClick={() => handleCloseModal(true)}>Atualizar</Button>
             </DialogActions>
         </Dialog>

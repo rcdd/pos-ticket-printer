@@ -118,7 +118,7 @@ function AddProductModal({open, close, zone}) {
 
     return (
         <Dialog open={openModal} onClose={() => handleCloseModal(false)}
-                fullWidth={true}
+                fullwidth="true"
                 maxWidth='sm'
         >
             <DialogTitle className='modal__title'>Novo Produto</DialogTitle>
@@ -162,7 +162,7 @@ function AddProductModal({open, close, zone}) {
                     <TextField
                         margin="normal"
                         required
-                        fullWidth
+                        fullwidth="true"
                         id="name"
                         label="Nome"
                         name="name"
@@ -173,7 +173,7 @@ function AddProductModal({open, close, zone}) {
                     <TextField
                         margin="normal"
                         required
-                        fullWidth
+                        fullwidth="true"
                         id="price"
                         label="Preço"
                         name="price"
@@ -232,7 +232,7 @@ function AddProductModal({open, close, zone}) {
                         </Box>
                         : <TextField
                             margin="normal"
-                            fullWidth
+                            fullwidth="true"
                             id="image"
                             label="Imagem"
                             name="image"
@@ -256,7 +256,7 @@ function AddProductModal({open, close, zone}) {
             </DialogContent>
 
             <DialogActions>
-                <Button variant="contained" fullWidth={true} size="large"
+                <Button variant="contained" fullwidth="true" size="large"
                         onClick={() => handleCloseModal(true)}>Adicionar</Button>
             </DialogActions>
         </Dialog>

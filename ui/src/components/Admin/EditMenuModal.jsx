@@ -93,7 +93,7 @@ function EditMenuModal({open, close, menu}) {
 
     return (
         <Dialog open={openModal} onClose={() => handleCloseModal(false)}
-                fullWidth={true}
+                fullwidth="true"
                 maxWidth='sm'
         >
             <DialogTitle className='modal__title'>Editar Menu</DialogTitle>
@@ -123,7 +123,7 @@ function EditMenuModal({open, close, menu}) {
                     <TextField
                         margin="normal"
                         required
-                        fullWidth
+                        fullwidth="true"
                         id="name"
                         label="Nome"
                         name="name"
@@ -135,7 +135,7 @@ function EditMenuModal({open, close, menu}) {
                     <TextField
                         margin="normal"
                         required
-                        fullWidth
+                        fullwidth="true"
                         id="price"
                         label="Preço"
                         name="price"
@@ -194,9 +194,9 @@ function EditMenuModal({open, close, menu}) {
             </DialogContent>
 
             <DialogActions>
-                <Button variant="contained" fullWidth={true} size="large" color="error"
+                <Button variant="contained" fullwidth="true" size="large" color="error"
                         onClick={handleRemoveMenu}>Remover</Button>
-                <Button variant="contained" fullWidth={true} size="large"
+                <Button variant="contained" fullwidth="true" size="large"
                         onClick={() => handleCloseModal(true)}>Atualizar</Button>
             </DialogActions>
         </Dialog>

@@ -1,87 +1,152 @@
-import React from 'react'
-import Button from '@mui/material/Button';
-import { Box, InputAdornment } from "@mui/material";
-import TextField from '@mui/material/TextField';
-import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogTitle from '@mui/material/DialogTitle';
+import React, {useEffect, useMemo, useState} from 'react';
+import {
+    Box, Checkbox, FormControlLabel, InputAdornment, Dialog,
+    DialogActions, DialogContent, DialogTitle, TextField, Button
+} from '@mui/material';
 import LoadingButton from '@mui/lab/LoadingButton';
 
 export function PaymentModalComponent({
-    openModal,
-    totalAmount,
-    invoiceId,
-    isPrinted,
-    isPrinting,
-    changeValue,
-    setChangeValue,
-    handlePrint,
-    handleModalClose }) {
+                                          openModal,
+                                          totalAmount,
+                                          invoiceId,
+                                          isPrinted,
+                                          isPrinting,
+                                          handlePrint,
+                                          handleModalClose,
+                                      }) {
 
-    const doExchange = () => {
-        const value = (changeValue - (totalAmount / 100)).toFixed(2);
-        if (isNaN(value) || value < 0) {
-            return '0.00€';
+    const [discount, setDiscount] = useState(false);
+    const [discountPercentage, setDiscountPercentage] = useState(100);
+    const [receivedEuros, setReceivedEuros] = useState(totalAmount / 100);
+
+    const discountedTotal = useMemo(() => {
+        if (!discount) return totalAmount;
+        const pct = Math.min(100, Math.max(0, discountPercentage));
+        const discountedValue = Math.round(totalAmount * (1 - pct / 100));
+        setReceivedEuros(discountedValue / 100);
+
+        return discountedValue;
+    }, [totalAmount, discount, discountPercentage]);
+
+    const changeEuros = useMemo(() => {
+        const due = discountedTotal / 100;
+        const change = receivedEuros - due;
+        return change > 0 ? change : 0;
+    }, [receivedEuros, discountedTotal]);
+
+    useEffect(() => {
+        if (openModal) {
+            setDiscount(false);
+            setDiscountPercentage(100);
+            setReceivedEuros(totalAmount / 100);
         }
-        return value + '€';
-    }
+    }, [openModal, totalAmount]);
+
+    const sendToPrint = () => {
+        handlePrint(true, discountedTotal);
+    };
+
+    const formatEUR = (n) => `${n.toFixed(2)}€`;
 
     return (
-        <Dialog open={openModal} onClose={handleModalClose}
-            fullWidth={true}
-            maxWidth='sm'
-        >
-            <DialogTitle className='modal__title'>{invoiceId ? "Pagamento nº " + invoiceId : "A Pagamento"}</DialogTitle>
+        <Dialog open={openModal} onClose={handleModalClose} fullWidth maxWidth="sm">
+            <DialogTitle className="modal__title">
+                {invoiceId ? `Pagamento nº ${invoiceId}` : 'A Pagamento'}
+            </DialogTitle>
+
             <DialogContent>
                 <Box
-                    noValidate
                     component="form"
-                    sx={{
-                        display: 'flex', flexDirection: 'column', m: 'auto', width: 'fit-content',
-                    }}
+                    noValidate
+                    sx={{display: 'flex', flexDirection: 'column', m: 'auto', width: 'fit-content'}}
                 >
-                    <span className='modal__total'>Total: <b>{(totalAmount / 100).toFixed(2)}€</b></span>
-                    <div className='modal__receive-value'>
+          <span className="modal__total">
+            Total: <b>{formatEUR(discountedTotal / 100)}</b>
+          </span>
+
+                    <FormControlLabel
+                        control={
+                            <Checkbox
+                                size="large"
+                                checked={discount}
+                                onChange={(e) => setDiscount(e.target.checked)}
+                                inputProps={{'aria-label': 'Aplicar Desconto'}}
+                            />
+                        }
+                        label="Aplicar Desconto"
+                        componentsProps={{typography: {fontSize: '2rem'}}}
+                    />
+
+                    {discount && (
+                        <TextField
+                            margin="dense"
+                            variant="filled"
+                            label="Insira o valor do desconto (%)"
+                            fullWidth
+                            type="number"
+                            inputProps={{min: 0, max: 100, step: 1}}
+                            value={discountPercentage}
+                            onChange={(e) => {
+                                const v = Number(e.target.value);
+                                if (Number.isNaN(v)) return;
+                                setDiscountPercentage(Math.max(0, Math.min(100, v)));
+                            }}
+                            onKeyUp={(e) => {
+                                if (e.key === 'Enter') (!isPrinted ? sendToPrint() : handleModalClose());
+                            }}
+                            InputProps={{endAdornment: <InputAdornment position="end">%</InputAdornment>}}
+                            className="modal__receive-value__input"
+                        />
+                    )}
+
+                    <div className="modal__receive-value">
                         <span>Valor recebido:</span>
                         <TextField
-                            autoFocus
                             margin="dense"
-                            type="amount"
                             variant="filled"
-                            label={'Insira o valor recebido'}
+                            label="Insira o valor recebido"
                             fullWidth
-                            defaultValue={(totalAmount / 100).toFixed(2)}
-                            className={'modal__receive-value__input'}
-                            onFocus={event => {
-                                event.target.select();
+                            type="number"
+                            inputMode="decimal"
+                            value={Number.isFinite(receivedEuros) ? receivedEuros : ''}
+                            onChange={(e) => {
+                                const v = parseFloat(String(e.target.value).replace(',', '.'));
+                                if (Number.isNaN(v)) return setReceivedEuros(0);
+                                setReceivedEuros(v);
                             }}
-                            InputProps={{
-                                endAdornment: <InputAdornment position="start">€</InputAdornment>,
-                            }}
-                            onChange={(value) => setChangeValue(value.target.value.replace(",", "."))}
+                            onFocus={(e) => e.target.select()}
                             onKeyUp={(e) => {
-                                if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    !isPrinted ? handlePrint(true) : handleModalClose();
-                                }
+                                if (e.key === 'Enter') (!isPrinted ? sendToPrint() : handleModalClose());
                             }}
+                            InputProps={{endAdornment: <InputAdornment position="end">€</InputAdornment>}}
+                            className="modal__receive-value__input"
                         />
                     </div>
-                    <span className='modal__exchange'>Troco: <b>{doExchange()}</b></span>
+
+                    <span className="modal__exchange">
+            Troco: <b>{formatEUR(changeEuros)}</b>
+          </span>
                 </Box>
             </DialogContent>
 
             <DialogActions>
-                {!isPrinted && <LoadingButton loading={isPrinting} loadingIndicator="A imprimir.."
-                    variant="contained" fullWidth={true} size="large"
-                    onClick={() => handlePrint(true)}>
-                    Imprimir
-                </LoadingButton>}
-
-                {isPrinted && <Button variant="contained" fullWidth={true} size="large"
-                    onClick={handleModalClose}>Fechar</Button>}
+                {!isPrinted ? (
+                    <LoadingButton
+                        loading={isPrinting}
+                        loadingIndicator="A imprimir.."
+                        variant="contained"
+                        fullWidth
+                        size="large"
+                        onClick={sendToPrint}
+                    >
+                        Imprimir
+                    </LoadingButton>
+                ) : (
+                    <Button variant="contained" fullWidth size="large" onClick={handleModalClose}>
+                        Fechar
+                    </Button>
+                )}
             </DialogActions>
         </Dialog>
-    )
+    );
 }

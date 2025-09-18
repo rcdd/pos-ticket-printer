@@ -85,6 +85,39 @@ function ReportsPage() {
         }
         return null;
     }
+    const getProductItemsName = (value, item) => {
+        const products = {};
+        item.records.forEach((record) => {
+            if (record.productItem) {
+                if (products[record.productItem.id]) {
+                    products[record.productItem.id].quantity += record.quantity;
+                } else {
+                    products[record.productItem.id] = {
+                        name: record.productItem.name + (record.productItem.isDeleted ? " (Eliminado)" : ""),
+                        price: record.productItem.price,
+                        quantity: record.quantity
+                    }
+                }
+            } else if (record.menuItem) {
+                if (products[record.menuItem.id]) {
+                    products[record.menuItem.id].quantity += record.quantity;
+                } else {
+                    products[record.menuItem.id] = {
+                        name: record.menuItem.name + (record.menuItem.isDeleted ? " (Eliminado)" : ""),
+                        price: record.menuItem.price,
+                        quantity: record.quantity
+                    }
+                }
+            } else {
+                products[`unknown-${Math.random()}`] = {
+                    name: '(Desconhecido eliminado)',
+                    quantity: record.quantity,
+                    price: 0
+                }
+            }
+        })
+        return Object.values(products).map(p => `${p.name} (${p.price/100}€ x ${p.quantity})`).join(', ');
+    }
 
     const getProductName = (value, item) => {
         if (item.productItem) {
@@ -122,6 +155,7 @@ function ReportsPage() {
 
     const columns = [
         {field: 'id', headerName: 'Id', width: 100},
+        {field: 'product', headerName: 'Produtos', flex: 1, valueGetter: getProductItemsName},
         {field: 'createdAt', headerName: 'Data', flex: 1, minWidth: 200, valueFormatter: dateFormatter},
         {field: 'total', headerName: 'Total', width: 150, valueGetter: (value) => `${value}€`},
         {field: 'isDeleted', type: 'boolean', headerName: 'Anulado', width: 100},
@@ -168,6 +202,7 @@ function ReportsPage() {
                             sortModel: [{field: 'id', sort: 'desc'}],
                         },
                     }}
+                    disableRowSelectionOnClick
                 />
             </div>
 

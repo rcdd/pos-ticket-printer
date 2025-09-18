@@ -16,7 +16,6 @@ function POSPage() {
     const [cart, setCart] = useState([]);
     const [invoiceId, setInvoiceId] = useState(null);
     const [totalAmount, setTotalAmount] = useState(0);
-    const [changeValue, setChangeValue] = useState(0);
     const [openModal, setOpenModal] = React.useState(false);
     const [isPrinting, setIsPrinting] = React.useState(false);
     const [isPrinted, setIsPrinted] = React.useState(false);
@@ -127,14 +126,14 @@ function POSPage() {
         setOpenModal(true)
     }
 
-    const handlePrint = async (status = false) => {
+    const handlePrint = async (status = false, finalAmount = totalAmount) => {
         if (status) {
             setIsPrinted(false);
             setIsPrinting(true);
 
             const bodyRequest = {
                 items: cart,
-                totalAmount: (totalAmount / 100).toFixed(2),
+                totalAmount: (finalAmount / 100).toFixed(2),
             };
 
             await PrinterService.print(bodyRequest).catch((e) => {
@@ -157,7 +156,6 @@ function POSPage() {
         if (isPrinted) {
             setCart([]);
             setTotalAmount(0);
-            setChangeValue(0);
             setIsPrinted(false);
             setInvoiceId(null);
         }
@@ -202,8 +200,6 @@ function POSPage() {
                 invoiceId={invoiceId}
                 isPrinted={isPrinted}
                 isPrinting={isPrinting}
-                changeValue={changeValue}
-                setChangeValue={setChangeValue}
                 handlePrint={handlePrint}
                 handleModalClose={handleModalClose}
             />

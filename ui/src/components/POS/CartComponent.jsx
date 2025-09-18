@@ -51,7 +51,7 @@ export function CartComponent({cart, totalAmount, increaseQuantity, decreaseQuan
             <h2 className='p-4 bg-dark text-white'>Total: {(totalAmount / 100).toFixed(2)}€</h2>
 
             <div className=''>
-                <Button variant="contained" fullWidth={true}
+                <Button variant="contained" fullWidth
                         size="large" disabled={totalAmount === 0} onClick={handlePayment}>
                     Pagar
                 </Button>

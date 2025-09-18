@@ -39,7 +39,7 @@ function AddZoneModal({open, close}) {
 
     return (
         <Dialog open={openModal} onClose={() => handleCloseModal(false)}
-                fullWidth={true}
+                fullwidth="true"
                 maxWidth='sm'
         >
             <DialogTitle className='modal__title'>Nova Zona</DialogTitle>
@@ -69,7 +69,7 @@ function AddZoneModal({open, close}) {
                     <TextField
                         margin="normal"
                         required
-                        fullWidth
+                        fullwidth="true"
                         id="name"
                         label="Nome"
                         name="name"
@@ -81,7 +81,7 @@ function AddZoneModal({open, close}) {
             </DialogContent>
 
             <DialogActions>
-                <Button variant="contained" fullWidth={true} size="large"
+                <Button variant="contained" fullwidth="true" size="large"
                         onClick={() => handleCloseModal(true)}>Adicionar</Button>
             </DialogActions>
         </Dialog>

@@ -35,17 +35,17 @@ function SetupPage() {
     const [openEditZoneModal, setOpenEditZoneModal] = React.useState(false);
     const [openEditMenuModal, setOpenEditMenuModal] = React.useState(false);
     const [products, setProducts] = React.useState([]);
-    const [productsMenus, setProductsMenus] = React.useState([]);
+    const [/*productsMenus*/, setProductsMenus] = React.useState([]);
     const [productEdit, setProductEdit] = React.useState(null);
     const [zoneEdit, setZoneEdit] = React.useState(null);
-    const [menuEdit, setMenuEdit] = React.useState(null);
+    const [menuEdit, /*setMenuEdit*/] = React.useState(null);
 
     const [isLoading, setIsLoading] = React.useState(true);
     const [printerList, setPrinterList] = React.useState([]);
-    const [printer, setPrinter] = React.useState([]);
+    const [printer, setPrinter] = React.useState("");
     const [printType, setPrintType] = React.useState("totals");
     const [zone, setZone] = React.useState(null);
-    const [zones, setZones] = React.useState(null);
+    const [zones, setZones] = React.useState([]);
 
     const [firstLine, setFirstLine] = React.useState();
     const [secondLine, setSecondLine] = React.useState();
@@ -129,10 +129,10 @@ function SetupPage() {
         setOpenEditZoneModal(true);
     }
 
-    const handleEditMenu = (menu) => {
-        setMenuEdit(menu);
-        setOpenEditMenuModal(true);
-    }
+    // const handleEditMenu = (menu) => {
+    //     setMenuEdit(menu);
+    //     setOpenEditMenuModal(true);
+    // }
 
     const onAddProductModalClose = () => {
         setOpenAddProductModal(false);
@@ -264,35 +264,33 @@ function SetupPage() {
                 <TabPanel value="1">
                     <h2>Produtos</h2>
                     <p>Adicione, edite ou remova produtos</p>
-                    <Button variant="contained" fullWidth={false} size="large"
+                    <Button variant="contained" size="large"
                             onClick={() => setOpenAddProductModal(true)}>
                         Adicionar Produto</Button>
 
                     <TabContext value={tabProductsPosition}>
-                        <Box sx={{borderBottom: 1, borderColor: 'divider'}}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', borderBottom: 1, borderColor: 'divider' }}>
                             <TabList onChange={handleTabProductsChange} aria-label="lab API tabs example">
-                                {products.filter(p => p.zoneId === null || !zones.some(z => z.id === p.zoneId))
-                                    .length > 0 && <Tab key="no-zone" label="(Sem Zona)" value="no-zone"/>}
-
-                                {zones && zones.map((zone) => (
-                                    <Tab key={zone.id} label={zone.name} value={zone.id}/>
+                                {zones && products.filter(p => p.zoneId === null || !zones.some(z => z.id === p.zoneId)).length > 0 &&
+                                    <Tab key="no-zone" label="(Sem Zona)" value="no-zone" />}
+                                {zones?.map((z) => (
+                                    <Tab key={z.id} label={z.name} value={String(z.id)} />
                                 ))}
-
-                                <IconButton
-                                    aria-label="add"
-                                    onClick={() => setOpenAddZoneModal(true)}>
-                                    <AddIcon/>
-                                </IconButton>
                             </TabList>
+
+                            <IconButton aria-label="add" onClick={() => setOpenAddZoneModal(true)} sx={{ ml: 1 }}>
+                                <AddIcon />
+                            </IconButton>
                         </Box>
-                        <TabPanel key="0" value="no-zone">
-                            <ListProductComponent products={products.filter(p => p.zoneId === null || !zones.some(z => z.id === p.zoneId))}
-                                                  editProduct={handleEditProduct}
-                                                  updateOrder={handleOrder}/>
+                        <TabPanel key="no-zone" value="no-zone">
+                            <ListProductComponent
+                                products={products.filter(p => p.zoneId === null || !zones.some(z => z.id === p.zoneId))}
+                                editProduct={handleEditProduct}
+                                updateOrder={handleOrder}/>
                         </TabPanel>
                         {zones && zones.map((zone) => (
-                            <TabPanel key={zone.id} value={zone.id}>
-                                <Button variant="contained" fullWidth={false} size="large"
+                            <TabPanel key={zone.name} value={zone.id.toString()}>
+                                <Button variant="contained" fullwidth="false" size="large"
                                         onClick={() => handleEditZone(zone)}>
                                     Editar Zona</Button>
                                 <ListProductComponent products={products.filter(p => p.zoneId === zone.id)}
@@ -314,7 +312,6 @@ function SetupPage() {
                                 value={printer ?? ""}
                                 label="Impressora"
                                 variant="outlined"
-                                defaultValue={printer}
                                 onChange={handlePrinterChange}
                                 style={{marginBottom: "8px"}}
                             >
@@ -333,7 +330,6 @@ function SetupPage() {
                                 value={printType ?? "totals"}
                                 label="Tipo de Impressão"
                                 variant="outlined"
-                                defaultValue={printType}
                                 onChange={handlePrintTypeChange}
                             >
                                 <MenuItem key="totals" id="totals"

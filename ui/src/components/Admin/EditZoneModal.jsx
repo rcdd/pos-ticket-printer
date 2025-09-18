@@ -9,14 +9,15 @@ import Dialog from "@mui/material/Dialog";
 import CloseIcon from '@mui/icons-material/Close';
 import ZoneService from "../../services/zone.service";
 
-
 function EditZoneModal({open, close, zone}) {
     const [openModal, setOpenModal] = React.useState(open);
     const [newName, setNewName] = useState(zone ? zone.name : null);
+    const [newPosition, setNewPosition] = useState(zone ? zone.position : null);
 
     useEffect(() => {
         setOpenModal(open);
         setNewName(null);
+        setNewPosition(0);
     }, [open]);
 
     const handleRemoveZone = async () => {
@@ -36,12 +37,12 @@ function EditZoneModal({open, close, zone}) {
             const bodyRequest = {
                 id: zone.id,
                 name: newName ?? zone.name,
-                position: 0 // todo: implement positions
+                position: newPosition ?? zone.position
             };
 
             await ZoneService.update(bodyRequest).then((response) => {
-                console.log(response);
                 setNewName(null);
+                setNewPosition(0);
             }).catch(
                 (error) => {
                     console.log(error.response);
@@ -54,22 +55,9 @@ function EditZoneModal({open, close, zone}) {
         close(false);
     };
 
-    // const handleChangeProducts = (event) => {
-    //     const {
-    //         target: {value},
-    //     } = event;
-    //     var select = value.at(-1);
-    //     var product = products.find(p => p.id === select);
-    //     if (newProducts && newProducts.find(p => p.id === product.id)) {
-    //         setNewProducts(newProducts.filter(p => p.id !== product.id));
-    //     } else {
-    //         setNewProducts([...newProducts, product]);
-    //     }
-    // };
-
     return (
         <Dialog open={openModal} onClose={() => handleCloseModal(false)}
-                fullWidth={true}
+                fullwidth="true"
                 maxWidth='sm'
         >
             <DialogTitle className='modal__title'>Editar Zona</DialogTitle>
@@ -108,13 +96,26 @@ function EditZoneModal({open, close, zone}) {
                         defaultValue={zone ? zone.name : null}
                         onChange={(value) => setNewName(value.target.value)}
                     />
+
+                    <TextField
+                        margin="normal"
+                        required
+                        fullWidth
+                        id="position"
+                        label="Posição"
+                        name="position"
+                        autoComplete="position"
+                        autoFocus
+                        defaultValue={zone ? zone.position : 0}
+                        onChange={(value) => setNewPosition(value.target.value)}
+                    />
                 </Box>
             </DialogContent>
 
             <DialogActions>
-                <Button variant="contained" fullWidth={true} size="large" color="error"
+                <Button variant="contained" fullWidth size="large" color="error"
                         onClick={handleRemoveZone}>Remover</Button>
-                <Button variant="contained" fullWidth={true} size="large"
+                <Button variant="contained" fullWidth size="large"
                         onClick={() => handleCloseModal(true)}>Atualizar</Button>
             </DialogActions>
         </Dialog>

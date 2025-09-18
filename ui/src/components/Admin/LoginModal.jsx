@@ -36,7 +36,7 @@ export default function LoginModal({open, close, setLogin}) {
 
     return (
         <Dialog open={openModal} onClose={() => handleCloseModal(false)}
-                fullWidth={true}
+                fullwidth="true"
                 maxWidth='sm'
         >
             <DialogTitle className='modal__title'>Login</DialogTitle>
@@ -66,7 +66,7 @@ export default function LoginModal({open, close, setLogin}) {
                     <TextField
                         margin="normal"
                         required
-                        fullWidth
+                        fullwidth="true"
                         id="password"
                         label="Password"
                         type="password"
@@ -86,7 +86,7 @@ export default function LoginModal({open, close, setLogin}) {
             </DialogContent>
 
             <DialogActions>
-                <Button variant="contained" fullWidth={true} size="large"
+                <Button variant="contained" fullwidth="true" size="large"
                         onClick={() => handleCloseModal(true)}>Entrar</Button>
             </DialogActions>
         </Dialog>
