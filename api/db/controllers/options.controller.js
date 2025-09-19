@@ -287,38 +287,6 @@ exports.getHeaders = (req, res) => {
         });
 }
 
-exports.getHeadersInit = () => {
-    return Option.findOne({
-        where: {
-            name: optionFirstLine
-        }
-    })
-        .then(_first => {
-            if (_first) {
-                return Option.findOne({
-                    where: {
-                        name: optionSecondLine
-                    }
-                })
-                    .then(_second => {
-                        if (_second) {
-                            return ({firstLine: _first.value, secondLine: _second.value});
-                        } else {
-                            return false;
-                        }
-                    })
-                    .catch(() => {
-                        return false;
-                    });
-            } else {
-                return false;
-            }
-        })
-        .catch(() => {
-            return false;
-        });
-}
-
 exports.getPrintType = (req, res) => {
     return Option.findOne({
         where: {
@@ -337,4 +305,22 @@ exports.getPrintType = (req, res) => {
                 message: "Error retrieving option: " + err.message
             });
         });
+}
+
+exports.getPrintTypeVariable = async () => {
+    const row = await Option.findOne({where: {name: optionPrintType}});
+    return row?.value ?? 'totals';
+}
+
+exports.getPrinterVariable = async () => {
+    const row = await Option.findOne({where: {name: optionPrintName}})
+    return row?.value ?? null;
+}
+
+exports.getHeadersVariable = async () => {
+    const rowFirstLine = await Option.findOne({where: {name: optionFirstLine}});
+
+    const rowSecondLine = await Option.findOne({where: {name: optionSecondLine}});
+
+    return {firstLine: rowFirstLine?.value ?? null, secondLine: rowSecondLine?.value ?? null};
 }
