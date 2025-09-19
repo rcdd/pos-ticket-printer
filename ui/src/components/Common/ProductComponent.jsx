@@ -20,8 +20,9 @@ export function ProductComponent({item, allowDrag = true}) {
     return (
         <Box ref={setNodeRef} style={style} {...attributes} {...listeners}>
             <Card variant="outlined"
-                  sx={{p: 2, fontSize: '12px', textAlign: 'center', cursor: 'pointer', touchAction: allowDrag ? 'auto' : 'none'}}>
-                <Typography variant="h6" noWrap><b>{item.name}</b></Typography>
+                  sx={{p: 1, fontSize: '12px', textAlign: 'center', cursor: 'pointer', touchAction: allowDrag ? 'auto' : 'none'}}>
+                <Typography sx={{fontSize: '14px'}} noWrap><b>{item.name}</b></Typography>
+
                 {/*<CardMedia*/}
                 {/*    draggable="false"*/}
                 {/*    component="img"*/}
@@ -29,7 +30,7 @@ export function ProductComponent({item, allowDrag = true}) {
                 {/*    alt={item.name}*/}
                 {/*    sx={{height: 50, objectFit: 'contain', my: 1}}*/}
                 {/*/>*/}
-                <Typography sx={{marginTop: 1}} variant="h6">{(item.price / 100).toFixed(2)}€</Typography>
+                <Typography sx={{fontSize: '14px', marginTop: 1}}>{(item.price / 100).toFixed(2)}€</Typography>
             </Card>
         </Box>
     );

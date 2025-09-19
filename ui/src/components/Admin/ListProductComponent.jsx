@@ -22,7 +22,7 @@ function ListProductComponent({products, editProduct, updateOrder}) {
             clearTimeout(timeoutRef.current);
             timeoutRef.current = null;
 
-            const product = productsDraggable.find((item) => item.id === over.id);
+            const product = productsDraggable.find((item) => item.id === active.id);
             editProduct(product);
         }
 
