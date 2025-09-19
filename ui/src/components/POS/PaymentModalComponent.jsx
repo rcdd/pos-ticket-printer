@@ -74,7 +74,7 @@ export function PaymentModalComponent({
                             />
                         }
                         label="Aplicar Desconto"
-                        componentsProps={{typography: {fontSize: '2rem'}}}
+                        componentsProps={{typography: {fontSize: '1.4rem'}}}
                     />
 
                     {discount && (
@@ -95,7 +95,7 @@ export function PaymentModalComponent({
                                 if (e.key === 'Enter') (!isPrinted ? sendToPrint() : handleModalClose());
                             }}
                             InputProps={{endAdornment: <InputAdornment position="end">%</InputAdornment>}}
-                            className="modal__receive-value__input"
+                            className="modal__percentage-value__input"
                         />
                     )}
 

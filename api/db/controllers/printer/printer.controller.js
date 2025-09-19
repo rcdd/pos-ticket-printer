@@ -69,7 +69,7 @@ async function printItem(productName) {
         printJob.text('1 ' + productName);
         printJob.setTextFormat('normal');
 
-        printJob.cashdraw();
+        // printJob.cashdraw(); //todo: try to implement cashdraw open
 
         printHeader(printJob);
 

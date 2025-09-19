@@ -234,7 +234,7 @@ Printjob.prototype = {
         t1 = t1 || 110;
         t2 = t2 || 242;
 
-        var buf = new Buffer.from(5);
+        var buf = new Buffer.alloc(5);
 
         if (pin == 2) {
             new Buffer.from(cmds.CD_KICK_2).copy(buf);

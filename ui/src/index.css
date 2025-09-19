@@ -59,12 +59,16 @@ code {
 }
 
 .modal__receive-value {
-    font-size: 48px;
+    font-size: 42px;
     margin-bottom: 32px;
 }
 
 .modal__receive-value__input input {
-    font-size: 48px;
+    font-size: 40px;
+}
+
+.modal__percentage-value__input input {
+    font-size: 28px;
 }
 
 .modal__exchange {

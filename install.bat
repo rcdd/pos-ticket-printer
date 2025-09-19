@@ -117,10 +117,7 @@ REM =========================================================
 REM Subroutine: InstallChoco (returns to caller)
 REM =========================================================
 :InstallChoco
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "Set-ExecutionPolicy Bypass -Scope Process -Force; ^
-   [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; ^
-   iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))"
 set "_chocoCode=%errorlevel%"
 if %_chocoCode% neq 0 exit /b %_chocoCode%
 if not defined ChocolateyInstall set "ChocolateyInstall=%ProgramData%\chocolatey"
