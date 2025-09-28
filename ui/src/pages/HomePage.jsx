@@ -22,17 +22,31 @@ import HomeIcon from "@mui/icons-material/Home";
 import ListItemText from "@mui/material/ListItemText";
 import SettingsIcon from "@mui/icons-material/Settings";
 import AssessmentIcon from "@mui/icons-material/Assessment";
-import SetupPage from "./SetupPage";
-import ReportsPage from "./ReportsPage";
+import SetupPage from "./Admin/SetupPage";
+import ReportsPage from "./Admin/ReportsPage";
 import Box from "@mui/material/Box";
 import POSPage from "./POSPage";
 import AboutPage from "./AboutPage";
 import LoginModal from "../components/Admin/LoginModal";
+import ExitToAppIcon from '@mui/icons-material/ExitToApp';
+import Button from "@mui/material/Button";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
+import Dialog from "@mui/material/Dialog";
+import AlarmIcon from '@mui/icons-material/Alarm';
+import SessionService from "../services/session.service";
+import SessionPage from "./Admin/SessionPage";
+import ImportExportPage from "./Admin/ImportExportPage";
+import ImportExportIcon from '@mui/icons-material/ImportExport';
+import CategoryIcon from '@mui/icons-material/Category';
+import ProductsPage from "./Admin/ProductsPage";
 
 const drawerWidth = 240;
 
 const Main = styled('main', {shouldForwardProp: (prop) => prop !== 'open'})(({theme}) => ({
-    flexGrow: 1, padding: theme.spacing(3), transition: theme.transitions.create('margin', {
+    flexGrow: 1, padding: theme.spacing(2), transition: theme.transitions.create('margin', {
         easing: theme.transitions.easing.sharp, duration: theme.transitions.duration.leavingScreen,
     }), marginLeft: `-${drawerWidth}px`, variants: [{
         props: ({open}) => open, style: {
@@ -73,8 +87,48 @@ function HomePage() {
     const [loginModal, setLoginModal] = React.useState(false);
     const [login, setLogin] = React.useState(false);
     const [page, setPage] = React.useState("pos");
+    const [openCloseModal, setOpenCloseModal] = React.useState(false);
+    const [session, setSession] = React.useState(null);
 
     const nav = useNavigate();
+
+    const navigationMap = [
+        {icon: <HomeIcon/>, name: "POS", path: "pos", visible: true},
+        {icon: <CategoryIcon/>, name: "Produtos", path: "products", visible: true},
+        {icon: <AssessmentIcon/>, name: "Relatórios", path: "reports", visible: true},
+        {icon: <ImportExportIcon/>, name: "Importar/Exportar", path: "migration", visible: true},
+        {icon: <AlarmIcon/>, name: "Sessão", path: "session", visible: session !== null},
+        {icon: <SettingsIcon/>, name: "Configurações", path: "setup", visible: true},
+    ]
+    const closeWindow = () => {
+        setOpenCloseModal(true);
+    }
+
+    const doCloseWindow = () => {
+        window.opener = null;
+        window.open("", "_self");
+        window.close();
+    };
+
+    const handleLogin = (value) => {
+        setLogin(value);
+        if (value) {
+            setOpen(true);
+        }
+    }
+
+    const handleLogout = () => {
+        setLogin(false);
+        setPage("pos");
+        setOpen(false);
+        setLoginModal(false);
+        localStorage.removeItem("login");
+    }
+
+    const handleNavigation = (path) => {
+        setPage(path);
+        setOpen(false);
+    }
 
     React.useEffect(() => {
         const loginData = localStorage.getItem("login");
@@ -83,19 +137,24 @@ function HomePage() {
             const currentTime = new Date();
             if (currentTime - loginTime < 1000 * 60 * 60) { // 1 hour
                 setLogin(true);
+                localStorage.setItem("login", String(Date.now() + 60 * 60 * 1000));
             } else {
                 localStorage.removeItem("login");
                 setPage("pos");
             }
         }
+
+        SessionService.getActiveSession().then((response) => {
+            setSession(response.data);
+        }).catch((error) => {
+            if (error.response && error.response.status !== 404) {
+                console.log(error.response);
+                throw Error(error.response.data.message)
+            }
+            setSession(null)
+        });
     }, []);
 
-    const handleLogout = () => {
-        setLogin(false);
-        setPage("pos");
-        setOpen(false);
-        localStorage.removeItem("login");
-    }
 
     return (<Box sx={{display: 'flex'}}>
         <CssBaseline/>
@@ -117,7 +176,7 @@ function HomePage() {
                     onClick={() => setPage('pos')}
                 >
                     <Typography variant="h6" noWrap component="div">
-                        POS-TicketPrint {page !== 'pos' && page !== 'about' ? " - Administração" : nav.name}
+                        TicketPrint {page !== 'pos' && page !== 'about' ? " - Administração" : nav.name}
                     </Typography>
                 </IconButton>
                 <h3 style={{margin: "0 12px"}}> | </h3>
@@ -146,6 +205,15 @@ function HomePage() {
                         <InfoIcon/>
                     </Typography>
                 </IconButton>
+
+                <IconButton
+                    color="inherit"
+                    onClick={() => closeWindow()}
+                >
+                    <Typography variant="h6" color={"red"} noWrap component="div">
+                        <ExitToAppIcon/>
+                    </Typography>
+                </IconButton>
             </Toolbar>
         </AppBar>
         <Drawer
@@ -164,35 +232,17 @@ function HomePage() {
                 </IconButton>
             </DrawerHeader>
             <Divider/>
-            <List>
-                <ListItem disablePadding onClick={() => setPage('pos')}>
-                    <ListItemButton>
+            {navigationMap.map((nav) => (
+                nav.visible &&
+                <ListItem key={nav.name} disablePadding onClick={() => handleNavigation(nav.path)}>
+                    <ListItemButton selected={page === nav.path}>
                         <ListItemIcon>
-                            <HomeIcon/>
+                            {nav.icon}
                         </ListItemIcon>
-                        <ListItemText primary={"POS"}/>
+                        <ListItemText primary={nav.name}/>
                     </ListItemButton>
                 </ListItem>
-            </List>
-            <Divider/>
-            <List>
-                <ListItem disablePadding onClick={() => setPage('setup')}>
-                    <ListItemButton>
-                        <ListItemIcon>
-                            <SettingsIcon/>
-                        </ListItemIcon>
-                        <ListItemText primary={"Configurações"}/>
-                    </ListItemButton>
-                </ListItem>
-                <ListItem disablePadding onClick={() => setPage('reports')}>
-                    <ListItemButton>
-                        <ListItemIcon>
-                            <AssessmentIcon/>
-                        </ListItemIcon>
-                        <ListItemText primary={"Movimentos"}/>
-                    </ListItemButton>
-                </ListItem>
-            </List>
+            ))}
             <Divider/>
             <List>
                 <ListItem disablePadding onClick={() => handleLogout()}>
@@ -207,13 +257,40 @@ function HomePage() {
         </Drawer>
         <Main open={open}>
             <DrawerHeader/>
-            {page === "pos" && <POSPage/>}
+            {page === "pos" && <POSPage session={session} setSession={setSession}/>}
+            {page === "products" && <ProductsPage/>}
             {page === "setup" && <SetupPage/>}
             {page === "reports" && <ReportsPage/>}
             {page === "about" && <AboutPage/>}
+            {page === "migration" && <ImportExportPage/>}
+            {page === "session" &&
+                <SessionPage session={session} setSession={setSession} onCloseSession={() => setPage("pos")}/>}
         </Main>
 
-        <LoginModal open={loginModal} close={() => setLoginModal(false)} setLogin={setLogin}/>
+        <LoginModal open={loginModal} close={(state) => setLoginModal(state)} setLogin={handleLogin}/>
+        <Dialog
+            open={openCloseModal}
+            onClose={() => setOpenCloseModal(false)}
+            aria-labelledby="alert-dialog-title"
+            aria-describedby="alert-dialog-description"
+        >
+            <DialogTitle id="alert-dialog-title">
+                {"Tem a certeza que pretende fechar?"}
+            </DialogTitle>
+            <DialogContent>
+                <DialogContentText id="alert-dialog-description">
+                    Ao fechar a aplicação, o POS-TicketPrint deixará de estar disponível.
+                    <br/>
+                    Confirme que pretende fechar a aplicação.
+                </DialogContentText>
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={() => setOpenCloseModal(false)}>Cancelar</Button>
+                <Button onClick={doCloseWindow} autoFocus>
+                    Fechar
+                </Button>
+            </DialogActions>
+        </Dialog>
     </Box>)
 }
 

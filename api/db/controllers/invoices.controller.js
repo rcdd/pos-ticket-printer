@@ -10,6 +10,31 @@ exports.create = (req, res) => {
         return;
     }
 
+    if (!req.body.sessionId) {
+        res.status(400).send({
+            message: "Session ID cannot be empty!"
+        });
+        return;
+    }
+
+    if (!req.body.userId) {
+        res.status(400).send({
+            message: "User ID cannot be empty!"
+        });
+        return;
+    }
+
+    if (req.body.paymentMethod
+        && (req.body.paymentMethod !== "cash"
+            && req.body.paymentMethod !== "card"
+            && req.body.paymentMethod !== "mbway"
+            && req.body.paymentMethod !== "other")) {
+        res.status(400).send({
+            message: "Invalid payment method! Valid methods are: 'cash', 'card', 'mbway' or 'other'."
+        });
+        return;
+    }
+
     const records = [];
     req.body.items.forEach(element => {
         const item = {
@@ -22,9 +47,14 @@ exports.create = (req, res) => {
         }
         records.push(item);
     });
-    const total = req.body.totalAmount ?? 0;
 
-    Invoices.create({records, total}, {
+    const sessionId = req.body.sessionId;
+    const userId = req.body.userId;
+    const total = req.body.totalAmount ?? 0;
+    const paymentMethod = req.body.paymentMethod ?? 'cash';
+    const discountPercent = req.body.discount ?? 0;
+
+    Invoices.create({records, total, userId, sessionId, paymentMethod, discountPercent}, {
         include: [db.records]
     })
         .then(data => {
@@ -39,15 +69,23 @@ exports.create = (req, res) => {
 
 exports.getAll = (req, res) => {
     Invoices.findAll({
-        include: [{
-            model: db.records, include: [{
-                model: db.products, as: 'productItem',
-            }, {
-                model: db.menus, as: 'menuItem', include: [{
-                    model: db.products, as: 'products'
-                }]
-            },]
-        }]
+        include: [
+            {
+                model: db.records,
+                include: [
+                    {
+                        model: db.products, as: 'productItem',
+                    },
+                    {
+                        model: db.menus, as: 'menuItem',
+                        include: [
+                            {
+                                model: db.products, as: 'products'
+                            }
+                        ]
+                    },
+                ]
+            }]
     })
         .then(data => {
             res.send(data);
@@ -85,6 +123,45 @@ exports.revoke = (req, res) => {
         .catch(() => {
             res.status(500).send({
                 message: "Error revoking Invoice with id=" + id
+            });
+        });
+}
+
+exports.getFromSession = (req, res) => {
+    const sessionId = req.body.sessionId;
+    if (!sessionId) {
+        res.status(400).send({
+            message: "Session ID cannot be empty!"
+        });
+        return;
+    }
+
+    Invoices.findAll({
+        where: {sessionId: sessionId},
+        include: [
+            {
+                model: db.records,
+                include: [
+                    {
+                        model: db.products, as: 'productItem',
+                    },
+                    {
+                        model: db.menus, as: 'menuItem',
+                        include: [
+                            {
+                                model: db.products, as: 'products'
+                            }
+                        ]
+                    },
+                ]
+            }]
+    })
+        .then(data => {
+            res.send(data);
+        })
+        .catch(err => {
+            res.status(500).send({
+                message: err.message || "Some error occurred while retrieving invoices."
             });
         });
 }

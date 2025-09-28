@@ -11,9 +11,6 @@ module.exports = (sequelize, Sequelize) => {
         price: {
             type: Sequelize.INTEGER
         },
-        image: {
-            type: Sequelize.STRING
-        },
         zoneId: {
             type: Sequelize.INTEGER,
             references: {
@@ -25,6 +22,10 @@ module.exports = (sequelize, Sequelize) => {
         position: {
             type: Sequelize.INTEGER,
             defaultValue: 0
+        },
+        theme: {
+            type: Sequelize.STRING,
+            allowNull: true
         },
         isDeleted: {
             type: Sequelize.BOOLEAN,

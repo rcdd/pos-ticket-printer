@@ -1,11 +1,10 @@
 const db = require("../models");
 const Zone = db.zones;
-const Op = db.Sequelize.Op;
 
 // Create and Save a new Zone
 exports.create = (req, res) => {
     if (!req.body.name) {
-        return res.status(400).send({ message: "Name cannot be empty!" });
+        return res.status(400).send({message: "Name cannot be empty!"});
     }
 
     Zone.create({
@@ -15,19 +14,19 @@ exports.create = (req, res) => {
     })
         .then(data => res.send(data))
         .catch(err => {
-            res.status(500).send({ message: err.message || "Error creating Zone." });
+            res.status(500).send({message: err.message || "Error creating Zone."});
         });
 };
 
 // Get all Zones (non-deleted)
 exports.findAll = (req, res) => {
     Zone.findAll({
-        where: { isDeleted: false },
+        where: {isDeleted: false},
         attributes: {exclude: ['isDeleted']}
     })
         .then(data => res.send(data))
         .catch(err => {
-            res.status(500).send({ message: err.message || "Error retrieving Zones." });
+            res.status(500).send({message: err.message || "Error retrieving Zones."});
         });
 };
 
@@ -38,10 +37,10 @@ exports.findOne = (req, res) => {
     Zone.findByPk(id)
         .then(data => {
             if (data) res.send(data);
-            else res.status(404).send({ message: `Zone with id=${id} not found.` });
+            else res.status(404).send({message: `Zone with id=${id} not found.`});
         })
         .catch(() => {
-            res.status(500).send({ message: "Error retrieving Zone with id=" + id });
+            res.status(500).send({message: "Error retrieving Zone with id=" + id});
         });
 };
 
@@ -55,17 +54,17 @@ exports.update = (req, res) => {
     };
 
     Zone.update(updateData, {
-        where: { id: id }
+        where: {id: id}
     })
         .then(num => {
             if (num[0] === 1) {
-                res.send({ message: "Zone updated successfully." });
+                res.send({message: "Zone updated successfully."});
             } else {
-                res.send({ message: `Cannot update Zone with id=${id}.` });
+                res.send({message: `Cannot update Zone with id=${id}.`});
             }
         })
-        .catch(err => {
-            res.status(500).send({ message: "Error updating Zone with id=" + id });
+        .catch(error => {
+            res.status(500).send({message: "Error updating Zone with id=" + id, error: error.message || error});
         });
 };
 
@@ -73,18 +72,18 @@ exports.update = (req, res) => {
 exports.softDelete = (req, res) => {
     const id = req.params.id;
 
-    Zone.update({ isDeleted: true }, {
-        where: { id: id, isDeleted: false }
+    Zone.update({isDeleted: true}, {
+        where: {id: id, isDeleted: false}
     })
         .then(num => {
             if (num[0] === 1) {
-                res.send({ message: "Zone was deleted successfully!" });
+                res.send({message: "Zone was deleted successfully!"});
             } else {
-                res.send({ message: `Cannot delete Zone with id=${id}.` });
+                res.send({message: `Cannot delete Zone with id=${id}.`});
             }
         })
         .catch(() => {
-            res.status(500).send({ message: "Could not delete Zone with id=" + id });
+            res.status(500).send({message: "Could not delete Zone with id=" + id});
         });
 };
 
@@ -93,17 +92,17 @@ exports.delete = (req, res) => {
     const id = req.params.id;
 
     Zone.destroy({
-        where: { id: id }
+        where: {id: id}
     })
         .then(num => {
             if (num === 1) {
-                res.send({ message: "Zone permanently deleted." });
+                res.send({message: "Zone permanently deleted."});
             } else {
-                res.send({ message: `Cannot delete Zone with id=${id}.` });
+                res.send({message: `Cannot delete Zone with id=${id}.`});
             }
         })
         .catch(() => {
-            res.status(500).send({ message: "Could not delete Zone with id=" + id });
+            res.status(500).send({message: "Could not delete Zone with id=" + id});
         });
 };
 
@@ -118,14 +117,14 @@ exports.updatePositions = (req, res) => {
     }
 
     const updates = zones.map(zone => {
-        return Zone.update({ position: zone.position }, {
-            where: { id: zone.id }
+        return Zone.update({position: zone.position}, {
+            where: {id: zone.id}
         });
     });
 
     Promise.all(updates)
         .then(() => {
-            res.send({ message: "Zone positions updated successfully." });
+            res.send({message: "Zone positions updated successfully."});
         })
         .catch(err => {
             res.status(500).send({

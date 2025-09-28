@@ -25,43 +25,27 @@ exports.create = (req, res) => {
         return;
     }
 
-    // Validate if name is unique
-    Product.findOne({
-        where: {
-            name: req.body.name,
-            isDeleted: false
-        }
-    }).then(data => {
-        if (data) {
-            res.status(400).send({
-                message: "Name already exists!"
-            });
-            return;
-        }
+    // Create Product
+    const product = {
+        name: req.body.name,
+        price: req.body.price,
+        position: req.body.position ? req.body.position : 0,
+        zoneId: req.body.zoneId,
+        theme: req.body.theme ? req.body.theme : null,
+        isDeleted: false
+    };
 
-        // Create Product
-        const product = {
-            name: req.body.name,
-            price: req.body.price,
-            type: req.body.type,
-            image: req.body.image ? req.body.image : null, // update to default one
-            position: req.body.position ? req.body.position : 0,
-            zoneId: req.body.zoneId,
-            isDeleted: false
-        };
-
-        // Save Product in the database
-        Product.create(product)
-            .then(data => {
-                res.send(data);
-            })
-            .catch(err => {
-                res.status(500).send({
-                    message:
-                        err.message || "Some error occurred while creating the Product."
-                });
+    // Save Product in the database
+    Product.create(product)
+        .then(data => {
+            res.send(data);
+        })
+        .catch(err => {
+            res.status(500).send({
+                message:
+                    err.message || "Some error occurred while creating the Product."
             });
-    });
+        });
 };
 
 // Retrieve all Products from the database.
@@ -111,7 +95,7 @@ exports.update = (req, res) => {
         where: {id: id}
     })
         .then(num => {
-            if (num === 1) {
+            if (num.includes(1)) {
                 res.send({
                     message: "Product was updated successfully."
                 });

@@ -1,50 +1,57 @@
-import React, {useEffect} from 'react'
-import DialogTitle from "@mui/material/DialogTitle";
-import DialogContent from "@mui/material/DialogContent";
-import {Box, IconButton} from "@mui/material";
-import DialogActions from "@mui/material/DialogActions";
-import Button from "@mui/material/Button";
-import Dialog from "@mui/material/Dialog";
+import React, {useEffect} from "react";
+import {
+    Dialog, DialogTitle, DialogContent, DialogActions,
+    Box, IconButton, Button
+} from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
-import TextField from "@mui/material/TextField";
+import UserService from "../../services/user.service";
+import TextFieldKeyboard from "../Common/TextFieldKeyboard";
 
 export default function LoginModal({open, close, setLogin}) {
     const [openModal, setOpenModal] = React.useState(open);
-    const [password, setPassword] = React.useState('');
-    const [errorText, setErrorText] = React.useState(false);
+    const [username, setUsername] = React.useState("admin");
+    const [password, setPassword] = React.useState("");
+    const [errorText, setErrorText] = React.useState("");
 
     useEffect(() => {
         setOpenModal(open);
+        setErrorText("");
+        setPassword("")
     }, [open]);
 
     const handleCloseModal = (login = false) => {
         if (login) {
-            // todo: implement a proper authentication system
-            if (password === 'admin') {
-                localStorage.setItem("login", new Date() + 1000 * 60 * 60); // 1 hour
-                setErrorText(false);
-                setOpenModal(false);
-                close(true);
-                setLogin(true);
-            } else {
-                setErrorText("Password incorrecta.");
-            }
+            UserService.login(username, password)
+                .then((response) => {
+                    localStorage.setItem("user", JSON.stringify(response.data));
+                    localStorage.setItem("login", String(Date.now() + 60 * 60 * 1000));
+                    setErrorText("");
+                    setOpenModal(false);
+                    close(true);
+                    setLogin(true);
+                })
+                .catch(() => {
+                    setErrorText("Utilizador ou password incorreta.");
+                });
         } else {
             close(false);
         }
     };
 
     return (
-        <Dialog open={openModal} onClose={() => handleCloseModal(false)}
-                fullwidth="true"
-                maxWidth='sm'
+        <Dialog
+            open={openModal}
+            onClose={() => handleCloseModal(false)}
+            fullWidth
+            maxWidth="xs"
         >
-            <DialogTitle className='modal__title'>Login</DialogTitle>
+            <DialogTitle className="modal__title">Login</DialogTitle>
+
             <IconButton
-                aria-label="close"
+                aria-label="Fechar"
                 onClick={() => handleCloseModal(false)}
                 sx={(theme) => ({
-                    position: 'absolute',
+                    position: "absolute",
                     right: 8,
                     top: 8,
                     color: theme.palette.grey[500],
@@ -52,43 +59,63 @@ export default function LoginModal({open, close, setLogin}) {
             >
                 <CloseIcon/>
             </IconButton>
+
             <DialogContent>
                 <Box
-                    noValidate
                     component="form"
+                    noValidate
                     sx={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        m: 'auto',
-                        width: 'fit-content',
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 2,
+                        width: "100%",
+                        maxWidth: 420,
+                        m: "0 auto",
                     }}
                 >
-                    <TextField
-                        margin="normal"
-                        required
-                        fullwidth="true"
-                        id="password"
-                        label="Password"
-                        type="password"
-                        autoFocus
-                        error={errorText !== false}
-                        helperText={errorText}
-                        onKeyDown={(ev) => {
-                            if (ev.key === 'Enter') {
-                                handleCloseModal(true);
-                                ev.preventDefault();
-                            }
+                    <TextFieldKeyboard
+                        value={username}
+                        onChange={setUsername}
+                        textFieldProps={{
+                            label: "Utilizador",
+                            fullWidth: true,
+                            autoComplete: "username",
                         }}
-                        onChange={(value) => setPassword(value.target.value)}
+                        maxLength={64}
+                        showSymbols={false}
                     />
 
+                    <TextFieldKeyboard
+                        value={password}
+                        onChange={setPassword}
+                        onEnter={() => handleCloseModal(true)}
+                        textFieldProps={{
+                            label: "Password",
+                            type: "password",
+                            fullWidth: true,
+                            autoComplete: "current-password",
+                            autoFocus: true,
+                        }}
+                        maxLength={64}
+                        showSymbols={false}
+                    />
+
+                    {!!errorText && (
+                        <Box sx={{color: "error.main", fontSize: 14}}>{errorText}</Box>
+                    )}
                 </Box>
             </DialogContent>
 
             <DialogActions>
-                <Button variant="contained" fullwidth="true" size="large"
-                        onClick={() => handleCloseModal(true)}>Entrar</Button>
+                <Button
+                    variant="contained"
+                    fullWidth
+                    size="large"
+                    onClick={() => handleCloseModal(true)}
+                >
+                    Entrar
+                </Button>
             </DialogActions>
         </Dialog>
-    )
+    );
 }

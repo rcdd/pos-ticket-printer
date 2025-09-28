@@ -70,8 +70,8 @@ function ListProductComponent({products, editProduct, updateOrder}) {
                     sx={{
                         display: 'grid',
                         gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
-                        gap: 2,
-                        px: 2,
+                        gap: 1,
+                        px: 1,
                         py: 2,
                     }}
                 >

@@ -21,6 +21,16 @@ module.exports = (sequelize, Sequelize) => {
         },
         quantity: {
             type: Sequelize.INTEGER
+        },
+        price: {
+            type: Sequelize.INTEGER
+        },
+        invoiceId: {
+            type: Sequelize.INTEGER,
+            references: {
+                model: "invoices",
+                key: "id"
+            }
         }
     });
 };

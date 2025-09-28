@@ -14,7 +14,7 @@ export function ZoneSelectionComponent({
                                            addProductToCart
                                        }) {
 
-    const [value, setValue] = React.useState(null);
+    const [value, setValue] = React.useState("");
 
     const handleTabChange = (event, newValue) => {
         setValue(newValue);
@@ -25,18 +25,18 @@ export function ZoneSelectionComponent({
     }, [products, zones, menus]);
 
     return (
-        <div className='products-wrapper col-xl-7 col-lg-6 col-md-6'>
+        <div>
             {isLoading ? 'Loading...' :
                 products.length === 0 && menus.length === 0 ?
                     <h3>Sem produtos definidos!</h3> :
-                    value && <TabContext value={value ?? null}>
+                    value && <TabContext value={value}>
                         <Box sx={{borderBottom: 1, borderColor: 'divider'}}>
                             <TabList
                                 value={value}
                                 onChange={handleTabChange}
                             >
                                 {zones && zones.map((zone) => (
-                                    <Tab style={{fontSize: 16 + "px"}} key={zone.id} label={zone.name} value={zone.name}/>
+                                    <Tab style={{fontSize: 14}} key={zone.id} label={zone.name} value={zone.name}/>
                                 ))}
 
                                 {menus.length && <Tab style={{fontSize: 16 + "px"}} value="menu" label="Menus"/>}
@@ -44,13 +44,13 @@ export function ZoneSelectionComponent({
                         </Box>
 
                         {zones && zones.map((zone) => (
-                            <TabPanel style={{padding: "20px 0"}} key={zone.id} value={zone.name}>
+                            <TabPanel style={{padding: 1}} key={zone.id} value={zone.name}>
                                 <ListProductsComponent products={products.filter(p => p.zoneId === zone.id)}
                                                        addToCart={addProductToCart}/>
                             </TabPanel>
                         ))}
 
-                        <TabPanel style={{padding: "20px 0"}} value="menu">
+                        <TabPanel style={{padding: 1}} value="menu">
                             <ListProductsComponent products={menus} addToCart={addProductToCart}/>
                         </TabPanel>
                     </TabContext>

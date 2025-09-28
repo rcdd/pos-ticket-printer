@@ -1,6 +1,5 @@
 const db = require("../models");
 const Record = db.records;
-const Op = db.Sequelize.Op;
 
 exports.create = (req, res) => {
     // Validate request
@@ -15,7 +14,7 @@ exports.create = (req, res) => {
 
     // Save Option in the database
     Record.bulkCreate(data)
-        .then(data => {
+        .then(() => {
             res.send({message: "ok"});
         })
         .catch(err => {

@@ -1,9 +1,14 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {
     Box, Checkbox, FormControlLabel, InputAdornment, Dialog,
-    DialogActions, DialogContent, DialogTitle, TextField, Button
+    DialogActions, DialogContent, DialogTitle, Button,
+    Divider, Stack, Typography
 } from '@mui/material';
 import LoadingButton from '@mui/lab/LoadingButton';
+import NumericTextFieldWithKeypad from '../Common/NumericTextFieldKeypad';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import {PaymentMethods} from "../../enums/PaymentMethodsEnum";
 
 export function PaymentModalComponent({
                                           openModal,
@@ -14,130 +19,242 @@ export function PaymentModalComponent({
                                           handlePrint,
                                           handleModalClose,
                                       }) {
-
     const [discount, setDiscount] = useState(false);
-    const [discountPercentage, setDiscountPercentage] = useState(100);
-    const [receivedEuros, setReceivedEuros] = useState(totalAmount / 100);
+    const [discountPctStr, setDiscountPctStr] = useState('100');
+    const [receivedStr, setReceivedStr] = useState('');
+    const [paymentMethod, setPaymentMethod] = useState("cash");
 
-    const discountedTotal = useMemo(() => {
-        if (!discount) return totalAmount;
-        const pct = Math.min(100, Math.max(0, discountPercentage));
-        const discountedValue = Math.round(totalAmount * (1 - pct / 100));
-        setReceivedEuros(discountedValue / 100);
+    const toNumber = (s) => {
+        if (s == null) return NaN;
+        const n = String(s).replace(',', '.');
+        return n === '' ? NaN : Number(n);
+    };
+    const eurFmt = useMemo(() => new Intl.NumberFormat('pt-PT', {style: 'currency', currency: 'EUR'}), []);
 
-        return discountedValue;
-    }, [totalAmount, discount, discountPercentage]);
+    const originalDue = useMemo(() => (totalAmount ?? 0) / 100, [totalAmount]);
 
-    const changeEuros = useMemo(() => {
-        const due = discountedTotal / 100;
-        const change = receivedEuros - due;
-        return change > 0 ? change : 0;
-    }, [receivedEuros, discountedTotal]);
+    const pct = useMemo(() => {
+        const p = Math.max(0, Math.min(100, Math.floor(toNumber(discountPctStr) || 0)));
+        return discount ? p : 0;
+    }, [discount, discountPctStr]);
+
+    const discountedDue = useMemo(() => {
+        const euros = originalDue * (1 - pct / 100);
+        return Math.round(euros * 100) / 100;
+    }, [originalDue, pct]);
+
+    const received = useMemo(() => {
+        const n = toNumber(receivedStr);
+        return Number.isFinite(n) ? n : 0;
+    }, [receivedStr]);
+
+    const effectiveReceived = useMemo(() => {
+        return paymentMethod === "cash" ? received : discountedDue;
+    }, [paymentMethod, received, discountedDue]);
+
+    const handleDiscount = (v) => {
+        setDiscount(v);
+        setReceivedStr("0,00");
+    }
+
+    const change = useMemo(() => Math.max(0, effectiveReceived - discountedDue), [effectiveReceived, discountedDue]);
 
     useEffect(() => {
-        if (openModal) {
-            setDiscount(false);
-            setDiscountPercentage(100);
-            setReceivedEuros(totalAmount / 100);
-        }
-    }, [openModal, totalAmount]);
+        if (!openModal) return;
+        setDiscount(false);
+        setDiscountPctStr('100');
+        setReceivedStr(originalDue.toFixed(2).replace('.', ','));
+        setPaymentMethod("cash");
+    }, [openModal, originalDue]);
+
+    const canPrint = effectiveReceived >= discountedDue && discountedDue >= 0;
 
     const sendToPrint = () => {
-        handlePrint(true, discountedTotal);
+        const discountedCents = Math.round(discountedDue * 100);
+        handlePrint(true, discountedCents, pct, paymentMethod);
     };
 
-    const formatEUR = (n) => `${n.toFixed(2)}€`;
+    const setExact = () =>
+        setReceivedStr(discountedDue.toFixed(2).replace('.', ','));
+    const bump = (inc) => {
+        const current = toNumber(receivedStr) || 0;
+        const nextNum = Math.min(current + inc, 999999.99);
+        setReceivedStr(nextNum.toFixed(2).replace('.', ','));
+    };
+    const setNote = (note) => setReceivedStr(note.toFixed(2).replace('.', ','));
+
+    const pctError = discount && (toNumber(discountPctStr) < 0 || toNumber(discountPctStr) > 100);
 
     return (
         <Dialog open={openModal} onClose={handleModalClose} fullWidth maxWidth="sm">
-            <DialogTitle className="modal__title">
-                {invoiceId ? `Pagamento nº ${invoiceId}` : 'A Pagamento'}
+            <DialogTitle sx={{display: 'flex', justifyContent: 'space-between', alignItems: 'baseline'}}>
+                <span>{invoiceId ? `Pagamento nº ${invoiceId}` : 'Pagamento'}</span>
+                <Typography variant="h6" component="span" color="text.secondary">
+                    Total: <b>{eurFmt.format(discountedDue)}</b>
+                </Typography>
             </DialogTitle>
 
             <DialogContent>
-                <Box
-                    component="form"
-                    noValidate
-                    sx={{display: 'flex', flexDirection: 'column', m: 'auto', width: 'fit-content'}}
-                >
-          <span className="modal__total">
-            Total: <b>{formatEUR(discountedTotal / 100)}</b>
-          </span>
+                <Stack spacing={2}>
+                    <Box
+                        sx={{
+                            p: 1.5,
+                            borderRadius: 1,
+                            bgcolor: 'action.hover',
+                            display: 'grid',
+                            gridTemplateColumns: '1fr auto',
+                            rowGap: 0.5,
+                            columnGap: 2,
+                        }}
+                    >
+                        <Typography variant="body2" color="text.secondary">Total original</Typography>
+                        <Typography variant="body2" textAlign="right">{eurFmt.format(originalDue)}</Typography>
 
-                    <FormControlLabel
-                        control={
-                            <Checkbox
-                                size="large"
-                                checked={discount}
-                                onChange={(e) => setDiscount(e.target.checked)}
-                                inputProps={{'aria-label': 'Aplicar Desconto'}}
+                        <Typography variant="body2" color="text.secondary">Desconto</Typography>
+                        <Typography variant="body2" textAlign="right">
+                            {discount ? `${pct}% (${eurFmt.format(originalDue - discountedDue)})` : '—'}
+                        </Typography>
+
+                        <Divider sx={{gridColumn: '1 / -1', my: 0.5}}/>
+
+                        <Typography variant="subtitle1">A pagar</Typography>
+                        <Typography variant="subtitle1" textAlign="right" fontWeight={700}>
+                            {eurFmt.format(discountedDue)}
+                        </Typography>
+                    </Box>
+
+                    <Stack direction="row" alignItems="baseline" className="mt-0">
+                        <FormControlLabel
+                            control={
+                                <Checkbox
+                                    size="medium"
+                                    checked={discount}
+                                    onChange={(e) => handleDiscount(e.target.checked)}
+                                    inputProps={{'aria-label': 'Aplicar desconto'}}
+                                />
+                            }
+                            label="Aplicar desconto"
+                        />
+
+                        {discount && (
+                            <NumericTextFieldWithKeypad
+                                value={discountPctStr}
+                                onChange={(v) => {
+                                    const n = Math.max(0, Math.min(100, parseInt(String(v).replace(/\D/g, ''), 10) || 0));
+                                    setDiscountPctStr(String(n));
+                                }}
+                                maxLength={3}
+                                textFieldProps={{
+                                    label: 'Desconto (%)',
+                                    fullWidth: false,
+                                    error: pctError,
+                                    helperText: pctError ? 'Introduza um valor entre 0 e 100' : ' ',
+                                    InputProps: {
+                                        size: "small",
+                                        sx: {fontSize: 14},
+                                        endAdornment: <InputAdornment position="end">%</InputAdornment>
+                                    },
+                                    sx: {mt: 1},
+                                }}
                             />
-                        }
-                        label="Aplicar Desconto"
-                        componentsProps={{typography: {fontSize: '1.4rem'}}}
-                    />
+                        )}
+                    </Stack>
 
-                    {discount && (
-                        <TextField
-                            margin="dense"
-                            variant="filled"
-                            label="Insira o valor do desconto (%)"
+                    <Box sx={{mt: 0}}>
+                        <Typography variant="subtitle2" gutterBottom>Método de pagamento</Typography>
+                        <ToggleButtonGroup
+                            value={paymentMethod}
+                            exclusive
+                            onChange={(_, v) => v && setPaymentMethod(v)}
                             fullWidth
-                            type="number"
-                            inputProps={{min: 0, max: 100, step: 1}}
-                            value={discountPercentage}
-                            onChange={(e) => {
-                                const v = Number(e.target.value);
-                                if (Number.isNaN(v)) return;
-                                setDiscountPercentage(Math.max(0, Math.min(100, v)));
-                            }}
-                            onKeyUp={(e) => {
-                                if (e.key === 'Enter') (!isPrinted ? sendToPrint() : handleModalClose());
-                            }}
-                            InputProps={{endAdornment: <InputAdornment position="end">%</InputAdornment>}}
-                            className="modal__percentage-value__input"
-                        />
+                            size="small"
+                            color="primary"
+                        >
+                            {PaymentMethods.map((type) => (
+                                <ToggleButton key={type.id} value={type.id}>{type.name}</ToggleButton>
+                            ))}
+                        </ToggleButtonGroup>
+                    </Box>
+
+                    {paymentMethod === "cash" && (
+                        <>
+                            <Typography variant="subtitle2">Valor recebido</Typography>
+                            <Stack direction="row" className="mt-0">
+                                <NumericTextFieldWithKeypad
+                                    value={receivedStr}
+                                    onChange={setReceivedStr}
+                                    decimal
+                                    maxLength={9}
+                                    textFieldProps={{
+                                        fullWidth: true,
+                                        placeholder: '0,00',
+                                        error: effectiveReceived < discountedDue,
+                                        helperText: effectiveReceived < discountedDue ? 'Valor recebido insuficiente' : ' ',
+                                        InputProps: {
+                                            size: "small",
+                                            endAdornment: <InputAdornment position="end">€</InputAdornment>
+                                        },
+                                    }}
+                                />
+                            </Stack>
+
+                            <Box sx={{mt: "0!important", mb: "8px!important"}}>
+                                <Button variant="contained" fullWidth color="success" onClick={setExact}
+                                        sx={{py: 0.5, fontSize: 14}}>
+                                    Valor Exacto
+                                </Button>
+                                <Box
+                                    sx={{
+                                        mt: 1.2,
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(5, 1fr)',
+                                        gap: 1.2,
+                                    }}
+                                >
+                                    <Button variant="outlined" onClick={() => bump(0.10)}
+                                            sx={{py: 0.5, fontSize: 14}}>+0,10</Button>
+                                    <Button variant="outlined" onClick={() => bump(0.50)}
+                                            sx={{py: 0.5, fontSize: 14}}>+0,50</Button>
+                                    <Button variant="outlined" onClick={() => bump(1)}
+                                            sx={{py: 0.5, fontSize: 14}}>+1</Button>
+                                    <Button variant="outlined" onClick={() => bump(2)}
+                                            sx={{py: 0.5, fontSize: 14}}>+2</Button>
+                                    <Button variant="outlined" onClick={() => bump(5)}
+                                            sx={{py: 0.5, fontSize: 14}}>+5</Button>
+                                    <Button variant="contained" onClick={() => setNote(5)}
+                                            sx={{py: 0.5, fontSize: 14}}>€5</Button>
+                                    <Button variant="contained" onClick={() => setNote(10)}
+                                            sx={{py: 0.5, fontSize: 14}}>€10</Button>
+                                    <Button variant="contained" onClick={() => setNote(20)}
+                                            sx={{py: 0.5, fontSize: 14}}>€20</Button>
+                                    <Button variant="contained" onClick={() => setNote(50)}
+                                            sx={{py: 0.5, fontSize: 14}}>€50</Button>
+                                    <Button variant="contained" onClick={() => setNote(100)}
+                                            sx={{py: 0.5, fontSize: 14}}>€100</Button>
+                                </Box>
+                            </Box>
+
+                            <Box sx={{display: 'flex', justifyContent: 'space-between', mt: "16px!important"}}>
+                                <Typography variant="h6">Troco</Typography>
+                                <Typography variant="h6" fontWeight={700}>
+                                    {eurFmt.format(change)}
+                                </Typography>
+                            </Box>
+                        </>
                     )}
-
-                    <div className="modal__receive-value">
-                        <span>Valor recebido:</span>
-                        <TextField
-                            margin="dense"
-                            variant="filled"
-                            label="Insira o valor recebido"
-                            fullWidth
-                            type="number"
-                            inputMode="decimal"
-                            value={Number.isFinite(receivedEuros) ? receivedEuros : ''}
-                            onChange={(e) => {
-                                const v = parseFloat(String(e.target.value).replace(',', '.'));
-                                if (Number.isNaN(v)) return setReceivedEuros(0);
-                                setReceivedEuros(v);
-                            }}
-                            onFocus={(e) => e.target.select()}
-                            onKeyUp={(e) => {
-                                if (e.key === 'Enter') (!isPrinted ? sendToPrint() : handleModalClose());
-                            }}
-                            InputProps={{endAdornment: <InputAdornment position="end">€</InputAdornment>}}
-                            className="modal__receive-value__input"
-                        />
-                    </div>
-
-                    <span className="modal__exchange">
-            Troco: <b>{formatEUR(changeEuros)}</b>
-          </span>
-                </Box>
+                </Stack>
             </DialogContent>
 
-            <DialogActions>
+            <DialogActions sx={{gap: 1}}>
                 {!isPrinted ? (
                     <LoadingButton
                         loading={isPrinting}
-                        loadingIndicator="A imprimir.."
+                        loadingIndicator="A imprimir…"
                         variant="contained"
                         fullWidth
                         size="large"
                         onClick={sendToPrint}
+                        disabled={!canPrint}
                     >
                         Imprimir
                     </LoadingButton>

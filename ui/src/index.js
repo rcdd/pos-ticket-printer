@@ -10,7 +10,7 @@ root.render(
 
 window.onerror = function (message, source, lineno, colno, error) {
     console.error("Erro global:", { message, source, lineno, colno, error });
-    alert("Erro: " + message);
+    // alert("Erro: " + message);
 };
 
 window.addEventListener('unhandledrejection', function (event) {

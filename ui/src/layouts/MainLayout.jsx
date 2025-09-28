@@ -5,6 +5,7 @@ import 'react-toastify/dist/ReactToastify.css';
 function MainLayout({children}) {
   return (
     <div>
+      {/*NOT USED */}
     <header>
       <nav className="navbar navbar-light bg-primary">
         <div className="container">
@@ -13,7 +14,7 @@ function MainLayout({children}) {
       </nav>
     </header>
     <main>
-      <div className='container mt-3'>
+      <div className='container mt-2'>
         {children}
       </div>
     </main>

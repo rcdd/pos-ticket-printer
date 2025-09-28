@@ -1,152 +1,111 @@
 import React, {useEffect, useState} from 'react'
 import {PaymentModalComponent} from '../components/POS/PaymentModalComponent';
-import {CartComponent} from '../components/POS/CartComponent';
+import CartComponent from '../components/POS/CartComponent';
 import ProductService from "../services/product.service";
 import PrinterService from "../services/printer.service";
 import InvoiceService from "../services/invoice.service";
 import {ZoneSelectionComponent} from '../components/POS/ZoneSelectionComponent';
 import MenuService from "../services/menu.service";
 import ZoneService from "../services/zone.service";
+import {useToast} from "../components/Common/ToastProvider";
+import {Backdrop, InputAdornment, Box, Paper, Typography, Button} from "@mui/material";
+import InputLabel from "@mui/material/InputLabel";
+import SessionService from "../services/session.service";
+import NumericTextFieldWithKeypad from "../components/Common/NumericTextFieldKeypad";
+import LoadingButton from '@mui/lab/LoadingButton';
+import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 
-function POSPage() {
+function POSPage({session, setSession}) {
+    const {pushNetworkError} = useToast();
     const [products, setProducts] = useState([]);
     const [zones, setZones] = useState([]);
     const [menus, setMenus] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [cart, setCart] = useState([]);
     const [invoiceId, setInvoiceId] = useState(null);
-    const [totalAmount, setTotalAmount] = useState(0);
     const [openModal, setOpenModal] = React.useState(false);
     const [isPrinting, setIsPrinting] = React.useState(false);
     const [isPrinted, setIsPrinted] = React.useState(false);
+    const [openBackdrop, setOpenBackdrop] = React.useState(session === null);
+    const [initialCashValue, setInitialCashValue] = React.useState(0);
+    const [user, /*setUser*/] = React.useState({id: 1});
 
-    const fetchZones = async () => {
+    const handleInitSession = async () => {
+        const num = parseFloat(String(initialCashValue).replace(',', '.'));
+        const value = Number.isFinite(num) && num >= 0 ? Math.round(num * 100) : 0;
+
         setIsLoading(true);
-        await ZoneService.getAll().then((response) => {
-            setZones(response.data.sort((a, b) => a.position > b.position ? 1 : -1));
+        try {
+            const sessionData = {userId: user.id, initialAmount: value, notes: null};
+            const res = await SessionService.start(sessionData);
+            setSession(res.data);
+            setOpenBackdrop(false);
+        } catch (error) {
+            pushNetworkError(error, {title: 'Não foi possível iniciar a sessão'});
+            console.error(error?.response?.data || error);
+        } finally {
             setIsLoading(false);
-        }).catch((error) => {
-            throw Error(error.response.data.message)
-        });
-    }
-    const fetchProducts = async () => {
-        setIsLoading(true);
-        await ProductService.getAll().then(async (response) => {
-            const products = [];
-            response.data.forEach(element => {
-                if (element.image === null) {
-                    element.image = "../imgs/placeholder.png"
-                }
-                products.push(element);
-            });
-            setProducts(products);
-
-            await MenuService.getAll().then((response) => {
-                response.data.forEach(menu => {
-                    menu.type = 'Menu';
-                });
-
-                setMenus(response.data);
-                setIsLoading(false);
-            });
-        }).catch((error) => {
-            throw Error(error.response.data.message)
-        });
-    }
-
-    const addProductToCart = async (product) => {
-        // check if the product to add already exists
-        let itemExists = await cart.find(i => {
-            return i.id === product.id && i.type === product.type;
-        });
-
-        if (itemExists) {
-            let newCart = [];
-
-            cart.forEach(cartItem => {
-                if (cartItem.id === product.id && cartItem.type === product.type) {
-                    let newItem = {
-                        ...cartItem,
-                        quantity: cartItem.quantity + 1,
-                        totalAmount: cartItem.price * (cartItem.quantity + 1)
-                    }
-                    newCart.push(newItem);
-                } else {
-                    newCart.push(cartItem);
-                }
-            });
-
-            setCart(newCart);
-        } else {
-            let addingProduct = {
-                ...product, quantity: 1, totalAmount: product.price,
-            }
-
-            setCart([...cart, addingProduct]);
         }
+    };
 
-    }
-
-    const removeProduct = async (product) => {
-        const newCart = cart.filter(cartItem => cartItem.id !== product.id || cartItem.type !== product.type);
-        setCart(newCart);
-    }
-
-    const increaseQuantity = async (product) => {
-        const newCart = cart.map(cartItem => {
-            if (cartItem.id === product.id && cartItem.type === product.type) {
-                const quantity = cartItem.quantity + 1;
-                cartItem.quantity = quantity;
-                cartItem.totalAmount = cartItem.price * quantity
-                return cartItem;
-            } else {
-                return cartItem;
+    const addProductToCart = (product) => {
+        setCart((prev) => {
+            const idx = prev.findIndex(i => i.id === product.id && i.type === product.type);
+            if (idx >= 0) {
+                const copy = [...prev];
+                const item = copy[idx];
+                const quantity = item.quantity + 1;
+                copy[idx] = {...item, quantity, totalAmount: item.price * quantity};
+                return copy;
             }
+            return [...prev, {...product, quantity: 1, totalAmount: product.price}];
         });
+    };
 
-        setCart(newCart);
-    }
-
-    const decreaseQuantity = async (product) => {
-        const newCart = cart.map(cartItem => {
-            if (cartItem.id === product.id) {
-                const quantity = cartItem.quantity - 1;
-                cartItem.quantity = quantity;
-                cartItem.totalAmount = cartItem.price * quantity
-                return cartItem;
-            } else {
-                return cartItem;
-            }
-        }).filter(cartItem => cartItem.quantity !== 0);
-
-        setCart(newCart);
-    }
+    const removeProduct = (product) => {
+        setCart((prev) => prev.filter(
+            i => !(i.id === product.id && i.type === product.type)
+        ));
+    };
 
     const handlePayment = () => {
-        setOpenModal(true)
-    }
+        if (cart.length === 0) return;
+        setOpenModal(true);
+    };
 
-    const handlePrint = async (status = false, finalAmount = totalAmount) => {
-        if (status) {
+    const handlePrint = async (status = false, finalAmount = totalAmount, discount = 0, paymentMethod) => {
+        if (!status) {
+            setOpenModal(false);
+            return;
+        }
+
+        try {
             setIsPrinted(false);
             setIsPrinting(true);
 
-            const bodyRequest = {
+            const printPayload = {
                 items: cart,
                 totalAmount: (finalAmount / 100).toFixed(2),
             };
+            await PrinterService.print(printPayload);
 
-            await PrinterService.print(bodyRequest).catch((e) => {
-                setIsPrinting(false);
-                throw new Error(e.response.data);
-            });
+            const invoiceId = await InvoiceService.addInvoice(
+                session.id,
+                user.id,
+                cart,
+                finalAmount,
+                discount,
+                paymentMethod
+            );
 
-            setInvoiceId(await InvoiceService.addInvoice(bodyRequest.items, bodyRequest.totalAmount));
-
-            setIsPrinting(false);
+            setInvoiceId(invoiceId);
             setIsPrinted(true);
-        } else {
-            setOpenModal(false);
+        } catch (e) {
+            pushNetworkError(e, {title: 'Não foi possivel finalizar o pagamento.'});
+            console.error(e?.response?.data || e);
+            setIsPrinted(false);
+        } finally {
+            setIsPrinting(false);
         }
     };
 
@@ -155,43 +114,72 @@ function POSPage() {
 
         if (isPrinted) {
             setCart([]);
-            setTotalAmount(0);
             setIsPrinted(false);
             setInvoiceId(null);
         }
     }
 
     useEffect(() => {
-        fetchZones().then(() => {
-            fetchProducts();
-        });
-    }, []);
+        let mounted = true;
+        (async () => {
+            setIsLoading(true);
+            try {
+                const [zonesRes, productsRes, menusRes] = await Promise.all([
+                    ZoneService.getAll(),
+                    ProductService.getAll(),
+                    MenuService.getAll(),
+                ]);
+
+                if (!mounted) return;
+
+                const zonesSorted = (zonesRes.data || []).sort((a, b) => a.position - b.position);
+                setZones(zonesSorted);
+
+                setProducts(productsRes.data || []);
+
+                const menus = (menusRes.data || []).map(m => ({...m, type: 'Menu'}));
+                setMenus(menus);
+            } catch (error) {
+                pushNetworkError(error, {title: 'Não foi possível carregar dados'});
+                console.error(error?.response?.data || error);
+            } finally {
+                if (mounted) setIsLoading(false);
+            }
+        })();
+        return () => {
+            mounted = false;
+        };
+    }, [pushNetworkError]);
+
 
     useEffect(() => {
-        let newTotalAmount = 0;
-        cart.forEach(cartItem => {
-            newTotalAmount = parseFloat(newTotalAmount) + parseFloat(cartItem.totalAmount);
-        })
-        setTotalAmount(newTotalAmount);
-    }, [cart])
+        setOpenBackdrop(session === null);
+    }, [session]);
+
+    const totalAmount = React.useMemo(
+        () => cart.reduce((acc, it) => acc + (it.totalAmount || 0), 0),
+        [cart]
+    );
 
     return (
-        <div>
+        <>
             <div className='row'>
-                <ZoneSelectionComponent
-                    isLoading={isLoading}
-                    zones={zones}
-                    products={products}
-                    menus={menus}
-                    addProductToCart={addProductToCart}/>
-
-                <CartComponent
-                    cart={cart}
-                    totalAmount={totalAmount}
-                    increaseQuantity={increaseQuantity}
-                    decreaseQuantity={decreaseQuantity}
-                    removeProduct={removeProduct}
-                    handlePayment={handlePayment}/>
+                <div className='products-wrapper col-xl-8 col-lg-8 col-md-6'>
+                    <ZoneSelectionComponent
+                        isLoading={isLoading}
+                        zones={zones}
+                        products={products}
+                        menus={menus}
+                        addProductToCart={addProductToCart}/>
+                </div>
+                <div className='col-xl-4 col-lg-4 col-md-6 cart-wrapper'>
+                    <CartComponent
+                        cart={cart}
+                        setCart={setCart}
+                        totalAmount={totalAmount}
+                        removeProduct={removeProduct}
+                        handlePayment={handlePayment}/>
+                </div>
             </div>
 
             <PaymentModalComponent
@@ -203,7 +191,79 @@ function POSPage() {
                 handlePrint={handlePrint}
                 handleModalClose={handleModalClose}
             />
-        </div>)
+
+            <Backdrop
+                open={openBackdrop}
+                sx={(theme) => ({
+                    zIndex: theme.zIndex.appBar - 1,
+                    bgcolor: 'rgba(0,0,0,0.35)',
+                    backdropFilter: 'blur(8px)',
+                    p: 2,
+                })}
+            >
+                <Paper
+                    elevation={6}
+                    sx={{
+                        width: 'min(420px, 92vw)',
+                        p: 3,
+                        borderRadius: 2,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 1.5,
+                    }}
+                >
+                    <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
+                        <PointOfSaleIcon fontSize="large" color="primary"/>
+                        <Typography variant="h6" component="h2" sx={{mb: 0}}>
+                            Sem sessão iniciada
+                        </Typography>
+                    </Box>
+
+                    <Typography variant="body2" color="text.secondary">
+                        Para começar, indique o <b>valor inicial</b> em caixa.
+                    </Typography>
+
+                    <InputLabel id="initial-cash-label">Valor inicial de caixa</InputLabel>
+                    <NumericTextFieldWithKeypad
+                        value={initialCashValue}
+                        onChange={(v) => setInitialCashValue(v)}
+                        decimal
+                        maxLength={9}
+                        textFieldProps={{
+                            id: 'initial-cash',
+                            placeholder: '0,00',
+                            fullWidth: true,
+                            InputProps: {endAdornment: <InputAdornment position="end">€</InputAdornment>},
+                        }}
+                    />
+
+                    <Box sx={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1}}>
+                        <Button variant="outlined" onClick={() => setInitialCashValue('0,00')}>
+                            €0
+                        </Button>
+                        <Button variant="outlined" onClick={() => setInitialCashValue('20,00')}>
+                            €20
+                        </Button>
+                        <Button variant="outlined" onClick={() => setInitialCashValue('50,00')}>
+                            €50
+                        </Button>
+                        <Button variant="outlined" onClick={() => setInitialCashValue('100,00')}>
+                            €100
+                        </Button>
+                    </Box>
+
+                    <LoadingButton
+                        loading={isLoading}
+                        variant="contained"
+                        size="large"
+                        onClick={handleInitSession}
+                        sx={{mt: 0.5}}
+                    >
+                        Começar
+                    </LoadingButton>
+                </Paper>
+            </Backdrop>
+        </>)
 }
 
 export default POSPage
