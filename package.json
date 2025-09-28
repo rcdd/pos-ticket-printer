@@ -1,6 +1,6 @@
 {
   "name": "pos-ticket-print",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "description": "POS Ticket Print project with Docker, Express API, and React UI",
   "main": "startup.js",
   "scripts": {
