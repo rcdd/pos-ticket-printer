@@ -95,6 +95,12 @@ export default function LoginModal({open, close, setLogin}) {
                             fullWidth: true,
                             autoComplete: "current-password",
                             autoFocus: true,
+                            onKeyDown: (e) => {
+                                if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleCloseModal(true);
+                                }
+                            }
                         }}
                         maxLength={64}
                         showSymbols={false}

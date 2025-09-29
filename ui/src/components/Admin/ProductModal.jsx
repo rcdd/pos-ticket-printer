@@ -167,6 +167,7 @@ function ProductModal({open, close, selectedZone, zones = [], product = null}) {
                             fullWidth: true,
                             autoComplete: "nome",
                             required: true,
+                            helperText: `${newName?.length || 0}/20`,
                         }}
                         maxLength={20}
                         showSymbols={false}

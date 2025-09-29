@@ -35,13 +35,13 @@ import DialogContentText from "@mui/material/DialogContentText";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import Dialog from "@mui/material/Dialog";
-import AlarmIcon from '@mui/icons-material/Alarm';
 import SessionService from "../services/session.service";
 import SessionPage from "./Admin/SessionPage";
 import ImportExportPage from "./Admin/ImportExportPage";
 import ImportExportIcon from '@mui/icons-material/ImportExport';
 import CategoryIcon from '@mui/icons-material/Category';
 import ProductsPage from "./Admin/ProductsPage";
+import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 
 const drawerWidth = 240;
 
@@ -97,7 +97,7 @@ function HomePage() {
         {icon: <CategoryIcon/>, name: "Produtos", path: "products", visible: true},
         {icon: <AssessmentIcon/>, name: "Relatórios", path: "reports", visible: true},
         {icon: <ImportExportIcon/>, name: "Importar/Exportar", path: "migration", visible: true},
-        {icon: <AlarmIcon/>, name: "Sessão", path: "session", visible: session !== null},
+        {icon: <PointOfSaleIcon/>, name: "Tesouraria", path: "session", visible: session !== null},
         {icon: <SettingsIcon/>, name: "Configurações", path: "setup", visible: true},
     ]
     const closeWindow = () => {

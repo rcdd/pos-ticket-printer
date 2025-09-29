@@ -83,6 +83,7 @@ export default function TextFieldKeyboard({
     const [open, setOpen] = React.useState(false);
     const [shift, setShift] = React.useState(false);
     const [showPwd, setShowPwd] = React.useState(false);
+    const [showKeyboard, setShowKeyboard] = React.useState(true);
 
     const inputRef = React.useRef(null);
 
@@ -116,6 +117,12 @@ export default function TextFieldKeyboard({
         e.stopPropagation();
     };
 
+    React.useEffect(() => {
+        const v = localStorage.getItem("virtualKeyboard");
+        if (v === "false") setShowKeyboard(false);
+        else setShowKeyboard(true);
+    }, [open]);
+
     const isPassword =
         textFieldProps?.type === "password" || Boolean(showPasswordToggle);
 
@@ -147,12 +154,13 @@ export default function TextFieldKeyboard({
                 onChange={(e) => onChange?.(e.target.value)}
                 InputProps={{
                     ...(textFieldProps?.InputProps || {}),
+                    inputProps: {maxLength: maxLength || textFieldProps?.InputProps?.inputProps?.maxLength},
                     endAdornment: mergedEndAdornment,
                 }}
             />
 
             <Popper
-                open={open}
+                open={showKeyboard && open}
                 anchorEl={anchorEl}
                 placement="bottom-start"
                 modifiers={[{name: "offset", options: {offset: [0, 8]}}]}

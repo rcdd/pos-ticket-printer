@@ -30,6 +30,14 @@ class OptionService {
     setPrintType(printType) {
         return http.post(this.BASE_URL + "/option/set-print-type", {printType});
     }
+
+    getOpenDrawer() {
+        return http.get(this.BASE_URL + "/option/get-open-drawer");
+    }
+
+    setOpenDrawer(openDrawer) {
+        return http.post(this.BASE_URL + "/option/set-open-drawer", {openDrawer});
+    }
 }
 
 export default new OptionService();

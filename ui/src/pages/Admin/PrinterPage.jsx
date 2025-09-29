@@ -37,6 +37,8 @@ export default function PrinterPage() {
     const [firstLine, setFirstLine] = useState("");
     const [secondLine, setSecondLine] = useState("");
 
+    const [openDrawer, setOpenDrawer] = useState(false);
+
     const [firstErr, setFirstErr] = useState(false);
     const [secondErr, setSecondErr] = useState(false);
 
@@ -50,11 +52,12 @@ export default function PrinterPage() {
         (async () => {
             try {
                 setLoading(true);
-                const [listRes, printerRes, typeRes, headersRes] = await Promise.all([
+                const [listRes, printerRes, typeRes, headersRes, openDrawerRes] = await Promise.all([
                     PrinterService.getList(),
                     OptionService.getPrinter(),
                     OptionService.getPrintType(),
                     OptionService.getHeaders(),
+                    OptionService.getOpenDrawer(),
                 ]);
 
                 setPrinters(listRes.data || []);
@@ -62,6 +65,7 @@ export default function PrinterPage() {
                 setPrintType(typeRes?.data || "totals");
                 setFirstLine(headersRes?.data?.firstLine || "");
                 setSecondLine(headersRes?.data?.secondLine || "");
+                setOpenDrawer(!!openDrawerRes?.data.openDrawer);
             } catch (error) {
                 pushNetworkError(error, {
                     title: "Não foi possível carregar as configurações de impressão",
@@ -134,25 +138,28 @@ export default function PrinterPage() {
         });
     };
 
+    const onChangeOpenDrawer = async (e) => {
+        const value = !!e.target.checked;
+        try {
+            setSaving(true);
+            await OptionService.setOpenDrawer(value);
+            setOpenDrawer(value);
+        } catch (error) {
+            pushNetworkError(error, {title: "Não foi possível alterar a opção de abrir gaveta"});
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const handleTestPrint = async () => {
         try {
             setTesting(true);
-            await PrinterService.print({
-                items: [
-                    {
-                        id: "TEST",
-                        name: "=== TESTE DE IMPRESSÃO ===",
-                        quantity: 1,
-                        price: 0,
-                        totalAmount: 0,
-                        type: "Test"
-                    },
-                ],
-                totalAmount: "0.00",
+            await PrinterService.printTicket({
                 test: true,
                 headers: {firstLine, secondLine},
                 printType,
                 printer,
+                openDrawer,
             });
         } catch (error) {
             pushNetworkError(error, {title: "Não foi possível enviar a impressão de teste"});
@@ -164,7 +171,7 @@ export default function PrinterPage() {
     const printerMenu = useMemo(
         () =>
             printers.map((p) => (
-                <MenuItem key={p.name} value={p.name}>
+                <MenuItem key={p.name} value={p.systemName}>
                     {p.name}
                 </MenuItem>
             )),
@@ -217,6 +224,23 @@ export default function PrinterPage() {
                                 </Select>
                                 <FormHelperText>
                                     Define se imprime só totais, bilhetes individuais ou ambos.
+                                </FormHelperText>
+                            </FormControl>
+
+                            <FormControl disabled={saving}>
+                                <Stack direction="row" alignItems="center" spacing={1}>
+                                    <input
+                                        type="checkbox"
+                                        id="open-drawer-checkbox"
+                                        checked={openDrawer}
+                                        onChange={onChangeOpenDrawer}
+                                        disabled={saving}
+                                    />
+                                    <label htmlFor="open-drawer-checkbox">Abrir gaveta de dinheiro</label>
+                                </Stack>
+                                <FormHelperText>
+                                    {`Se suportado pela impressora, abre a gaveta de dinheiro ao imprimir.`}
+                                    {saving && " A guardar…"}
                                 </FormHelperText>
                             </FormControl>
                         </Stack>

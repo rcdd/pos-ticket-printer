@@ -71,7 +71,7 @@ export function PaymentModalComponent({
 
     const sendToPrint = () => {
         const discountedCents = Math.round(discountedDue * 100);
-        handlePrint(true, discountedCents, pct, paymentMethod);
+        handlePrint(true, discountedCents, pct, paymentMethod, paymentMethod === 'cash');
     };
 
     const setExact = () =>

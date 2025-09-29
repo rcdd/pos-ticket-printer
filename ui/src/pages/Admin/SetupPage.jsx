@@ -32,7 +32,24 @@ function SetupPage() {
                     </TabPanel>
 
                     <TabPanel value="2">
-                        <h3>Sem configurações ainda...</h3>
+                        <h3>Teclado Virtual</h3>
+                        <p>Ativa ou desativa o teclado virtual para os campos numéricos e de texto.</p>
+                        <p>Esta configuração é guardada no navegador, por isso é aplicada a todos os utilizadores e
+                            mantida entre sessões.</p>
+                        <div className="form-check form-switch">
+                            <input
+                                className="form-check-input"
+                                type="checkbox"
+                                id="virtualKeyboard"
+                                defaultChecked={localStorage.getItem("virtualKeyboard") === "true"}
+                                onChange={(e) => {
+                                    localStorage.setItem("virtualKeyboard", String(e.target.checked));
+                                }}
+                            />
+                            <label className="form-check-label" htmlFor="virtualKeyboard">
+                                Teclado Virtual
+                            </label>
+                        </div>
                     </TabPanel>
                 </TabContext>
             </div>

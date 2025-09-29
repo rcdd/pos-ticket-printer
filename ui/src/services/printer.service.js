@@ -7,8 +7,12 @@ class PrinterService {
         return http.get(this.BASE_URL + "/printer/list");
     }
 
-    print(data) {
-        return http.post(this.BASE_URL + "/printer/print", data);
+    printTicket(data) {
+        return http.post(this.BASE_URL + "/printer/print-ticket", data);
+    }
+
+    printSessionSummary(data) {
+        return http.post(this.BASE_URL + "/printer/print-session", data);
     }
 }
 

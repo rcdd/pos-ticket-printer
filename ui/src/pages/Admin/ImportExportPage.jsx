@@ -106,14 +106,14 @@ export default function ImportExportPage() {
             const raw = rows[i];
             const t = (raw.type || "").toLowerCase();
             if (t !== "product" && t !== "zone") {
-                issues.push({row: i + 2, level: "error", msg: "type deve ser 'product' ou 'zone'"});
+                issues.push({row: i + 1, level: "error", msg: "type deve ser 'product' ou 'zone'"});
                 continue;
             }
 
             if (t === "zone") {
                 const name = raw.name || "";
                 if (!name) {
-                    issues.push({row: i + 2, level: "error", msg: "zona: 'name' obrigatório"});
+                    issues.push({row: i + 1, level: "error", msg: "zona: 'name' obrigatório"});
                     continue;
                 }
                 const position = raw.position ? parseInt(raw.position, 10) : null;
@@ -124,22 +124,29 @@ export default function ImportExportPage() {
             // product
             const name = raw.name || "";
             if (!name) {
-                issues.push({row: i + 2, level: "error", msg: "produto: 'name' obrigatório"});
+                issues.push({row: i + 1, level: "error", msg: "produto: 'name' obrigatório"});
                 continue;
+            }
+            if (name.length > 40) {
+                issues.push({
+                    row: i + 1,
+                    level: "warning",
+                    msg: "produto: 'name' demasiado longo, máximo 40 caracteres"
+                });
             }
 
             // price
             const pstr = String(raw.price_eur || "").replace(",", ".");
             const price = Number(pstr);
             if (!Number.isFinite(price) || price < 0) {
-                issues.push({row: i + 2, level: "error", msg: "produto: 'price_eur' inválido"});
+                issues.push({row: i + 1, level: "error", msg: "produto: 'price_eur' inválido"});
                 continue;
             }
 
             // theme
             let theme = (raw.theme || "default").toLowerCase();
             if (!THEMES.includes(theme)) {
-                issues.push({row: i + 2, level: "warning", msg: `theme desconhecido '${raw.theme}', a usar 'default'`});
+                issues.push({row: i + 1, level: "warning", msg: `theme desconhecido '${raw.theme}', a usar 'default'`});
                 theme = "default";
             }
 
@@ -148,13 +155,13 @@ export default function ImportExportPage() {
             let zoneName = raw.zone_name || null;
 
             if (zoneId && !knownZonesById.has(zoneId)) {
-                issues.push({row: i + 2, level: "error", msg: `zone_id ${zoneId} não existe`});
+                issues.push({row: i + 1, level: "error", msg: `zone_id ${zoneId} não existe`});
                 continue;
             }
             if (!zoneId && zoneName) {
                 if (!knownZonesByName.has(zoneName) && !createZones) {
                     issues.push({
-                        row: i + 2,
+                        row: i + 1,
                         level: "error",
                         msg: `zone_name '${zoneName}' não existe (desliga o erro ativando 'Criar zonas')`
                     });
@@ -279,6 +286,18 @@ export default function ImportExportPage() {
                             </Button>
                         </Stack>
 
+
+                        {report?.issues?.length > 0 && (
+                            <Stack spacing={1}>
+                                {report.issues.map((i, idx) => (
+                                    <Alert key={idx} severity={i.level === "error" ? "error" : "warning"}>
+                                        Linha {i.row}: {i.msg}
+                                    </Alert>
+                                ))}
+                            </Stack>
+                        )}
+                        {report?.done && <Alert severity="success">Importação concluída com sucesso.</Alert>}
+
                         {!!rows.length && (
                             <Typography variant="body2" color="text.secondary">
                                 Linhas carregadas: {rows.length}. Mostradas as primeiras 50 abaixo.
@@ -296,27 +315,22 @@ export default function ImportExportPage() {
                             }}>
                                 <table className="table table-sm" style={{width: "100%", fontSize: 12}}>
                                     <thead>
-                                    <tr>{Object.keys(rows[0]).map(h => <th key={h}>{h}</th>)}</tr>
+                                    <tr>
+                                        <td>#</td>
+                                        {Object.keys(rows[0]).map(h => <th key={h}>{h}</th>)}
+                                    </tr>
                                     </thead>
                                     <tbody>
                                     {rows.slice(0, 50).map((r, idx) => (
-                                        <tr key={idx}>{Object.keys(rows[0]).map(h => <td key={h}>{r[h]}</td>)}</tr>
+                                        <tr key={idx}>
+                                            <td>{idx + 1}</td>
+                                            {Object.keys(rows[0]).map(h => <td key={h}>{r[h]}</td>)}
+                                        </tr>
                                     ))}
                                     </tbody>
                                 </table>
                             </Box>
                         )}
-
-                        {report?.issues?.length > 0 && (
-                            <Stack spacing={1}>
-                                {report.issues.map((i, idx) => (
-                                    <Alert key={idx} severity={i.level === "error" ? "error" : "warning"}>
-                                        Linha {i.row}: {i.msg}
-                                    </Alert>
-                                ))}
-                            </Stack>
-                        )}
-                        {report?.done && <Alert severity="success">Importação concluída com sucesso.</Alert>}
                     </Stack>
                 </CardContent>
             </Card>

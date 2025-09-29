@@ -3,8 +3,13 @@ import Button from '@mui/material/Button';
 import InvoiceService from '../../services/invoice.service';
 import {PaymentMethods} from '../../enums/PaymentMethodsEnum';
 import CloseSessionModal from '../../components/Admin/CloseSessionModal';
+import PrinterService from "../../services/printer.service";
+import SessionService from "../../services/session.service";
+import {useToast} from "../../components/Common/ToastProvider";
+import UserService from "../../services/user.service";
 
 export default function SessionPage({session, setSession, onCloseSession}) {
+    const {pushNetworkError} = useToast();
     const [isLoading, setIsLoading] = React.useState(true);
     const [openModal, setOpenModal] = React.useState(false);
     const [invoices, setInvoices] = React.useState([]);
@@ -31,6 +36,65 @@ export default function SessionPage({session, setSession, onCloseSession}) {
             setIsLoading(false);
         }
     }, [session?.id]);
+
+    const handleCloseSession = async (notes) => {
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user) {
+            pushNetworkError(null, {
+                title: 'Utilizador não autenticado',
+                message: 'Por favor, inicie sessão novamente.',
+            });
+            return;
+        }
+
+
+        const userOpen = await UserService.get(session.userOpenId)
+            .then(data => {
+                return data.data;
+            }).catch((error) => {
+                console.error('Erro ao obter o utilizador que abriu a sessão:', error);
+                pushNetworkError(error, {
+                    title: 'Não foi possível obter o utilizador que abriu a sessão',
+                });
+            });
+
+        const sessionPayload = {
+            userOpen: userOpen?.name || 'Desconhecido',
+            userClose: user.name || 'Desconhecido',
+            openedAt: session.openedAt,
+            closedAt: new Date().toISOString(),
+            initialAmount: session.initialAmount,
+            totalSales: invoices.length,
+            payments: paymentsAgg,
+            products: productsAgg,
+            discountedProducts: discountedProductsAgg.sort((a, b) => b.discount - a.discount),
+            closingAmount: totalAmountCents,
+            notes: notes,
+        };
+
+        await PrinterService.printSessionSummary(sessionPayload).catch((error) => {
+            console.error('Erro ao imprimir o resumo da sessão:', error);
+            pushNetworkError(error, {
+                title: 'Não foi possível imprimir o resumo da sessão',
+            });
+        });
+
+        const payload = {
+            userId: user.id,
+            closingAmount: totalAmountCents,
+            notes: notes,
+        };
+        SessionService.close(session.id, payload).then(() => {
+            setSession(null);
+            setOpenModal(false);
+            onCloseSession(true);
+        }).catch((error) => {
+            pushNetworkError(error, {
+                title: 'Não foi possivel fechar a sessão',
+            });
+            console.error(error.response.data);
+        });
+    };
 
     React.useEffect(() => {
         fetchInvoices();
@@ -209,7 +273,7 @@ export default function SessionPage({session, setSession, onCloseSession}) {
             <CloseSessionModal
                 open={openModal}
                 setModal={setOpenModal}
-                onCloseSession={onCloseSession}
+                onCloseSession={handleCloseSession}
                 session={session}
                 setSession={setSession}
                 closingAmount={totalAmountCents}

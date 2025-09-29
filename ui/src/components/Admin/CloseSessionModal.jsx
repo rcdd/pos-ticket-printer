@@ -6,43 +6,19 @@ import DialogActions from "@mui/material/DialogActions";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
 import CloseIcon from "@mui/icons-material/Close";
-import SessionService from "../../services/session.service";
-import {useToast} from "../Common/ToastProvider";
+import TextFieldKeyboard from "../Common/TextFieldKeyboard";
 
-export default function CloseSessionModal({open, setModal, onCloseSession, session, setSession, closingAmount}) {
+export default function CloseSessionModal({open, setModal, onCloseSession}) {
     const [openModal, setOpenModal] = React.useState(open);
-    const {pushNetworkError} = useToast();
+    const [notes, setNotes] = React.useState("");
 
     useEffect(() => {
         setOpenModal(open);
     }, [open]);
 
-    const handleCloseModal = (confirm = false) => {
+    const handleCloseModal = async (confirm = false) => {
         if (confirm) {
-            const user = JSON.parse(localStorage.getItem('user'));
-            if (!user) {
-                pushNetworkError(null, {
-                    title: 'Utilizador não autenticado',
-                    message: 'Por favor, inicie sessão novamente.',
-                });
-                return;
-            }
-
-            const payload = {
-                userId: user.id,
-                closingAmount: closingAmount,
-                notes: null,
-            };
-            SessionService.close(session.id, payload).then(() => {
-                setSession(null);
-                setOpenModal(false);
-                onCloseSession(true);
-            }).catch((error) => {
-                pushNetworkError(error, {
-                    title: 'Não foi possivel fechar a sessão',
-                });
-                console.error(error.response.data);
-            });
+            await onCloseSession(notes);
         } else {
             setModal(false);
         }
@@ -80,6 +56,15 @@ export default function CloseSessionModal({open, setModal, onCloseSession, sessi
                     <p>Tem a certeza que pretende fechar o turno?</p>
                     <p>Após fechar o turno não será possível registar mais vendas nesta sessão.</p>
 
+                    <TextFieldKeyboard
+                        value={notes}
+                        onChange={(value) => setNotes(value)}
+                        textFieldProps={{
+                            label: 'Observações (opcional)',
+                            multiline: true,
+                            rows: 2,
+                        }}
+                    />
 
                 </Box>
             </DialogContent>

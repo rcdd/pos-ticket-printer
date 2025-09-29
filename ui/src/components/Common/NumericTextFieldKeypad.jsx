@@ -15,6 +15,7 @@ export default function NumericTextFieldWithKeypad({
     const inputRef = React.useRef(null);
     const keypadRef = React.useRef(null);
     const [open, setOpen] = React.useState(false);
+    const [showKeyboard, setShowKeyboard] = React.useState(true);
 
     const normalize = (s) => String(s ?? '').replace(',', '.');
 
@@ -22,6 +23,10 @@ export default function NumericTextFieldWithKeypad({
 
     React.useEffect(() => {
         if (!open) return;
+
+        const v = localStorage.getItem("virtualKeyboard");
+        if (v === "false") setShowKeyboard(false);
+        else setShowKeyboard(true);
 
         const isInside = (el) => {
             const a = inputRef.current;
@@ -119,7 +124,7 @@ export default function NumericTextFieldWithKeypad({
 
             <NumericKeypad
                 ref={keypadRef}
-                open={open}
+                open={showKeyboard && open}
                 anchorEl={inputRef.current}
                 onKeyPress={applyKey}
                 placement={placement}

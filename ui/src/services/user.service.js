@@ -7,6 +7,10 @@ class UserService {
         return http.get(this.BASE_URL + "/users");
     }
 
+    get(id) {
+        return http.get(this.BASE_URL + `/user/${id}`);
+    }
+
     create(data) {
         return http.post(this.BASE_URL + "/user/add", data);
     }

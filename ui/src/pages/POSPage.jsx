@@ -73,7 +73,7 @@ function POSPage({session, setSession}) {
         setOpenModal(true);
     };
 
-    const handlePrint = async (status = false, finalAmount = totalAmount, discount = 0, paymentMethod) => {
+    const handlePrint = async (status = false, finalAmount = totalAmount, discount = 0, paymentMethod, openDrawer) => {
         if (!status) {
             setOpenModal(false);
             return;
@@ -86,8 +86,9 @@ function POSPage({session, setSession}) {
             const printPayload = {
                 items: cart,
                 totalAmount: (finalAmount / 100).toFixed(2),
+                openDrawer: openDrawer
             };
-            await PrinterService.print(printPayload);
+            await PrinterService.printTicket(printPayload);
 
             const invoiceId = await InvoiceService.addInvoice(
                 session.id,
