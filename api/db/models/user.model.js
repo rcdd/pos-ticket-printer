@@ -1,8 +1,10 @@
-module.exports.UserRoles = Object.freeze({
+const UserRoles = {
     ADMIN: 'admin',
     CASHIER: 'cashier',
     WAITER: 'waiter'
-});
+};
+
+module.exports.UserRoles = Object.freeze(UserRoles);
 
 module.exports = (sequelize, Sequelize) => {
     return sequelize.define("user", {
@@ -16,7 +18,8 @@ module.exports = (sequelize, Sequelize) => {
         },
         username: {
             type: Sequelize.STRING,
-            unique: true
+            allowNull: false,
+            unique: 'uniq_users_username',
         },
         password: {
             type: Sequelize.STRING

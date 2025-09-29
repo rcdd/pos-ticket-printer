@@ -1,159 +1,99 @@
-const printer = require('@thiagoelg/node-printer');
-const PrintJobs = require('./lib/printJobs');
-const cmds = require("./lib/commands");
-
-const db = require("../../models");
+const db = require('../../index');
 const Option = db.options;
 
+const {listPrinters, printTicketRequest, printSessionRequest} = require('../../../services/printing/printService');
+
 let PRINTER_NAME = 'undefined';
-let HEADERS = {
-    firstLine: "Undefined",
-    secondLine: "Undefined"
-}
-
-String.prototype.toBytes = function () {
-    const arr = []
-    for (let i = 0; i < this.length; i++) {
-        arr.push(this[i].charCodeAt(0))
-    }
-    return arr;
-}
-const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-const printHeader = (printJob) => {
-    const date = new Date().toLocaleString('pt-PT', { timeZone: 'Europe/Lisbon' });
-
-    printJob.newLine(3);
-    printJob.setFont('A');
-    printJob.setTextAlignment('center');
-    printJob.text(date);
-    printJob.setTextAlignment('left');
-    printJob.setTextFormat('normal');
-    printJob.setBold(true);
-    printJob.setTextAlignment('center');
-    printJob.newLine(1);
-    printJob.separator();
-    printJob.newLine(1);
-    printJob.text(HEADERS.firstLine);
-    if (HEADERS.secondLine) {
-        printJob.newLine(1);
-        printJob.text(HEADERS.secondLine);
-    }
-    printJob.newLine(1);
-    printJob.separator();
-    printJob.setTextAlignment('left');
-    printJob.setBold(false);
-    printJob.newLine(1);
-    printJob.cut();
-}
-
-async function printText(printJob) {
-    printer.printDirect({
-        data: new Buffer.from(printJob.printData()),
-        printer: PRINTER_NAME,
-        type: 'RAW',
-        success: function (jobID) {
-            //console.log("sent to printer " + PRINTER_NAME + " with ID: " + jobID);
-        },
-        error: function (err) {
-            console.log(err);
-        }
-    });
-}
-
-async function printItem(productName) {
-    return new Promise((resolve ) => {
-        const printJob = new PrintJobs();
-        printJob.setTextFormat('wide');
-        printJob.newLine(2);
-        printJob.text('1 ' + productName);
-        printJob.setTextFormat('normal');
-
-        // printJob.cashdraw(); //todo: try to implement cashdraw open
-
-        printHeader(printJob);
-
-        printText(printJob).then(() => {
-            resolve();
-        });
-    });
-}
-
-async function printTotal(cart, total) {
-    return new Promise((resolve) => {
-        const printJob = new PrintJobs();
-
-        printJob.setTextFormat('normal');
-        printJob.setFont('B');
-        printJob.text('Pedido:');
-        printJob.setFont('A');
-        printJob.newLine(2);
-        cart.forEach(item => {
-            printJob.text(item.quantity + ' ' + item.name);
-            printJob.newLine(1);
-        });
-        printJob.newLine(2);
-        printJob.setFont('B');
-        printJob.text('Total:' + total);
-        printJob.raw(cmds.EURO);
-        printHeader(printJob);
-
-        printText(printJob).then(() => {
-            return resolve();
-        });
-    });
-}
-
-exports.printRequest = async (req, res) => {
-    PRINTER_NAME = req.body.printer;
-    HEADERS = req.body.headers;
-
-    const items = req.body.items;
-    const totalAmount = req.body.totalAmount;
-    const printType = req.body.printType;
-
-    if (printType === 'tickets' || printType === 'both') {
-        for await (const item of items) {
-            for (let i = 0; i < item.quantity; i++) {
-                if (item.type && item.type === 'Menu') {
-                    for (const product of item.products) {
-                        await printItem(product.name);
-                    }
-                } else {
-                    await printItem(item.name);
-                }
-            }
-        }
-    }
-
-    if (printType === 'totals' || printType === 'both') {
-        await printTotal(items, totalAmount);
-    }
-
-    await delay(2000);
-
-    return res.send("OK");
-}
+let HEADERS = {firstLine: 'Undefined', secondLine: 'Undefined'};
 
 exports.getPrintName = async () => {
-    return Option.findOne({
-        where: {
-            name: "printer"
-        }
-    })
-        .then(data => {
-            if (data) {
-                return data.value;
-            } else {
-                throw new Error("Printer not found !!");
-            }
-        })
-        .catch(err => {
-            throw new Error("Error retrieving printer: " + err.message);
-        });
-}
+    const opt = await Option.findOne({where: {name: 'printer'}});
+    if (!opt || !opt.value) throw new Error('Printer not found !!');
+    return opt.value;
+};
 
-exports.getPrinterList = async (res, req) => {
-    var printers = await printer.getPrinters();
-    return req.send(printers);
+exports.getPrinterList = async (req, res) => {
+    try {
+        const list = await listPrinters();
+        const simpleList = [];
+        for (const p of list) {
+            if (typeof p === 'string') {
+                simpleList.push({name: p, systemName: p});
+            } else if (p && typeof p === 'object' && p.name) {
+                simpleList.push({name: p.name, systemName: p.systemName});
+            }
+        }
+        res.json(simpleList);
+    } catch (err) {
+        console.error('[getPrinterList] erro:', err);
+        res.status(500).send({message: 'Erro ao listar impressoras'});
+    }
+};
+
+exports.printTicketRequest = async (req, res) => {
+    try {
+        PRINTER_NAME = req.body.printer;
+        HEADERS = req.body.headers;
+
+        const items = req.body.items || [];
+        const totalAmount = req.body.totalAmount ?? '0';
+        const printType = req.body.printType || 'totals';
+        const openDrawer = req.body.openDrawer || false;
+        const isTest = req.body.test || false;
+
+        if (!PRINTER_NAME || PRINTER_NAME === 'undefined') {
+            try {
+                PRINTER_NAME = await exports.getPrintName();
+            } catch {
+            }
+        }
+        if (!PRINTER_NAME) {
+            return res.status(404).send('Printer not defined');
+        }
+
+        await printTicketRequest({
+            printerName: PRINTER_NAME,
+            headers: HEADERS,
+            items,
+            totalAmount,
+            printType,
+            openDrawer,
+            isTest
+        });
+
+        res.send('OK');
+    } catch (err) {
+        console.error('[printTicketRequest] erro:', err);
+        res.status(500).send({message: 'Erro a imprimir', detail: String(err?.message || err)});
+    }
+};
+
+exports.printSessionSummary = async (req, res) => {
+    try {
+        PRINTER_NAME = req.body.printer;
+        HEADERS = req.body.headers;
+
+        if (!PRINTER_NAME || PRINTER_NAME === 'undefined') {
+            try {
+                PRINTER_NAME = await exports.getPrintName();
+            } catch {
+            }
+        }
+        if (!PRINTER_NAME) {
+            return res.status(404).send('Printer not defined');
+        }
+
+        delete req.body.printer;
+        delete req.body.headers;
+
+        await printSessionRequest({
+            printerName: PRINTER_NAME,
+            headers: HEADERS,
+            sessionData: req.body
+        });
+        res.send('OK');
+    } catch (err) {
+        console.error('[printSessionSummary] erro:', err);
+        res.status(500).send({message: 'Erro a imprimir', detail: String(err?.message || err)});
+    }
 }

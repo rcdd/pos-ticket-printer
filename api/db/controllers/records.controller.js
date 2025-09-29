@@ -1,4 +1,4 @@
-const db = require("../models");
+const db = require("../index");
 const Record = db.records;
 
 exports.create = (req, res) => {

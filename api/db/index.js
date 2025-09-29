@@ -1,4 +1,4 @@
-const dbConfig = require("../db.config.js");
+const dbConfig = require("./db.config.js");
 
 const Sequelize = require("sequelize");
 const sequelize = new Sequelize(dbConfig.DB, dbConfig.USER, dbConfig.PASSWORD, {
@@ -19,15 +19,15 @@ db.Sequelize = Sequelize;
 db.sequelize = sequelize;
 
 // tables
-db.products = require("./product.model")(sequelize, Sequelize);
-db.options = require("./option.model")(sequelize, Sequelize);
-db.records = require("./record.model")(sequelize, Sequelize);
-db.invoices = require("./invoice.model")(sequelize, Sequelize);
-db.menus = require("./menu.model")(sequelize, Sequelize);
-db.menuProducts = require("./menuProducts.model")(sequelize, Sequelize);
-db.zones = require("./zone.model")(sequelize, Sequelize);
-db.users = require("./user.model")(sequelize, Sequelize);
-db.sessions = require("./session.model")(sequelize, Sequelize);
+db.products = require("./models/product.model")(sequelize, Sequelize);
+db.options = require("./models/option.model")(sequelize, Sequelize);
+db.records = require("./models/record.model")(sequelize, Sequelize);
+db.invoices = require("./models/invoice.model")(sequelize, Sequelize);
+db.menus = require("./models/menu.model")(sequelize, Sequelize);
+db.menuProducts = require("./models/menuProducts.model")(sequelize, Sequelize);
+db.zones = require("./models/zone.model")(sequelize, Sequelize);
+db.users = require("./models/user.model")(sequelize, Sequelize);
+db.sessions = require("./models/session.model")(sequelize, Sequelize);
 
 // relations
 db.invoices.hasMany(db.records, {foreignKey: 'invoiceId'});
@@ -49,7 +49,7 @@ db.users.sync().then(() => {
                 name: 'Admin',
                 username: 'admin',
                 password: 'admin123', //todo: ensure to hash passwords
-                role: db.UserRoles.ADMIN,
+                role: 'admin',
             }).then(() => {
                 console.log("Default admin user created: username 'admin', password 'admin123'");
             });

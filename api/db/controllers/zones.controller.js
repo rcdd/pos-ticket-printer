@@ -1,4 +1,4 @@
-const db = require("../models");
+const db = require("../index");
 const Zone = db.zones;
 
 // Create and Save a new Zone

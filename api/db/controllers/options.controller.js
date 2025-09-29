@@ -1,10 +1,11 @@
-const db = require("../models");
+const db = require("../index");
 const Option = db.options;
 
 const optionPrintName = 'printer';
 const optionFirstLine = 'firstLine';
 const optionSecondLine = 'secondLine';
 const optionPrintType = 'printOptionType';
+const optionOpenDrawer = 'openDrawer';
 
 exports.getPrinter = (req, res) => {
     Option.findOne({
@@ -137,15 +138,7 @@ exports.setHeaderFirstLine = (req, res) => {
 }
 
 exports.setHeaderSecondLine = (req, res) => {
-    // Validate request
-    if (!req.body.secondLine) {
-        res.status(400).send({
-            message: "Second line can not be empty!"
-        });
-        return;
-    }
-
-    const secondLine = req.body.secondLine;
+    const secondLine = req.body.secondLine || '';
 
     Option.findOne({
         where: {
@@ -307,6 +300,87 @@ exports.getPrintType = (req, res) => {
         });
 }
 
+exports.setOpenDrawer = (req, res) => {
+    // Validate request
+    if (req.body.openDrawer === undefined || req.body.openDrawer === null) {
+        res.status(400).send({
+            message: "Option must be defined!"
+        });
+        return;
+    }
+
+    const openDrawerValue = req.body.openDrawer;
+
+    if (openDrawerValue !== 'true' && openDrawerValue !== 'false' && openDrawerValue !== true && openDrawerValue !== false) {
+        res.status(400).send({
+            message: "Invalid open drawer option! Must be boolean true or false."
+        });
+        return;
+    }
+
+    Option.findOne({
+        where: {
+            name: optionOpenDrawer
+        }
+    }).then(data => {
+        if (data) {
+            Option.update({value: openDrawerValue}, {
+                where: {name: optionOpenDrawer}
+            })
+                .then(num => {
+                    if (num.includes(1)) {
+                        res.send({
+                            message: "Open drawer option was updated successfully."
+                        });
+                    } else {
+                        res.send({
+                            message: `Cannot update open drawer option. Value: ${openDrawerValue}!`
+                        });
+                    }
+                })
+                .catch(err => {
+                    res.status(500).send({
+                        message: "Error updating open drawer value with " + openDrawerValue,
+                        error: err
+                    });
+                });
+
+            return;
+        }
+
+        Option.create({name: optionOpenDrawer, value: openDrawerValue})
+            .then(data => {
+                res.send({text: data.value});
+            })
+            .catch(err => {
+                res.status(500).send({
+                    message:
+                        err.message || "Some error occurred while creating the option."
+                });
+            });
+    });
+}
+
+exports.getOpenDrawer = (req, res) => {
+    return Option.findOne({
+        where: {
+            name: optionOpenDrawer
+        }
+    })
+        .then(data => {
+            if (data) {
+                res.send({openDrawer: data.value === 'true' || data.value === true || data.value === 1 || data.value === '1'});
+            } else {
+                res.send({openDrawer: false});
+            }
+        })
+        .catch(err => {
+            res.status(500).send({
+                message: "Error retrieving option: " + err.message
+            });
+        });
+}
+
 exports.getPrintTypeVariable = async () => {
     const row = await Option.findOne({where: {name: optionPrintType}});
     return row?.value ?? 'totals';
@@ -323,4 +397,10 @@ exports.getHeadersVariable = async () => {
     const rowSecondLine = await Option.findOne({where: {name: optionSecondLine}});
 
     return {firstLine: rowFirstLine?.value ?? null, secondLine: rowSecondLine?.value ?? null};
+}
+
+exports.getOpenDrawerVariable = async () => {
+    const row = await Option.findOne({where: {name: optionOpenDrawer}});
+    if (!row) return false;
+    return row.value === 'true' || row.value === true || row.value === 1 || row.value === '1';
 }

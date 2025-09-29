@@ -1,4 +1,4 @@
-const db = require("../models");
+const db = require("../index");
 const Session = db.sessions;
 
 // Create and Save a new Session

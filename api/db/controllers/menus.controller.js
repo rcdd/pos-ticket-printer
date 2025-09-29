@@ -1,4 +1,4 @@
-const db = require("../models");
+const db = require("../index");
 const Products = db.products;
 const Menus = db.menus;
 
