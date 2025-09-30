@@ -79,28 +79,6 @@ for %%I in (%1) do set "%~2=%%~$PATH:I"
 exit /b 0
 
 REM ---------------------------------------------------------
-REM has_vctools: retorna 0 se VC++ Build Tools estiverem instalados
-REM ---------------------------------------------------------
-:has_vctools
-set "VS_PATH="
-set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
-if exist "%VSWHERE%" (
-  for /f "usebackq tokens=*" %%I in (`
-    "%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Workload.VCTools -property installationPath
-  `) do set "VS_PATH=%%I"
-)
-if defined VS_PATH exit /b 0
-
-REM Fallback: procurar cl.exe numa instalação típica do Build Tools 2022
-set "BT=%ProgramFiles(x86)%\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC"
-if exist "%BT%" (
-  for /d %%D in ("%BT%\*") do (
-    if exist "%%~fD\bin\Hostx64\x64\cl.exe" exit /b 0
-  )
-)
-exit /b 1
-
-REM ---------------------------------------------------------
 REM ensure_npm_on_path: usa `npm bin -g` e mete no PATH (sessão + utilizador)
 REM ---------------------------------------------------------
 :ensure_npm_on_path
@@ -222,35 +200,17 @@ goto WAIT_DOCKER_DAEMON
 :DOCKER_RUNNING
 echo [OK] Docker daemon is running.
 
-REM ---------- Python 3.6.8 ----------
+REM ---------- Python 3.13.2 ----------
 python --version >nul 2>&1
 if %errorlevel%==0 goto PY_OK
-echo [INFO] Installing Python 3.6.8...
-choco install python --version=3.6.8 -y --no-progress --limit-output
+echo [INFO] Installing Python 3.13.5...
+choco install python --version=3.13.5 -y --no-progress --limit-output
 call :refresh_env
 call :wait_for_cmd python 60
 if %errorlevel% neq 0 echo [WARN] Python not yet available in PATH. Continuing...
 :PY_OK
 for /f "delims=" %%v in ('python --version 2^>^&1') do echo [OK] %%v
 
-REM ---------- Visual Studio Build Tools (VC++) ----------
-call :has_vctools
-if %errorlevel%==0 goto VCTOOLS_OK
-
-echo [INFO] Installing Visual Studio 2022 Build Tools (VC++)...
-choco install visualstudio2022-workload-vctools -y --no-progress --limit-output
-call :refresh_env
-
-call :has_vctools
-if %errorlevel% neq 0 (
-  echo [WARN] Could not confirm VC++ Build Tools installation. You may need to reboot/logoff.
-) else (
-  echo [OK] VC++ Build Tools detected.
-)
-goto VCTOOLS_OK
-
-:VCTOOLS_OK
-echo [OK] MSVC VC++ tools are present.
 
 REM ---------- PM2 (sem depender do PATH) ----------
 REM 1) Resolver npm.cmd exato
