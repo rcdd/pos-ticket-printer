@@ -188,31 +188,127 @@ Write-Host "==========================================" -ForegroundColor Gray
 Ensure-Choco
 
 # Node.js
-if (-not (Get-CmdPath 'node.exe'))
+function Get-NormalizedNodeVersion
 {
-    Write-Info "Installing Node.js 20 LTS..."
-    Ensure-ChocoPackage 'nodejs-lts' '--version=20.12.2'
-    Refresh-Env
-}
-$NodeExe = Get-CmdPath 'node.exe'
-if (-not $NodeExe)
-{
-    throw 'Node.js not found after install.'
-}
-$NodeDir = Split-Path -Path $NodeExe -Parent
-Add-PathIfMissing $NodeDir -PersistUser
-
-$NpmCmd = Get-CmdPath 'npm.cmd'
-if (-not $NpmCmd)
-{
-    $NpmCmd = Join-Path $NodeDir 'npm.cmd'
-    if (-not (Test-Path $NpmCmd))
+    try
     {
-        throw 'npm not found.'
+        $v = (& node -v) 2> $null
+        if ($v)
+        {
+            return ($v -replace '^[vV]', '').Trim()
+        }
     }
+    catch
+    {
+    }
+    return $null
 }
-Write-Ok ("Node: " + (& $NodeExe -v))
-Write-Ok ("npm : " + (& $NpmCmd -v))
+
+function Ensure-NodeLtsVersion([string]$TargetVersion = '20.12.2')
+{
+    $current = Get-NormalizedNodeVersion
+
+    if ($current -eq $TargetVersion)
+    {
+        Write-Ok ("Node already at {0}" -f $current)
+    }
+    else
+    {
+        Write-Info ("Installing Node.js LTS {0} via Chocolatey..." -f $TargetVersion)
+        Ensure-ChocoPackage 'nodejs-lts' ("--version={0} --force" -f $TargetVersion)
+        Refresh-Env
+
+        try
+        {
+            cmd.exe /d /c "choco pin add -n=nodejs-lts -v $TargetVersion" | Out-Null
+        }
+        catch
+        {
+        }
+
+        $current = Get-NormalizedNodeVersion
+        if ($current -ne $TargetVersion)
+        {
+            $candidates = @(
+                "C:\Program Files\nodejs\node.exe",
+                "C:\Program Files (x86)\nodejs\node.exe",
+                "C:\ProgramData\chocolatey\bin\node.exe",
+                "$env:LOCALAPPDATA\Programs\nodejs\node.exe"
+            )
+            $found = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+            if ($found)
+            {
+                $script:NodeExe = $found
+                $script:NodeDir = Split-Path $found -Parent
+                Add-PathIfMissing $script:NodeDir -PersistUser
+                Refresh-Env
+                $current = Get-NormalizedNodeVersion
+            }
+        }
+
+        if ($current -ne $TargetVersion)
+        {
+            throw ("Node.js not at requested version. Expected {0}, got {1}." -f $TargetVersion, ($current ?? '<none>'))
+        }
+        Write-Ok ("Node installed: v{0}" -f $current)
+    }
+
+    $NodeExe = Get-CmdPath 'node.exe'
+    if (-not $NodeExe)
+    {
+        $NodeExe = @(
+            "C:\Program Files\nodejs\node.exe",
+            "C:\Program Files (x86)\nodejs\node.exe",
+            "C:\ProgramData\chocolatey\bin\node.exe",
+            "$env:LOCALAPPDATA\Programs\nodejs\node.exe"
+        ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+    }
+    if (-not $NodeExe)
+    {
+        throw 'Node.js not found after install.'
+    }
+    $NodeDir = Split-Path $NodeExe -Parent
+    Add-PathIfMissing $NodeDir -PersistUser
+    Refresh-Env
+
+    $NpmCmd = Get-CmdPath 'npm.cmd'
+    $NpxCmd = Get-CmdPath 'npx.cmd'
+    if (-not $NpmCmd -or -not $NpxCmd)
+    {
+        $likelyBins = @(
+            (Join-Path $NodeDir 'npm.cmd'),
+            (Join-Path $NodeDir 'npx.cmd'),
+            (Join-Path $env:APPDATA 'npm\npm.cmd'),
+            (Join-Path $env:APPDATA 'npm\npx.cmd'),
+            (Join-Path $env:LOCALAPPDATA 'npm\npm.cmd'),
+            (Join-Path $env:LOCALAPPDATA 'npm\npx.cmd')
+        )
+        foreach ($bin in $likelyBins)
+        {
+            if (Test-Path $bin)
+            {
+                Add-PathIfMissing (Split-Path $bin -Parent) -PersistUser
+            }
+        }
+        Refresh-Env
+        $NpmCmd = Get-CmdPath 'npm.cmd'
+        $NpxCmd = Get-CmdPath 'npx.cmd'
+    }
+
+    if (-not $NpmCmd)
+    {
+        throw 'npm not found after Node install.'
+    }
+    if (-not $NpxCmd)
+    {
+        Write-Warn 'npx not found, but npm is present — npm 8+ should include npx.'
+    }
+
+    Write-Ok ("Node: " + (& node -v))
+    Write-Ok ("npm : " + (& npm -v))
+}
+
+Ensure-NodeLtsVersion '20.12.2'
 
 # PM2
 $Pm2Cmd = Get-CmdPath 'pm2.cmd'
@@ -345,6 +441,7 @@ function Resolve-PhpExe
 }
 
 $PhpExe = Resolve-PhpExe
+
 if (-not $PhpExe)
 {
     Write-Info "Installing PHP via Chocolatey..."
