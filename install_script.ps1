@@ -548,7 +548,6 @@ FLUSH PRIVILEGES;
 
     Write-Ok "DB/user preparados."
 
-    # === BEGIN PATCH: .env com credenciais geradas ===
     $apiEnv = Join-Path $ScriptRoot "api/.env"
     $lines = @(
         "DB_HOST=127.0.0.1"
@@ -559,7 +558,6 @@ FLUSH PRIVILEGES;
     )
     Set-Content -Path $apiEnv -Value $lines -Encoding ascii
     Write-Ok "API .env escrito em: $apiEnv"
-    # === END PATCH ===
 
     $rootFile = Join-Path $ScriptRoot ".secrets.root.txt"
     if (-not (Test-Path $rootFile))
@@ -588,14 +586,14 @@ if (Test-Path (Join-Path $apiPath 'package.json'))
 {
     if (-not (Test-Path (Join-Path $apiPath 'node_modules')))
     {
-        Write-Info "Installing API deps (npm ci/install)..."
+        Write-Info "Installing API deps..."
         Invoke-NpmCiOrInstall $NpmCmd $apiPath
     }
     else
     {
         Write-Ok "API node_modules present."
     }
-    Write-Info "Building API (if-present)..."
+    Write-Info "Building API..."
     Push-Location $apiPath
     try
     {
@@ -619,7 +617,7 @@ if (Test-Path (Join-Path $uiPath 'package.json'))
 {
     if (-not (Test-Path (Join-Path $uiPath 'node_modules')))
     {
-        Write-Info "Installing UI deps (npm ci/install)..."
+        Write-Info "Installing UI deps..."
         Invoke-NpmCiOrInstall $NpmCmd $uiPath
         Push-Location $uiPath
         try
@@ -655,7 +653,7 @@ if (Test-Path (Join-Path $uiPath 'package.json'))
 
     if (-not (Test-Path (Join-Path $uiPath 'build')))
     {
-        Write-Info "Building UI (npm run build)..."
+        Write-Info "Building UI..."
         Push-Location $uiPath
         try
         {
