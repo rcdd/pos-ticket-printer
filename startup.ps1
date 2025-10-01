@@ -414,5 +414,6 @@ finally
     {
         Write-Host ""
         Write-Host "Log: $LogFile" -ForegroundColor DarkGray
+        Read-Host "Press ENTER to close"
     }
 }
