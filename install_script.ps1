@@ -214,30 +214,27 @@ if (-not $NpmCmd)
 Write-Ok ("Node: " + (& $NodeExe -v))
 Write-Ok ("npm : " + (& $NpmCmd -v))
 
-# PM2 (per-user install)
+# PM2
 $Pm2Cmd = Get-CmdPath 'pm2.cmd'
 if (-not $Pm2Cmd)
 {
-    Write-Info "Installing PM2 (user scope)..."
-
-    # Força instalação no contexto do utilizador
-    $pm2Prefix = Join-Path $env:LOCALAPPDATA "npm"
-    if (-not (Test-Path $pm2Prefix)) {
-        New-Item -ItemType Directory -Path $pm2Prefix | Out-Null
-    }
-
-    & $NpmCmd install pm2@latest --global --prefix $pm2Prefix | Out-Null
-
-    # Garantir que a pasta fica no PATH
-    $npmBin = Join-Path $pm2Prefix "bin"
-    Add-PathIfMissing $npmBin -PersistUser
-
+    Write-Info "Installing PM2 globally..."
+    & $NpmCmd install -g pm2 | Out-Null
     Refresh-Env
+    $npmBin = (& $NpmCmd bin -g 2> $null)
+    if (-not $npmBin -and $env:APPDATA)
+    {
+        $npmBin = Join-Path $env:APPDATA 'npm'
+    }
+    if ($npmBin)
+    {
+        Add-PathIfMissing $npmBin -PersistUser
+    }
     $Pm2Cmd = Get-CmdPath 'pm2.cmd'
 }
 if (-not $Pm2Cmd)
 {
-    throw 'PM2 not found after install (check npm config).'
+    throw 'PM2 not found after install.'
 }
 Write-Ok ("PM2 : " + (& $Pm2Cmd -v))
 
