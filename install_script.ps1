@@ -696,7 +696,7 @@ $ProjectDir = $ScriptRoot
 $Shortcut = "$env:USERPROFILE\Desktop\POS Ticket.lnk"
 $Icon = Join-Path $ProjectDir "favicon.ico"
 $Target = "powershell.exe"
-$Arguments = "-NoProfile -ExecutionPolicy Bypass -NoExit -File `"$ProjectDir\startup.ps1`""
+$Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$ProjectDir\startup.ps1`""
 
 $ws = New-Object -ComObject WScript.Shell
 $s = $ws.CreateShortcut($Shortcut)

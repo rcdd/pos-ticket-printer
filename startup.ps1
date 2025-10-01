@@ -81,30 +81,9 @@ try {
     Write-Host "[INFO] PM2_RPC_PORT: $($env:PM2_RPC_PORT)  PM2_PUB_PORT: $($env:PM2_PUB_PORT)"
 
     # --- localizar binários ---
-    # --- localizar binários (robusto a espaços) ---
-    $NodeExe  = Resolve-Tool 'node.exe' @(
-        "$env:ProgramFiles\nodejs\node.exe",
-        "$env:ProgramFiles(x86)\nodejs\node.exe",
-        "$env:LOCALAPPDATA\Programs\nodejs\node.exe",
-        "C:\ProgramData\chocolatey\bin\node.exe"
-    )
-    $Pm2Cmd   = Resolve-Tool 'pm2.cmd' @(
-        "$env:APPDATA\npm\pm2.cmd",
-        "C:\ProgramData\chocolatey\bin\pm2.cmd"
-    )
-    # serve.cmd já não é obrigatório; vamos preferir serve.js local ou npx
-    if (-not $NodeExe -or -not $Pm2Cmd) { throw "node/pm2 não encontrados no PATH. Corre o install.ps1." }
-
-    # também resolvemos npm/npx para o fallback
-    $NpmCmd = Resolve-Tool 'npm.cmd' @(
-        "$env:APPDATA\npm\npm.cmd",
-        (Join-Path (Split-Path $NodeExe) 'npm.cmd')
-    )
-    $NpxCmd = Resolve-Tool 'npx.cmd' @(
-        "$env:APPDATA\npm\npx.cmd",
-        (Join-Path (Split-Path $NodeExe) 'npx.cmd')
-    )
-
+    $NodeExe  = (Get-Command 'node.exe' -ErrorAction SilentlyContinue | Select-Object -First 1).Source
+    $Pm2Cmd   = (Get-Command 'pm2.cmd'  -ErrorAction SilentlyContinue | Select-Object -First 1).Source
+    $ServeCmd = (Get-Command 'serve.cmd' -ErrorAction SilentlyContinue | Select-Object -First 1).Source
     if (-not $NodeExe -or -not $Pm2Cmd -or -not $ServeCmd) { throw "node/pm2/serve não encontrados no PATH. Corre o install.ps1." }
 
     # --- Garantir daemon do PM2 (com retry em caso de EPERM) ---
@@ -155,27 +134,7 @@ try {
         Write-Info "Starting Frontend via PM2 (serve)..."
         try { & $Pm2Cmd delete ui-pos *>$null } catch {}
 
-        $LocalServeJs = Join-Path $uiPath 'node_modules\serve\bin\serve.js'
-        if (Test-Path $LocalServeJs) {
-            Write-Info "Usar serve local: $LocalServeJs"
-            & $Pm2Cmd start $NodeExe `
-            --name ui-pos `
-            --cwd  $uiPath `
-            -- "$LocalServeJs" -s build -l 3000 | Out-Null
-        }
-        elseif ($NpxCmd) {
-            Write-Info "Usar npx fallback"
-            # Passar argumentos como ARRAY evita quebrar paths com espaços
-            $cmdArgs = @('/d','/c', "`"$NpxCmd`" --yes serve -s build -l 3000")
-            & $Pm2Cmd start 'cmd.exe' `
-            --name ui-pos `
-            --cwd  $uiPath `
-            -- $cmdArgs | Out-Null
-        }
-        else {
-            Write-Err "Não encontrei serve local nem npx. Instala um deles: 'npm i -D serve' dentro de ui OU 'npm i -g serve'."
-            throw "serve indisponível"
-        }
+        & $Pm2Cmd serve ui/build/ 3000 --name ui-pos | Out-Null
 
         Write-Ok "Frontend running at http://localhost:3000"
     } else {
@@ -184,7 +143,8 @@ try {
 
     # --- phpMyAdmin (PHP built-in server via PM2) ---
     Write-Host "[INFO] Starting phpMyAdmin via PM2..." -ForegroundColor Cyan
-    & $Pm2Cmd delete pma-pos 2>$null | Out-Null
+    try { & $Pm2Cmd delete pma-pos *>$null } catch {}
+
     & $Pm2Cmd start "php" --name pma-pos --cwd "$PSScriptRoot\phpmyadmin" -- -S localhost:8080
 
     # --- abre Edge em kiosk ---
@@ -205,10 +165,4 @@ catch {
 }
 finally {
     Stop-Transcript | Out-Null
-    # Mantém a janela aberta se o atalho não usar -NoExit
-    if (-not $env:POS_NO_PAUSE) {
-        Write-Host ""
-        Write-Host "Log: $LogFile" -ForegroundColor DarkGray
-        Read-Host "Pressiona Enter para fechar"
-    }
 }
