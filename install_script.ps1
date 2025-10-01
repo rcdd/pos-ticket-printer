@@ -273,22 +273,97 @@ else
     Write-Ok ("MySQL: " + (& mysql --version))
 }
 
-# PHP (para phpMyAdmin)
+# ========================
+# PHP (for phpMyAdmin)
+# ========================
 Write-Info "Checking PHP..."
-$PhpExeCmd = Get-Command php -ErrorAction SilentlyContinue | Select-Object -First 1
-if (-not $PhpExeCmd)
+
+function Resolve-PhpExe
 {
-    Write-Info "Installing PHP..."
+    # 1) PATH first
+    $php = (Get-Command php.exe -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -First 1)
+    if ($php)
+    {
+        return $php
+    }
+
+    # 2) Chocolatey shim
+    $cand = @(
+        "C:\ProgramData\chocolatey\bin\php.exe"
+    ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if ($cand)
+    {
+        return $cand
+    }
+
+    # 3) Inside Chocolatey package folder (common layout)
+    $lib = Join-Path $env:ProgramData 'chocolatey\lib'
+    if (Test-Path $lib)
+    {
+        $cand = Get-ChildItem -Path $lib -Directory -Filter 'php*' -ErrorAction SilentlyContinue |
+                ForEach-Object {
+                    # typical locations inside php package
+                    @(
+                        (Join-Path $_.FullName 'tools\php\php.exe'),
+                        (Join-Path $_.FullName 'tools\php.exe'),
+                        (Join-Path $_.FullName 'php\php.exe')
+                    )
+                } | Where-Object { Test-Path $_ } | Select-Object -First 1
+        if ($cand)
+        {
+            return $cand
+        }
+    }
+
+    # 4) Legacy C:\tools\php* (older/alt layouts)
+    if (Test-Path 'C:\tools')
+    {
+        $cand = Get-ChildItem -Path 'C:\tools' -Directory -Filter 'php*' -ErrorAction SilentlyContinue |
+                Sort-Object Name -Descending |
+                ForEach-Object {
+                    $exe = Join-Path $_.FullName 'php.exe'
+                    if (Test-Path $exe)
+                    {
+                        $exe
+                    }
+                } | Select-Object -First 1
+        if ($cand)
+        {
+            return $cand
+        }
+    }
+
+    # 5) Program Files (rare)
+    $pf = @("$env:ProgramFiles\PHP\php.exe", "$env:ProgramFiles(x86)\PHP\php.exe") |
+            Where-Object { Test-Path $_ } | Select-Object -First 1
+    if ($pf)
+    {
+        return $pf
+    }
+
+    return $null
+}
+
+$PhpExe = Resolve-PhpExe
+if (-not $PhpExe)
+{
+    Write-Info "Installing PHP via Chocolatey..."
     Ensure-ChocoPackage 'php'
     Refresh-Env
-    Add-PathIfMissing 'C:\tools\php' -PersistUser
-    $PhpExeCmd = Get-Command php -ErrorAction SilentlyContinue | Select-Object -First 1
+    $PhpExe = Resolve-PhpExe
 }
-if (-not $PhpExeCmd)
+
+if ($PhpExe)
 {
-    throw "PHP not found after install."
+    # ensure the directory is in the user PATH for next sessions
+    Add-PathIfMissing (Split-Path $PhpExe -Parent) -PersistUser
+    Refresh-Env
+    Write-Ok ("PHP : " + (& $PhpExe -v))
 }
-Write-Ok ("PHP : " + (& $PhpExeCmd.Source -v))
+else
+{
+    throw "PHP not found after install. Checked PATH, Chocolatey shim/lib, C:\tools\php*, Program Files."
+}
 
 
 function Ensure-PhpExtensions
@@ -734,7 +809,7 @@ $LauncherVbs = Join-Path $ProjectDir "startup.launcher.vbs"
 $ws = New-Object -ComObject WScript.Shell
 $s = $ws.CreateShortcut($Shortcut)
 $s.TargetPath = (Join-Path $env:WINDIR 'System32\wscript.exe')
-$s.Arguments  = "`"$LauncherVbs`""
+$s.Arguments = "`"$LauncherVbs`""
 $s.WorkingDirectory = $ProjectDir
 $s.IconLocation = "$Icon,0"
 $s.Description = "Start POS Ticket"
