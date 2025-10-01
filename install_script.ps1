@@ -204,6 +204,22 @@ function Get-NormalizedNodeVersion
     return $null
 }
 
+function Get-NormalizedNodeVersion
+{
+    try
+    {
+        $v = (& node -v) 2> $null
+        if ($v)
+        {
+            return ($v -replace '^[vV]', '').Trim()
+        }
+    }
+    catch
+    {
+    }
+    return $null
+}
+
 function Ensure-NodeLtsVersion([string]$TargetVersion = '20.12.2')
 {
     $current = Get-NormalizedNodeVersion
@@ -226,6 +242,7 @@ function Ensure-NodeLtsVersion([string]$TargetVersion = '20.12.2')
         {
         }
 
+        # Revalidar
         $current = Get-NormalizedNodeVersion
         if ($current -ne $TargetVersion)
         {
@@ -248,7 +265,15 @@ function Ensure-NodeLtsVersion([string]$TargetVersion = '20.12.2')
 
         if ($current -ne $TargetVersion)
         {
-            throw ("Node.js not at requested version. Expected {0}, got {1}." -f $TargetVersion, ($current ?? '<none>'))
+            $got = if ($null -ne $current -and $current -ne '')
+            {
+                $current
+            }
+            else
+            {
+                '<none>'
+            }
+            throw ("Node.js not at requested version. Expected {0}, got {1}." -f $TargetVersion, $got)
         }
         Write-Ok ("Node installed: v{0}" -f $current)
     }
@@ -310,6 +335,52 @@ function Ensure-NodeLtsVersion([string]$TargetVersion = '20.12.2')
 
 Ensure-NodeLtsVersion '20.12.2'
 
+function Resolve-NpmCmd {
+    # 1) PATH
+    $cmd = Get-Command npm.cmd -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -First 1
+    if ($cmd) { return $cmd }
+
+    # 2) Locais típicos do npm no Windows
+    $candidates = @(
+    # AppData (por-utilizador)
+        (Join-Path $env:APPDATA      'npm\npm.cmd'),
+        (Join-Path $env:LOCALAPPDATA 'npm\npm.cmd'),
+        # Pasta conjunta ao node
+        (Join-Path 'C:\Program Files\nodejs'         'npm.cmd'),
+        (Join-Path 'C:\Program Files (x86)\nodejs'   'npm.cmd'),
+        (Join-Path 'C:\ProgramData\chocolatey\bin'   'npm.cmd')
+    )
+    foreach ($c in $candidates) {
+        if ($c -and (Test-Path $c)) { return $c }
+    }
+
+    # 3) Se conhecemos $NodeDir, tenta lá
+    if ($script:NodeDir) {
+        $maybe = Join-Path $script:NodeDir 'npm.cmd'
+        if (Test-Path $maybe) { return $maybe }
+    }
+
+    return $null
+}
+
+$script:NpmCmd = Resolve-NpmCmd
+if (-not $script:NpmCmd) {
+    # tenta refrescar PATH e resolver novamente (caso Node tenha acabado de instalar)
+    Refresh-Env
+    $script:NpmCmd = Resolve-NpmCmd
+}
+
+if (-not $script:NpmCmd) {
+    throw 'npm not found after Node install. Ensure Node.js is installed correctly and PATH is updated.'
+}
+
+# Garante que a pasta do npm fica no PATH do utilizador (para próximas sessões)
+$npmDir = Split-Path $script:NpmCmd -Parent
+Add-PathIfMissing $npmDir -PersistUser
+Refresh-Env
+
+Write-Ok ("npm : " + (& $script:NpmCmd -v))
+
 # PM2
 $Pm2Cmd = Get-CmdPath 'pm2.cmd'
 if (-not $Pm2Cmd)
@@ -334,7 +405,6 @@ if (-not $Pm2Cmd)
 }
 Write-Ok ("PM2 : " + (& $Pm2Cmd -v))
 
-# serve (static server para React build)
 $ServeCmd = Get-CmdPath 'serve.cmd'
 if (-not $ServeCmd)
 {
@@ -357,180 +427,243 @@ if (-not $ServeCmd)
     throw 'serve not found after install.'
 }
 
+# ========================
 # MySQL
-if (-not (Get-CmdPath 'mysql.exe'))
-{
-    Write-Info "Installing MySQL (service)..."
-    Ensure-ChocoPackage 'mysql'
+# ========================
+function Resolve-MySqlExe {
+    # 1) PATH direto
+    $exe = (Get-Command mysql.exe -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -First 1)
+    if ($exe) { return $exe }
+
+    # 2) Candidatos típicos do MySQL Server
+    $serverRoots = @(
+        "C:\Program Files\MySQL",
+        "C:\Program Files (x86)\MySQL"
+    ) | Where-Object { Test-Path $_ }
+
+    foreach ($root in $serverRoots) {
+        # MySQL Server 8.0/8.4/9.0… (nome varia com a versão)
+        $cands = Get-ChildItem -Path $root -Directory -Filter "MySQL Server*" -ErrorAction SilentlyContinue |
+                ForEach-Object { Join-Path $_.FullName "bin\mysql.exe" } |
+                Where-Object { Test-Path $_ }
+        if ($cands -and $cands.Count -gt 0) { return ($cands | Select-Object -First 1) }
+    }
+
+    # 3) Chocolatey lib (alguns pacotes deixam cópia aqui)
+    $lib = Join-Path $env:ProgramData 'chocolatey\lib'
+    if (Test-Path $lib) {
+        $rec = Get-ChildItem -Path $lib -Recurse -Filter 'mysql.exe' -ErrorAction SilentlyContinue |
+                Where-Object { $_.FullName -match '\\bin\\mysql\.exe$' } |
+                Select-Object -ExpandProperty FullName -First 1
+        if ($rec) { return $rec }
+    }
+
+    # 4) Procura dirigida em Program Files\MySQL (último recurso, não recursivo massivo)
+    foreach ($root in $serverRoots) {
+        $rec = Get-ChildItem -Path $root -Recurse -Filter 'mysql.exe' -ErrorAction SilentlyContinue |
+                Where-Object { $_.FullName -match '\\bin\\mysql\.exe$' } |
+                Select-Object -ExpandProperty FullName -First 1
+        if ($rec) { return $rec }
+    }
+
+    return $null
+}
+
+function Ensure-MySqlInstalled {
+    # tenta resolver primeiro
+    $mysqlExe = Resolve-MySqlExe
+    if ($mysqlExe) { return $mysqlExe }
+
+    Write-Info "Installing MySQL (server) via Chocolatey..."
+    Ensure-ChocoPackage 'mysql' '--force --force-dependencies'
     Refresh-Env
+
+    # aguardar até 30s para ficheiros/serviço surgirem
+    for ($i=0; $i -lt 15 -and -not $mysqlExe; $i++) {
+        Start-Sleep -Seconds 2
+        Refresh-Env
+        $mysqlExe = Resolve-MySqlExe
+    }
+
+    # Se ainda nada, alguns ambientes só instalam o serviço — tentar pacote client
+    if (-not $mysqlExe) {
+        Write-Warn "MySQL client not found; trying Chocolatey 'mysql-cli' (or 'mysql.commandline')..."
+        # tenta ambos, conforme disponibilidade do feed
+        try { Ensure-ChocoPackage 'mysql-cli' '--force --force-dependencies' } catch {}
+        try { Ensure-ChocoPackage 'mysql.commandline' '--force --force-dependencies' } catch {}
+        Refresh-Env
+        for ($i=0; $i -lt 10 -and -not $mysqlExe; $i++) {
+            Start-Sleep -Seconds 2
+            Refresh-Env
+            $mysqlExe = Resolve-MySqlExe
+        }
+    }
+
+    if (-not $mysqlExe) {
+        $lines = @(
+            "MySQL executable not found after installation.",
+            "Tried: server (choco 'mysql'), client (choco 'mysql-cli' / 'mysql.commandline').",
+            "Check where it landed:",
+            "  Get-ChildItem 'C:\Program Files\MySQL' -Recurse -Filter mysql.exe | Select-Object -First 10 FullName",
+            "  Get-ChildItem 'C:\ProgramData\chocolatey\lib' -Recurse -Filter mysql.exe | Select-Object -First 10 FullName",
+            "Then add the 'bin' folder to PATH if needed."
+        )
+        throw ($lines -join "`n")
+    }
+
+    # garantir PATH do utilizador
+    $binDir = Split-Path $mysqlExe -Parent
+    Add-PathIfMissing $binDir -PersistUser
+    Refresh-Env
+
+    Write-Ok ("MySQL client: " + (& $mysqlExe --version))
+    return $mysqlExe
 }
-else
-{
-    Write-Ok ("MySQL: " + (& mysql --version))
-}
+
+$MySqlExe = Ensure-MySqlInstalled
 
 # ========================
 # PHP (for phpMyAdmin)
 # ========================
 Write-Info "Checking PHP..."
 
-function Resolve-PhpExe
-{
-    # 1) PATH first
+function Resolve-PhpExe {
     $php = (Get-Command php.exe -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -First 1)
-    if ($php)
-    {
-        return $php
-    }
+    if ($php) { return $php }
+    $cands = @(
+        "C:\ProgramData\chocolatey\bin\php.exe",
+        "$env:ProgramFiles\PHP\php.exe",
+        "$env:ProgramFiles(x86)\PHP\php.exe",
+        "C:\Tools\php\php.exe",
+        "C:\Tools\php83\php.exe",
+        "C:\Tools\php84\php.exe"
+    )
+    foreach ($c in $cands) { if (Test-Path $c) { return $c } }
 
-    # 2) Chocolatey shim
-    $cand = @(
-        "C:\ProgramData\chocolatey\bin\php.exe"
-    ) | Where-Object { Test-Path $_ } | Select-Object -First 1
-    if ($cand)
-    {
-        return $cand
-    }
-
-    # 3) Inside Chocolatey package folder (common layout)
+    # procura recursiva em lib do choco
     $lib = Join-Path $env:ProgramData 'chocolatey\lib'
-    if (Test-Path $lib)
-    {
-        $cand = Get-ChildItem -Path $lib -Directory -Filter 'php*' -ErrorAction SilentlyContinue |
-                ForEach-Object {
-                    # typical locations inside php package
-                    @(
-                        (Join-Path $_.FullName 'tools\php\php.exe'),
-                        (Join-Path $_.FullName 'tools\php.exe'),
-                        (Join-Path $_.FullName 'php\php.exe')
-                    )
-                } | Where-Object { Test-Path $_ } | Select-Object -First 1
-        if ($cand)
-        {
-            return $cand
-        }
+    if (Test-Path $lib) {
+        $rec = Get-ChildItem -Path $lib -Recurse -Filter 'php.exe' -ErrorAction SilentlyContinue |
+                Select-Object -ExpandProperty FullName -First 1
+        if ($rec) { return $rec }
     }
-
-    # 4) Legacy C:\tools\php* (older/alt layouts)
-    if (Test-Path 'C:\tools')
-    {
-        $cand = Get-ChildItem -Path 'C:\tools' -Directory -Filter 'php*' -ErrorAction SilentlyContinue |
-                Sort-Object Name -Descending |
-                ForEach-Object {
-                    $exe = Join-Path $_.FullName 'php.exe'
-                    if (Test-Path $exe)
-                    {
-                        $exe
-                    }
-                } | Select-Object -First 1
-        if ($cand)
-        {
-            return $cand
-        }
-    }
-
-    # 5) Program Files (rare)
-    $pf = @("$env:ProgramFiles\PHP\php.exe", "$env:ProgramFiles(x86)\PHP\php.exe") |
-            Where-Object { Test-Path $_ } | Select-Object -First 1
-    if ($pf)
-    {
-        return $pf
-    }
-
     return $null
 }
 
+function Ensure-PhpIni([string]$phpDir) {
+    $iniPath = Join-Path $phpDir 'php.ini'
+    $prodIni = Join-Path $phpDir 'php.ini-production'
+    $devIni  = Join-Path $phpDir 'php.ini-development'
+    if (-not (Test-Path $iniPath)) {
+        if (Test-Path $prodIni) { Copy-Item $prodIni $iniPath } elseif (Test-Path $devIni) { Copy-Item $devIni $iniPath } else { New-Item -ItemType File -Path $iniPath | Out-Null }
+    }
+    $ini = @(Get-Content $iniPath -ErrorAction SilentlyContinue)
+    if (-not ($ini -match '^\s*extension_dir\s*=')) {
+        $extDir = Join-Path $phpDir 'ext'
+        if (Test-Path $extDir) { $ini += "extension_dir=`"$extDir`"" }
+    }
+    function Enable-Ext([string]$name, [ref]$arr) {
+        if (-not ($arr.Value -match ("^\s*extension\s*=\s*{0}(\.dll)?\s*$" -f [regex]::Escape($name)))) { $arr.Value += "extension=$name" }
+    }
+    Enable-Ext 'mysqli'    ([ref]$ini)
+    Enable-Ext 'pdo_mysql' ([ref]$ini)
+    Enable-Ext 'mbstring'  ([ref]$ini)
+    Enable-Ext 'openssl'   ([ref]$ini)
+    if (-not ($ini -match '^\s*date\.timezone\s*=')) { $ini += 'date.timezone=UTC' }
+    Set-Content -Path $iniPath -Value $ini -Encoding ASCII
+    Write-Ok ("php.ini ensured at: {0}" -f $iniPath)
+}
+
+# 0) tenta detetar
 $PhpExe = Resolve-PhpExe
-
-if (-not $PhpExe)
-{
-    Write-Info "Installing PHP via Chocolatey..."
-    Ensure-ChocoPackage 'php'
+if (-not $PhpExe) {
+    Write-Info "Installing PHP via Chocolatey (forced)..."
+    Ensure-ChocoPackage 'php' '--force --force-dependencies'
     Refresh-Env
-    $PhpExe = Resolve-PhpExe
+    # espera shims ~20s
+    for ($i=0; $i -lt 10 -and -not $PhpExe; $i++) {
+        Start-Sleep -Seconds 2
+        Refresh-Env
+        $PhpExe = Resolve-PhpExe
+    }
 }
 
-if ($PhpExe)
-{
-    # ensure the directory is in the user PATH for next sessions
-    Add-PathIfMissing (Split-Path $PhpExe -Parent) -PersistUser
+# 1) tenta php.portable
+if (-not $PhpExe) {
+    Write-Warn "Chocolatey 'php' not found; trying 'php.portable' (forced)..."
+    Ensure-ChocoPackage 'php.portable' '--force --force-dependencies'
     Refresh-Env
+    for ($i=0; $i -lt 8 -and -not $PhpExe; $i++) {
+        Start-Sleep -Seconds 2
+        Refresh-Env
+        $PhpExe = Resolve-PhpExe
+    }
+}
+
+# 2) último recurso: ZIP direto (URLs fixos da página de releases)
+if (-not $PhpExe) {
+    Write-Warn "Falling back to portable PHP zip (no admin required)..."
+
+    $urls = @(
+    # 8.3 NTS vs16 x64 (preferível pela compatibilidade ampla)
+        'https://windows.php.net/downloads/releases/php-8.3.26-nts-Win32-vs16-x64.zip',
+        # fallback 8.4 NTS vs17 x64 (mais recente; requer VS2019/2022 runtime)
+        'https://windows.php.net/downloads/releases/php-8.4.13-nts-Win32-vs17-x64.zip'
+    )
+    $destRoot = 'C:\Tools\php83'
+    if (-not (Test-Path 'C:\Tools')) { New-Item -ItemType Directory -Path 'C:\Tools' | Out-Null }
+    if (-not (Test-Path $destRoot))  { New-Item -ItemType Directory -Path $destRoot  | Out-Null }
+
+    $downloaded = $false
+    foreach ($PhpZipUrl in $urls) {
+        try {
+            $zipPath = Join-Path $env:TEMP ('php-' + [IO.Path]::GetFileName($PhpZipUrl))
+            Write-Info "Downloading PHP from $PhpZipUrl ..."
+            Invoke-WebRequest -Uri $PhpZipUrl -OutFile $zipPath -UseBasicParsing
+            Write-Info "Extracting to $destRoot ..."
+            Expand-Archive -Path $zipPath -DestinationPath $destRoot -Force
+            Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+
+            # algumas releases vêm numa pasta interna — achatar
+            $inner = Get-ChildItem -Path $destRoot -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'php.exe') } | Select-Object -First 1
+            if ($inner) {
+                Get-ChildItem -Path $inner.FullName -Force | Move-Item -Destination $destRoot -Force
+                Remove-Item $inner.FullName -Recurse -Force -ErrorAction SilentlyContinue
+            }
+
+            $PhpExe = Join-Path $destRoot 'php.exe'
+            if (Test-Path $PhpExe) { $downloaded = $true; break }
+        }
+        catch {
+            Write-Warn "Download failed from $PhpZipUrl ($($_.Exception.Message)). Trying next..."
+        }
+    }
+
+    if ($downloaded) {
+        Add-PathIfMissing $destRoot -PersistUser
+        Refresh-Env
+        Ensure-PhpIni (Split-Path $PhpExe -Parent)
+    }
+}
+
+if ($PhpExe) {
+    Ensure-PhpIni (Split-Path $PhpExe -Parent)
     Write-Ok ("PHP : " + (& $PhpExe -v))
+} else {
+    $chocoLog = "C:\ProgramData\chocolatey\logs\chocolatey.log"
+    $hint = @(
+        "PHP not found after install.",
+        "Tried: choco php (forced), choco php.portable (forced), and direct ZIPs from releases.",
+        "Manual steps to diagnose:",
+        "  choco uninstall php -y; choco uninstall php.portable -y; choco clean --yes",
+        "  choco install vcredist140 -y   # VC++ runtime needed by PHP builds",
+        "  choco install php -y --force --force-dependencies",
+        "  refreshenv",
+        "  Get-ChildItem 'C:\ProgramData\chocolatey\lib' -Recurse -Filter php.exe | Select-Object -First 10 FullName",
+        "Chocolatey log: $chocoLog"
+    ) -join "`n"
+    throw $hint
 }
-else
-{
-    throw "PHP not found after install. Checked PATH, Chocolatey shim/lib, C:\tools\php*, Program Files."
-}
-
-
-function Ensure-PhpExtensions
-{
-    param([string]$PhpExePath)
-
-    $phpDir = Split-Path -Path $PhpExePath -Parent
-    $ini = Join-Path $phpDir "php.ini"
-    $iniProd = Join-Path $phpDir "php.ini-production"
-    $iniDev = Join-Path $phpDir "php.ini-development"
-
-    if (-not (Test-Path $ini))
-    {
-        if (Test-Path $iniProd)
-        {
-            Copy-Item $iniProd $ini -Force
-        }
-        elseif (Test-Path $iniDev)
-        {
-            Copy-Item $iniDev $ini -Force
-        }
-        else
-        {
-            throw "php.ini template not found in $phpDir"
-        }
-    }
-
-    $content = Get-Content $ini -Raw
-
-    $extDir = Join-Path $phpDir "ext"
-    $content = [regex]::Replace($content, '^[;\s]*extension_dir\s*=.*$', "extension_dir=""$extDir""", 'Multiline')
-
-    $toEnable = @('mysqli', 'pdo_mysql', 'mbstring', 'openssl', 'curl', 'zip')
-    foreach ($ext in $toEnable)
-    {
-        $pattern = "(?im)^[;\s]*extension\s*=\s*$ext\s*$"
-        if (-not ([regex]::IsMatch($content, $pattern)))
-        {
-            $content += "`r`nextension=$ext"
-        }
-        else
-        {
-            $content = [regex]::Replace($content, $pattern, "extension=$ext")
-        }
-    }
-
-    if ($content -match '(?im)^[;\s]*date\.timezone\s*=')
-    {
-        $content = [regex]::Replace($content, '(?im)^[;\s]*date\.timezone\s*=.*$', 'date.timezone="Europe/Lisbon"')
-    }
-    else
-    {
-        $content += "`r`ndate.timezone=""Europe/Lisbon"""
-    }
-
-    Set-Content -Path $ini -Value $content -Encoding ascii
-    Write-Ok "php.ini atualizado em: $ini"
-
-    $mods = & $PhpExePath -m
-    if ($mods -notmatch '(?im)^mysqli$')
-    {
-        Write-Warn "mysqli ainda não aparece em 'php -m' (o processo phpMyAdmin será reiniciado mais à frente)."
-    }
-    else
-    {
-        Write-Ok "mysqli ativo."
-    }
-}
-
-Ensure-PhpExtensions -PhpExePath $PhpExeCmd.Source
 
 # ========================
 # phpMyAdmin (standalone, port 8080, via PM2)
