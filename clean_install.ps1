@@ -67,7 +67,7 @@ function Kill-IfRunning
     param([string[]]$Names)
     foreach ($n in $Names)
     {
-        Do-Step { Get-Process -Name $n -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue } "Kill process $n (if running)" -SilentOk
+        Do-Step { Get-Process -Name $n -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue } 'Kill process $n (if running)' -SilentOk
     }
 }
 
@@ -76,7 +76,7 @@ function Remove-FileSafe
     param([string]$path)
     if (Test-Path $path)
     {
-        Do-Step { Remove-Item $path -Force -ErrorAction SilentlyContinue } "Remove file: $path"
+        Do-Step { Remove-Item $path -Force -ErrorAction SilentlyContinue } 'Remove file: $path'
     }
 }
 
@@ -85,7 +85,7 @@ function Remove-DirSafe
     param([string]$path)
     if (Test-Path $path)
     {
-        Do-Step { Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue } "Remove dir:  $path"
+        Do-Step { Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue } 'Remove dir:  $path'
     }
 }
 
@@ -101,7 +101,7 @@ function Stop-And-Delete-DbServices
 
     if (-not $svcs)
     {
-        W-Info "No MySQL/MariaDB services found."
+        W-Info 'No MySQL/MariaDB services found.'
         return
     }
 
@@ -109,7 +109,7 @@ function Stop-And-Delete-DbServices
     {
         if ($s.Status -ne 'Stopped')
         {
-            Do-Step { Stop-Service $s.Name -Force -ErrorAction SilentlyContinue } "Stop service $( $s.Name )"
+            Do-Step { Stop-Service $s.Name -Force -ErrorAction SilentlyContinue } 'Stop service $( $s.Name )'
         }
         else
         {
@@ -146,11 +146,11 @@ function Choco-Uninstall
     $choco = Get-ExePath 'choco.exe'
     if (-not $choco)
     {
-        W-Warn "Chocolatey not found; skipping uninstall of $pkg"; return
+        W-Warn 'Chocolatey not found; skipping uninstall of $pkg'; return
     }
     if (Choco-IsInstalled $pkg)
     {
-        Do-Step { & $choco uninstall $pkg -y --no-progress --remove-dependencies --limit-output *> $null } "Chocolatey: uninstall $pkg"
+        Do-Step { & $choco uninstall $pkg -y --no-progress --remove-dependencies --limit-output *> $null } 'Chocolatey: uninstall $pkg'
     }
     else
     {
@@ -164,10 +164,10 @@ function Npm-UninstallGlobal
     $npm = Get-ExePath 'npm.cmd'
     if (-not $npm)
     {
-        W-Warn "npm not found; skipping $pkg"; return
+        W-Warn 'npm not found; skipping $pkg'; return
     }
     # usa sintaxe correta: uninstall -g <pkg>
-    Do-Step { & $npm uninstall -g $pkg --silent *> $null } "npm -g uninstall $pkg"
+    Do-Step { & $npm uninstall -g $pkg --silent *> $null } 'npm -g uninstall $pkg'
 }
 
 function Npm-CacheClean
@@ -175,15 +175,15 @@ function Npm-CacheClean
     $npm = Get-ExePath 'npm.cmd'
     if (-not $npm)
     {
-        W-Warn "npm not found; skipping cache clean"; return
+        W-Warn 'npm not found; skipping cache clean'; return
     }
-    Do-Step { & $npm cache clean --force *> $null } "npm cache clean --force"
+    Do-Step { & $npm cache clean --force *> $null } 'npm cache clean --force'
 }
 
 # -------- Banner --------
-Write-Host "==========================================" -ForegroundColor Gray
-Write-Host "POS Ticket — Clean Installer State" -ForegroundColor Gray
-Write-Host "==========================================" -ForegroundColor Gray
+Write-Host '==========================================' -ForegroundColor Gray
+Write-Host 'POS Ticket — Clean Installer State' -ForegroundColor Gray
+Write-Host '==========================================' -ForegroundColor Gray
 W-Info ("Mode     : " + ($( if ($Execute)
 {
     'EXECUTE'
@@ -197,18 +197,15 @@ W-Info ("Options  : RemoveChocoPkgs={0}  PurgeMySqlData={1}  RemoveGlobalNpm={2}
 Write-Host ""
 
 # -------- PM2 --------
-W-Info "Stopping PM2 apps…"
+W-Info 'Stopping PM2 apps...'
 $pm2 = Get-ExePath 'pm2.cmd'
-if ($pm2)
-{
-    Do-Step { & $pm2 delete api-pos  *> $null } "pm2 delete api-pos"
-    Do-Step { & $pm2 delete ui-pos   *> $null } "pm2 delete ui-pos"
-    Do-Step { & $pm2 delete pma-pos  *> $null } "pm2 delete pma-pos"
-    Do-Step { & $pm2 kill            *> $null } "pm2 kill daemon"
-}
-else
-{
-    W-Warn "pm2 not found – skipping pm2 delete/kill"
+if ($pm2) {
+    Do-Step { & $pm2 delete api-pos  *> $null } 'pm2 delete api-pos'
+    Do-Step { & $pm2 delete ui-pos   *> $null } 'pm2 delete ui-pos'
+    Do-Step { & $pm2 delete pma-pos  *> $null } 'pm2 delete pma-pos'
+    Do-Step { & $pm2 kill            *> $null } 'pm2 kill daemon'
+} else {
+    W-Warn 'pm2 not found - skipping pm2 delete/kill'
 }
 
 # PM2 homes
@@ -219,13 +216,13 @@ Remove-DirSafe (Join-Path $env:ProgramData   'pm2')
 Kill-IfRunning @('node', 'php', 'serve')
 
 # -------- DB services --------
-W-Info "Stopping MySQL/MariaDB services (if any)…"
+W-Info 'Stopping MySQL/MariaDB services (if any)...'
 Stop-And-Delete-DbServices
 
 # -------- Chocolatey packages --------
 if ($RemoveChocoPkgs)
 {
-    W-Info "Uninstalling Chocolatey packages…"
+    W-Info 'Uninstalling Chocolatey packages...'
     # MySQL/MariaDB + ferramentas + Node/PHP
     Choco-Uninstall 'mysql'
     Choco-Uninstall 'mysql-cli'
@@ -239,7 +236,7 @@ if ($RemoveChocoPkgs)
 # -------- Purge de dados do MySQL --------
 if ($PurgeMySqlData)
 {
-    W-Warn "Purging MySQL/MariaDB data (destructive)…"
+    W-Warn 'Purging MySQL/MariaDB data (destructive)...'
     @(
         'C:\ProgramData\MySQL',
         'C:\ProgramData\MariaDB',
@@ -253,14 +250,14 @@ if ($PurgeMySqlData)
 # -------- npm globais --------
 if ($RemoveGlobalNpm)
 {
-    W-Info "Removing global npm binaries…"
+    W-Info 'Removing global npm binaries...'
     Npm-UninstallGlobal 'pm2'
     Npm-UninstallGlobal 'serve'
     Npm-CacheClean
 }
 
 # -------- Project tree cleanup --------
-W-Info "Cleaning project tree…"
+W-Info 'Cleaning project tree...'
 $api = Join-Path $ProjectRoot 'api'
 $ui = Join-Path $ProjectRoot 'ui'
 Remove-DirSafe (Join-Path $api 'node_modules')
@@ -278,16 +275,13 @@ Remove-DirSafe 'C:\Tools\php'
 Remove-DirSafe 'C:\Tools\php83'
 Remove-DirSafe 'C:\Tools\php84'
 
-W-Info "Note: PATH entries are not force-removed. Review user/machine PATH if needed."
+W-Info 'Note: PATH entries are not force-removed. Review user/machine PATH if needed.'
 
 Write-Host ""
-if ($Execute)
-{
-    W-Ok "Cleanup finished. Ready for a fresh install."
-}
-else
-{
-    W-Info "Dry-run complete. Re-run with -Execute to apply."
-    Write-Host "Example:" -ForegroundColor Gray
-    Write-Host "  .\clean_install.ps1 -Execute -RemoveChocoPkgs -PurgeMySqlData -RemoveGlobalNpm" -ForegroundColor Gray
+if ($Execute) {
+    W-Ok 'Cleanup finished. Ready for a fresh install.'
+} else {
+    W-Info 'Dry-run complete. Re-run with -Execute to apply.'
+    Write-Host 'Example:' -ForegroundColor Gray
+    Write-Host '  .\clean_install.ps1 -Execute -RemoveChocoPkgs -PurgeMySqlData -RemoveGlobalNpm' -ForegroundColor Gray
 }

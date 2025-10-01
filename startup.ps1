@@ -237,7 +237,7 @@ try
     $Pm2Cmd = (Get-Command 'pm2.cmd'  -ErrorAction SilentlyContinue | Select-Object -First 1).Source
     if (-not $NodeExe -or -not $Pm2Cmd)
     {
-        throw "node/pm2 não encontrados no PATH. Corre o install.ps1."
+        throw "node/pm2 não encontrados no PATH. Corra a instalação novamente ou caso tenho feito agora, reinicie o computador."
     }
 
     # PM2 daemon
