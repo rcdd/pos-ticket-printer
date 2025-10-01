@@ -729,13 +729,12 @@ Write-Info "Creating Desktop shortcut..."
 $ProjectDir = $ScriptRoot
 $Shortcut = "$env:USERPROFILE\Desktop\POS Ticket.lnk"
 $Icon = Join-Path $ProjectDir "favicon.ico"
-$Target = "powershell.exe"
-$Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$ProjectDir\startup.ps1`""
+$LauncherVbs = Join-Path $ProjectDir "startup.launcher.vbs"
 
 $ws = New-Object -ComObject WScript.Shell
 $s = $ws.CreateShortcut($Shortcut)
-$s.TargetPath = $Target
-$s.Arguments = $Arguments
+$s.TargetPath = (Join-Path $env:WINDIR 'System32\wscript.exe')
+$s.Arguments  = "`"$LauncherVbs`""
 $s.WorkingDirectory = $ProjectDir
 $s.IconLocation = "$Icon,0"
 $s.Description = "Start POS Ticket"
