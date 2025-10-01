@@ -4,14 +4,12 @@
 
 $ErrorActionPreference = 'Stop'
 
-# --- logging para diagnóstico ---
 $ScriptRoot = Split-Path -Path $MyInvocation.MyCommand.Path -Parent
 $LogDir = Join-Path $ScriptRoot 'logs'
 if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir | Out-Null }
 $LogFile = Join-Path $LogDir ("startup-{0:yyyyMMdd-HHmmss}.log" -f (Get-Date))
 Start-Transcript -Path $LogFile -Append | Out-Null
 
-# deixa a janela com um título útil
 $host.ui.RawUI.WindowTitle = "POS Startup - $(Get-Date -Format 'HH:mm:ss')"
 
 function Write-Info   { param([string]$m) Write-Host "[INFO] $m"  -ForegroundColor Cyan }
@@ -41,7 +39,6 @@ function Test-Admin {
     return $p.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
-# Atualiza PATH da sessão (Machine + User)
 $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' +
         [Environment]::GetEnvironmentVariable('Path','User')
 
@@ -57,7 +54,6 @@ try {
     Write-Host "Starting POS Ticket System..."
     Write-Host "==============================="
 
-    # --- PM2_HOME sólido (sem exigir admin) ---
     if (Test-Admin) {
         $pm2Home = Join-Path $env:ProgramData 'pm2'
         if (-not (Test-Path $pm2Home)) { New-Item -ItemType Directory -Path $pm2Home | Out-Null }
@@ -70,7 +66,6 @@ try {
     }
     $env:PM2_HOME = $pm2Home
 
-    # --- Portas únicas por utilizador (derivadas do SID) ---
     $uid  = ([Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
     $hash = [Math]::Abs($uid.GetHashCode())
     $base = 8300 + ($hash % 300)    # 8300..8599
@@ -80,24 +75,20 @@ try {
     Write-Host "[INFO] PM2_HOME: $pm2Home"
     Write-Host "[INFO] PM2_RPC_PORT: $($env:PM2_RPC_PORT)  PM2_PUB_PORT: $($env:PM2_PUB_PORT)"
 
-    # --- localizar binários ---
     $NodeExe  = (Get-Command 'node.exe' -ErrorAction SilentlyContinue | Select-Object -First 1).Source
     $Pm2Cmd   = (Get-Command 'pm2.cmd'  -ErrorAction SilentlyContinue | Select-Object -First 1).Source
     $ServeCmd = (Get-Command 'serve.cmd' -ErrorAction SilentlyContinue | Select-Object -First 1).Source
     if (-not $NodeExe -or -not $Pm2Cmd -or -not $ServeCmd) { throw "node/pm2/serve não encontrados no PATH. Corre o install.ps1." }
 
-    # --- Garantir daemon do PM2 (com retry em caso de EPERM) ---
     function Ensure-PM2Daemon {
         try { & $Pm2Cmd ping *>$null; return } catch {}
 
-        # 1) tentar matar/relistar (pode falhar se for EPERM no socket antigo)
         try { & $Pm2Cmd kill *>$null } catch {}
         Start-Sleep -Milliseconds 300
         try { & $Pm2Cmd ls   *>$null } catch {}
         Start-Sleep -Milliseconds 300
         try { & $Pm2Cmd ping *>$null; return } catch {}
 
-        # 2) Se ainda falhar (ex.: EPERM), muda para um outro par de portas e tenta de novo
         $altBase = [int]$env:PM2_RPC_PORT + 50
         $env:PM2_RPC_PORT = "$altBase"
         $env:PM2_PUB_PORT = "$($altBase + 1)"
@@ -127,7 +118,7 @@ try {
         Write-Ok "Backend running at api-pos"
     }
 
-    # --- Frontend (serve build) ---
+    # --- Frontend ---
     $uiPath  = Join-Path $ScriptRoot 'ui'
     $uiBuild = Join-Path $uiPath 'build'
     if (Test-Path $uiBuild) {
@@ -147,7 +138,7 @@ try {
 
     & $Pm2Cmd start "php" --name pma-pos --cwd "$PSScriptRoot\phpmyadmin" -- -S localhost:8080
 
-    # --- abre Edge em kiosk ---
+    # --- Edge in kiosk mode ---
     $edge = "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe"
     if (-not (Test-Path $edge)) { $edge = "${env:ProgramFiles}\Microsoft\Edge\Application\msedge.exe" }
     if (Test-Path $edge) {

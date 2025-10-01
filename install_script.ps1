@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 # ========================
-# Helpers (mensagens)
+# Helpers (messages)
 # ========================
 function Write-Info
 {
@@ -22,12 +22,12 @@ function Write-Err
     param([string]$m) Write-Host "[ERROR] $m" -ForegroundColor Red
 }
 
-# Caminhos base
+# Base Path
 $ScriptRoot = Split-Path -Path $MyInvocation.MyCommand.Path -Parent
 Set-Location $ScriptRoot
 
 # ========================
-# Helpers (ambiente/caminhos)
+# Helpers (PATH, env refresh)
 # ========================
 function Refresh-Env
 {
@@ -127,7 +127,7 @@ function Ensure-ChocoPackage([string]$pkg, [string]$extraArgs = '')
 }
 
 # ========================
-# npm: tolerante a rede
+# npm: network settings, ci/install
 # ========================
 function Test-NpmOnline
 {
@@ -179,7 +179,7 @@ function Invoke-NpmCiOrInstall([string]$NpmCmd, [string]$Path)
 }
 
 # ========================
-# Instalações base
+# Installation
 # ========================
 Write-Host "==========================================" -ForegroundColor Gray
 Write-Host "Checking system dependencies..." -ForegroundColor Gray
@@ -291,39 +291,56 @@ if (-not $PhpExeCmd)
 Write-Ok ("PHP : " + (& $PhpExeCmd.Source -v))
 
 
-function Ensure-PhpExtensions {
+function Ensure-PhpExtensions
+{
     param([string]$PhpExePath)
 
-    $phpDir = Split-Path -Path $PhpExePath -Parent       # e.g., C:\tools\php84
+    $phpDir = Split-Path -Path $PhpExePath -Parent
     $ini = Join-Path $phpDir "php.ini"
     $iniProd = Join-Path $phpDir "php.ini-production"
-    $iniDev  = Join-Path $phpDir "php.ini-development"
+    $iniDev = Join-Path $phpDir "php.ini-development"
 
-    if (-not (Test-Path $ini)) {
-        if (Test-Path $iniProd) { Copy-Item $iniProd $ini -Force }
-        elseif (Test-Path $iniDev) { Copy-Item $iniDev $ini -Force }
-        else { throw "php.ini template not found in $phpDir" }
+    if (-not (Test-Path $ini))
+    {
+        if (Test-Path $iniProd)
+        {
+            Copy-Item $iniProd $ini -Force
+        }
+        elseif (Test-Path $iniDev)
+        {
+            Copy-Item $iniDev $ini -Force
+        }
+        else
+        {
+            throw "php.ini template not found in $phpDir"
+        }
     }
 
     $content = Get-Content $ini -Raw
 
-    # extension_dir -> <phpDir>\ext
     $extDir = Join-Path $phpDir "ext"
     $content = [regex]::Replace($content, '^[;\s]*extension_dir\s*=.*$', "extension_dir=""$extDir""", 'Multiline')
 
-    $toEnable = @('mysqli','pdo_mysql','mbstring','openssl','curl','zip')
-    foreach ($ext in $toEnable) {
+    $toEnable = @('mysqli', 'pdo_mysql', 'mbstring', 'openssl', 'curl', 'zip')
+    foreach ($ext in $toEnable)
+    {
         $pattern = "(?im)^[;\s]*extension\s*=\s*$ext\s*$"
-        if (-not ([regex]::IsMatch($content, $pattern))) {
+        if (-not ([regex]::IsMatch($content, $pattern)))
+        {
             $content += "`r`nextension=$ext"
-        } else {
+        }
+        else
+        {
             $content = [regex]::Replace($content, $pattern, "extension=$ext")
         }
     }
 
-    if ($content -match '(?im)^[;\s]*date\.timezone\s*=') {
+    if ($content -match '(?im)^[;\s]*date\.timezone\s*=')
+    {
         $content = [regex]::Replace($content, '(?im)^[;\s]*date\.timezone\s*=.*$', 'date.timezone="Europe/Lisbon"')
-    } else {
+    }
+    else
+    {
         $content += "`r`ndate.timezone=""Europe/Lisbon"""
     }
 
@@ -331,9 +348,12 @@ function Ensure-PhpExtensions {
     Write-Ok "php.ini atualizado em: $ini"
 
     $mods = & $PhpExePath -m
-    if ($mods -notmatch '(?im)^mysqli$') {
+    if ($mods -notmatch '(?im)^mysqli$')
+    {
         Write-Warn "mysqli ainda não aparece em 'php -m' (o processo phpMyAdmin será reiniciado mais à frente)."
-    } else {
+    }
+    else
+    {
         Write-Ok "mysqli ativo."
     }
 }
@@ -341,7 +361,7 @@ function Ensure-PhpExtensions {
 Ensure-PhpExtensions -PhpExePath $PhpExeCmd.Source
 
 # ========================
-# phpMyAdmin (standalone, porta 8080, via PM2)
+# phpMyAdmin (standalone, port 8080, via PM2)
 # ========================
 $phpmyadminUrl = "https://www.phpmyadmin.net/downloads/phpMyAdmin-latest-all-languages.zip"
 $phpmyadminZip = Join-Path $env:TEMP "phpmyadmin.zip"
@@ -414,30 +434,38 @@ function Ensure-MySqlProvision
     Write-Info "Provisioning MySQL (DB + user)..."
 
     $MySqlExe = Get-Command mysql -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -First 1
-    if (-not $MySqlExe) {
+    if (-not $MySqlExe)
+    {
         Write-Err "MySQL executable not found in PATH. Ensure MySQL is installed."
         throw "mysql not found"
     }
 
     $null = Ensure-MySqlService
 
-    # Tenta usar variável de ambiente se fornecida
     $rootPass = $env:POS_DB_ROOT_PASS
     $rootHasNoPass = $false
 
-    # Testa ligação como root (com e sem password)
-    try { Invoke-MySql "SELECT 1;" $rootPass | Out-Null }
-    catch {
-        try {
+    try
+    {
+        Invoke-MySql "SELECT 1;" $rootPass | Out-Null
+    }
+    catch
+    {
+        try
+        {
             Invoke-MySql "SELECT 1;" ""   # tentar sem password
             $rootHasNoPass = $true
             Write-Info "Root aparentemente sem password (login sem password bem-sucedido)."
         }
-        catch {
-            if ([string]::IsNullOrEmpty($rootPass)) {
+        catch
+        {
+            if ( [string]::IsNullOrEmpty($rootPass))
+            {
                 Write-Warn "Root do MySQL já tem password e não foi fornecida (POS_DB_ROOT_PASS)."
                 throw "MySQL root password required."
-            } else {
+            }
+            else
+            {
                 Write-Warn "Não foi possível autenticar com POS_DB_ROOT_PASS fornecida."
                 throw $_
             }
@@ -458,16 +486,19 @@ FLUSH PRIVILEGES;
         $tmpSetRoot = [System.IO.Path]::GetTempFileName()
         [System.IO.File]::WriteAllText($tmpSetRoot, $sqlSetRoot, [System.Text.Encoding]::UTF8)
 
-        try {
-            $args = @("--protocol=TCP","-u","root","--default-character-set=utf8mb4")
+        try
+        {
+            $args = @("--protocol=TCP", "-u", "root", "--default-character-set=utf8mb4")
             $proc = Start-Process -FilePath $MySqlExe -ArgumentList $args `
                                   -RedirectStandardInput $tmpSetRoot `
                                   -NoNewWindow -PassThru -Wait
-            if ($proc.ExitCode -ne 0) {
-                throw "mysql exited with code $($proc.ExitCode) ao definir a password do root."
+            if ($proc.ExitCode -ne 0)
+            {
+                throw "mysql exited with code $( $proc.ExitCode ) ao definir a password do root."
             }
         }
-        finally {
+        finally
+        {
             Remove-Item $tmpSetRoot -Force -ErrorAction SilentlyContinue
         }
 
@@ -477,18 +508,14 @@ FLUSH PRIVILEGES;
         Write-Ok "Root password definida. Guardada em: $rootFile"
     }
 
-    # === BEGIN PATCH: credenciais geradas ===
     $DbName = "pos_ticket"
     $DbUser = "pos_user"
     $DbPass = New-RandomPassword 12
-    # === END PATCH ===
 
-    # Sanitização simples
-    $escDb   = $DbName.Replace('`','``')
-    $escUser = $DbUser.Replace('`','``').Replace("'", "''")
+    $escDb = $DbName.Replace('`', '``')
+    $escUser = $DbUser.Replace('`', '``').Replace("'", "''")
     $escPass = $DbPass.Replace("'", "''")
 
-    # Atenção aos backticks: ``$escDb`` emite `pos_ticket` no SQL
     $sql = @"
 CREATE DATABASE IF NOT EXISTS ``$escDb`` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS '$escUser'@'localhost' IDENTIFIED BY '$escPass';
@@ -503,16 +530,19 @@ FLUSH PRIVILEGES;
     $tmp = [System.IO.Path]::GetTempFileName()
     [System.IO.File]::WriteAllText($tmp, $sql, [System.Text.Encoding]::UTF8)
 
-    try {
-        $args = @("--protocol=TCP","-u","root","--password=$rootPass","--default-character-set=utf8mb4")
+    try
+    {
+        $args = @("--protocol=TCP", "-u", "root", "--password=$rootPass", "--default-character-set=utf8mb4")
         $proc = Start-Process -FilePath $MySqlExe -ArgumentList $args `
                               -RedirectStandardInput $tmp `
                               -NoNewWindow -PassThru -Wait
-        if ($proc.ExitCode -ne 0) {
-            throw "mysql exited with code $($proc.ExitCode) ao executar o SQL de provisionamento."
+        if ($proc.ExitCode -ne 0)
+        {
+            throw "mysql exited with code $( $proc.ExitCode ) ao executar o SQL de provisionamento."
         }
     }
-    finally {
+    finally
+    {
         Remove-Item $tmp -Force -ErrorAction SilentlyContinue
     }
 
@@ -532,7 +562,8 @@ FLUSH PRIVILEGES;
     # === END PATCH ===
 
     $rootFile = Join-Path $ScriptRoot ".secrets.root.txt"
-    if (-not (Test-Path $rootFile)) {
+    if (-not (Test-Path $rootFile))
+    {
         $rootPass | Out-File -FilePath $rootFile -Encoding ascii -NoNewline
         Write-Ok "Root password guardada em: $rootFile"
     }
@@ -591,10 +622,15 @@ if (Test-Path (Join-Path $uiPath 'package.json'))
         Write-Info "Installing UI deps (npm ci/install)..."
         Invoke-NpmCiOrInstall $NpmCmd $uiPath
         Push-Location $uiPath
-        try {
+        try
+        {
             Set-NpmNetworkSettings
             & $NpmCmd install -D serve --no-audit --no-fund
-        } finally { Pop-Location }
+        }
+        finally
+        {
+            Pop-Location
+        }
     }
     else
     {
@@ -689,7 +725,7 @@ catch
 & $Pm2Cmd start "php" --name pma-pos --cwd $phpmyadminDir -- -S localhost:8080 | Out-Null
 
 # ========================
-# Atalho no Desktop -> startup.ps1
+# Desktop Shortcut -> startup.ps1
 # ========================
 Write-Info "Creating Desktop shortcut..."
 $ProjectDir = $ScriptRoot
@@ -716,5 +752,5 @@ else
     Write-Warn "Failed to create desktop shortcut."
 }
 
-Write-Ok "Installation complete."
+Write-Ok "Installation complete. Please restart your computer to ensure all changes take effect."
 Pause
