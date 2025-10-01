@@ -297,7 +297,6 @@ function Ensure-NodeLtsVersion([string]$TargetVersion = '20.12.2')
         Write-Warn 'npx not found, but npm is present.'
     }
     Write-Ok ("Node: " + (& node -v))
-    Write-Ok ("npm : " + (& npm -v))
     $script:NodeExe = $NodeExe
     $script:NodeDir = $NodeDir
 }
@@ -720,43 +719,245 @@ function New-RandomPassword([int]$len = 20)
     $special = @('!', '#', '$', '%', '&', '@', '?', '*', '_', '-'); $chars = $lower + $upper + $digits + $special
     -join (1..$len | ForEach-Object { $chars[(Get-Random -Max $chars.Count)] })
 }
-function Ensure-MySqlService
+
+function Ensure-MySqlServerPresent
 {
-    $svc = Get-Service | Where-Object { $_.Name -match '^MySQL|^mysql' } | Select-Object -First 1
-    if (-not $svc)
-    {
-        throw "MySQL service not found. Abra 'services.msc' para confirmar o nome."
+    $existing = Get-Service -ErrorAction SilentlyContinue | Where-Object {
+        $_.Name -match '(?i)^(mysql|mariadb)' -or $_.DisplayName -match '(?i)(mysql|mariadb)'
     }
-    if ($svc.Status -ne 'Running')
+    if ($existing)
     {
-        Start-Service $svc.Name
+        return
     }
-    return $svc.Name
-}
-function Invoke-MySql([string]$Sql, [string]$RootPass)
-{
-    $mysql = (Get-Command mysql.exe -ErrorAction SilentlyContinue).Source; if (-not $mysql)
+
+    Write-Info "MySQL Server not detected. Installing server..."
+
+    try
     {
-        $mysql = "mysql"
+        Ensure-ChocoPackage 'mysql' '--force --force-dependencies'
+        Refresh-Env
     }
-    if ( [string]::IsNullOrEmpty($RootPass))
+    catch
     {
-        & $mysql -u root -h 127.0.0.1 -P 3306 -e $Sql
+        Write-Warn "Chocolatey 'mysql' install attempt failed: $( $_.Exception.Message )"
+    }
+
+    foreach ($i in 1..15)
+    {
+        Start-Sleep -Seconds 2
+        $chk = Get-Service -ErrorAction SilentlyContinue | Where-Object {
+            $_.Name -match '(?i)^(mysql|mariadb)' -or $_.DisplayName -match '(?i)(mysql|mariadb)'
+        }
+        if ($chk)
+        {
+            return
+        }
+    }
+
+    $winget = (Get-Command winget.exe -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -First 1)
+    if ($winget)
+    {
+        Write-Info "Trying Winget to install MySQL Server..."
+        $wingetIds = @(
+            'MySQL.MySQLServer', # id genérico (varia consoante versões)
+            'Oracle.MySQL', # alguns catálogos usam este
+            'MySQL.MySQLServer.8'     # linha 8.x
+        )
+        foreach ($id in $wingetIds)
+        {
+            try
+            {
+                & $winget install --id $id --silent --accept-source-agreements --accept-package-agreements
+            }
+            catch
+            {
+                Write-Warn "Winget install $id falhou: $( $_.Exception.Message )"
+            }
+            foreach ($i in 1..10)
+            {
+                Start-Sleep -Seconds 2
+                $chk2 = Get-Service -ErrorAction SilentlyContinue | Where-Object {
+                    $_.Name -match '(?i)^(mysql|mariadb)' -or $_.DisplayName -match '(?i)(mysql|mariadb)'
+                }
+                if ($chk2)
+                {
+                    return
+                }
+            }
+        }
     }
     else
     {
-        & $mysql -u root -p$RootPass -h 127.0.0.1 -P 3306 -e $Sql
+        Write-Warn "Winget not available; skipping Winget fallback."
     }
+
+    Write-Warn "Falling back to MariaDB server via Chocolatey..."
+    try
+    {
+        Ensure-ChocoPackage 'mariadb' '--force --force-dependencies'
+        Refresh-Env
+    }
+    catch
+    {
+        Write-Warn "Chocolatey 'mariadb' install attempt failed: $( $_.Exception.Message )"
+    }
+
+    # Verifica de novo
+    foreach ($i in 1..15)
+    {
+        Start-Sleep -Seconds 2
+        $chk3 = Get-Service -ErrorAction SilentlyContinue | Where-Object {
+            $_.Name -match '(?i)^(mysql|mariadb)' -or $_.DisplayName -match '(?i)(mysql|mariadb)'
+        }
+        if ($chk3)
+        {
+            return
+        }
+    }
+
+    throw "Failed to install a MySQL-compatible server (MySQL/MariaDB). Check Chocolatey/Winget connectivity and try again."
+}
+
+
+function Find-MySqlServiceName
+{
+    $candidates = Get-Service -ErrorAction SilentlyContinue | Where-Object {
+        $_.Name -match '(?i)^(mysql|mariadb).*' -or $_.DisplayName -match '(?i)(MySQL|MariaDB)'
+    }
+    if ($candidates)
+    {
+        $pick = $candidates | Sort-Object { $_.Status -ne 'Running' }, StartType | Select-Object -First 1
+        return $pick.Name
+    }
+    return $null
+}
+
+function Ensure-MySqlService
+{
+    $name = Find-MySqlServiceName
+
+    if (-not $name)
+    {
+        $common = @('MySQL', 'MySQL80', 'mysql', 'mysql80', 'MariaDB', 'mariadb', 'xamppmysql')
+        foreach ($n in $common)
+        {
+            $svc = Get-Service -Name $n -ErrorAction SilentlyContinue
+            if ($svc)
+            {
+                $name = $svc.Name; break
+            }
+        }
+    }
+
+    if (-not $name)
+    {
+        foreach ($n in @('MySQL80', 'MySQL', 'mysql', 'mysql80', 'MariaDB', 'mariadb', 'xamppmysql'))
+        {
+            try
+            {
+                cmd.exe /d /c "net start $n" *> $null
+            }
+            catch
+            {
+            }
+        }
+        Start-Sleep -Seconds 2
+        $name = Find-MySqlServiceName
+    }
+
+    if (-not $name)
+    {
+        $diag = Get-Service -ErrorAction SilentlyContinue | Where-Object {
+            $_.Name -match '(?i)mysql|mariadb' -or $_.DisplayName -match '(?i)mysql|mariadb'
+        } | Select-Object Name, DisplayName, Status, StartType
+
+        Write-Err "MySQL service not found."
+        if ($diag)
+        {
+            Write-Host "=== Services matching mysql/mariadb found ===" -ForegroundColor DarkYellow
+            $diag | Format-Table | Out-Host
+        }
+        else
+        {
+            Write-Host "No services containing 'mysql' or 'mariadb' were found." -ForegroundColor DarkYellow
+        }
+        Write-Host "Tip: run  choco list --local-only | findstr /i mysql" -ForegroundColor DarkGray
+        Write-Host "     If only mysql-cli is installed, install server:  choco install mysql -y" -ForegroundColor DarkGray
+        throw "MySQL service not found."
+    }
+
+    $svc = Get-Service -Name $name -ErrorAction SilentlyContinue
+    if (-not $svc)
+    {
+        throw "Service '$name' not accessible."
+    }
+
+    if ($svc.Status -ne 'Running')
+    {
+        try
+        {
+            Start-Service $svc.Name
+        }
+        catch
+        {
+        }
+        # aguarda até 20s
+        $ok = $false
+        foreach ($i in 1..20)
+        {
+            $svc.Refresh()
+            if ($svc.Status -eq 'Running')
+            {
+                $ok = $true; break
+            }
+            Start-Sleep -Seconds 1
+        }
+        if (-not $ok)
+        {
+            throw "Service '$name' did not reach Running state."
+        }
+    }
+
+    return $svc.Name
+}
+
+function Invoke-MySql([string]$Sql, [string]$RootPass)
+{
+    $mysql = (Get-Command mysql.exe -ErrorAction SilentlyContinue).Source
+    if (-not $mysql) { $mysql = "mysql" }
+
+    $args = @("--protocol=TCP","-u","root","-h","127.0.0.1","-P","3306","-e",$Sql)
+
+    if (-not [string]::IsNullOrEmpty($RootPass)) {
+        $args += ("--password={0}" -f $RootPass)  # sem espaço após '='
+    }
+
+    & $mysql @args
 }
 function Ensure-MySqlProvision
 {
     Write-Info "Provisioning MySQL (DB + user)..."
-    $MySqlExe = Get-Command mysql -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -First 1
+
+    Ensure-MySqlServerPresent
+
+    $null = Ensure-MySqlService
+
+    $MySqlExe = (Get-Command mysql.exe -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -First 1)
     if (-not $MySqlExe)
     {
-        Write-Err "MySQL executable not found in PATH."; throw "mysql not found"
+        $MySqlExe = Resolve-MySqlExe
+        if ($MySqlExe)
+        {
+            Add-PathIfMissing (Split-Path $MySqlExe -Parent) -PersistUser
+            Refresh-Env
+        }
     }
-    $null = Ensure-MySqlService
+    if (-not $MySqlExe)
+    {
+        Write-Err "MySQL executable not found in PATH after ensuring server install."
+        throw "mysql not found"
+    }
+
     $rootPass = $env:POS_DB_ROOT_PASS
     $rootHasNoPass = $false
     try
@@ -991,7 +1192,7 @@ try
 catch
 {
 }
-& $Pm2Cmd start "php" --name pma-pos --cwd $phpmyadminDir -- -S localhost:8080 | Out-Null
+& $Pm2Cmd start $PhpExe --name pma-pos --cwd $phpmyadminDir -- -S localhost:8080 | Out-Null
 
 # ========================
 # Shortcut (startup.ps1)
