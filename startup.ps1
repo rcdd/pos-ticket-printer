@@ -276,7 +276,7 @@ try
         $altBase = [int]$env:PM2_RPC_PORT + 50
         $env:PM2_RPC_PORT = "$altBase"
         $env:PM2_PUB_PORT = "$( $altBase + 1 )"
-        Write-Host "[WARN] PM2 ping falhou; a tentar com outras portas: RPC=$( $env:PM2_RPC_PORT ) PUB=$( $env:PM2_PUB_PORT )"
+        Write-Host "[WARN] PM2 ping falhou; a tentar com outras portas: RPC=$( $env:PM2_RPC_PORT ) PUB=$( $env:PM2_PUB_PORT ). Caso falhe novamente, reinicie o computador."
         Start-Sleep -Milliseconds 200
         & $Pm2Cmd ls *> $null
         Start-Sleep -Milliseconds 300
