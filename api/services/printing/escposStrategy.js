@@ -94,7 +94,6 @@ class EscposStrategy {
 /* ---------- Fallback Windows ---------- */
 
 async function listViaWindows() {
-    // Usa PowerShell Get-Printer e devolve em JSON
     return new Promise((resolve) => {
         const ps = [
             'powershell',
