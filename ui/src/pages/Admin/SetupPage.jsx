@@ -1,4 +1,4 @@
-import React from 'react'
+import React, {useEffect} from 'react'
 import {
     Box,
     Tab,
@@ -14,6 +14,12 @@ function SetupPage() {
     const handleTabChange = (event, newValue) => {
         setTabPosition(newValue);
     };
+
+    useEffect(() => {
+        if (localStorage.getItem("virtualKeyboard") === null) {
+            localStorage.setItem("virtualKeyboard", "true");
+        }
+    }, []);
 
     return (
         <div>

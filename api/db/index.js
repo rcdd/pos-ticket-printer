@@ -42,19 +42,4 @@ db.records.belongsTo(db.menus, {foreignKey: 'menu', as: 'menuItem'});
 db.products.belongsTo(db.zones, {foreignKey: 'zoneId', as: 'zone'});
 db.zones.hasMany(db.products, {foreignKey: 'zoneId', as: 'products'});
 
-db.users.sync().then(() => {
-    db.users.findOne({where: {role: 'admin', isDeleted: 0}}).then(user => {
-        if (!user) {
-            db.users.create({
-                name: 'Admin',
-                username: 'admin',
-                password: 'admin123', //todo: ensure to hash passwords
-                role: 'admin',
-            }).then(() => {
-                console.log("Default admin user created: username 'admin', password 'admin123'");
-            });
-        }
-    });
-});
-
 module.exports = db;

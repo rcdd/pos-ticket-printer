@@ -72,20 +72,22 @@ class EscposStrategy {
 
 /* ---------- Fallback via CUPS ---------- */
 
-function listViaCUPS() {
+async function listViaCUPS() {
     return new Promise((resolve) => {
         execFile('lpstat', ['-p'], {encoding: 'utf8'}, (err, stdout) => {
             if (err) return resolve([]);
+
             const names = stdout
                 .split('\n')
-                .map(l => (l.startsWith('printer ') ? l.split(/\s+/)[1] : null))
+                .map(l => (l.split(" ")[1] || '').trim())
                 .filter(Boolean);
-            resolve(names.map(n => ({name: n})));
+
+            resolve(names.map(n => ({name: n, systemName: n})));
         });
     });
 }
 
-function printViaCUPS(printerName, buffer, jobName) {
+async function printViaCUPS(printerName, buffer, jobName) {
     return new Promise((resolve, reject) => {
         const cmd = '/usr/bin/lp'; // macOS
         const args = ['-d', String(printerName), '-o', 'raw', '-t', String(jobName)];

@@ -1,8 +1,9 @@
 const db = require("../index");
+const bcrypt = require('bcrypt');
 const Users = db.users;
 
 // Create and Save a new User
-exports.create = (req, res) => {
+exports.create = async (req, res) => {
     // Validate request
     if (!req.body.username) {
         res.status(400).send({
@@ -26,10 +27,11 @@ exports.create = (req, res) => {
     }
 
     // Create User
+    const hashedPassword = await bcrypt.hash(req.body.password, 10);
     const user = {
         name: req.body.name ? req.body.name : null,
         username: req.body.username,
-        password: req.body.password ? req.body.password : null,
+        password: hashedPassword,
         role: req.body.role ? req.body.role : db.UserRoles.WAITER,
         isDeleted: false
     };
@@ -130,7 +132,7 @@ exports.update = (req, res) => {
         });
 }
 
-exports.updatePassword = (req, res) => {
+exports.updatePassword = async (req, res) => {
     const id = req.body.id;
     const newPassword = req.body.password;
 
@@ -141,7 +143,8 @@ exports.updatePassword = (req, res) => {
         return;
     }
 
-    Users.update({password: newPassword}, {
+    const newHashed = await bcrypt.hash(newPassword, 10);
+    Users.update({password: newHashed}, {
         where: {id: id}
     })
         .then(num => {
@@ -189,7 +192,7 @@ exports.softDelete = (req, res) => {
 };
 
 // Login user
-exports.login = (req, res) => {
+exports.login = async (req, res) => {
     const username = req.body.username;
     const _password = req.body.password;
 
@@ -203,17 +206,16 @@ exports.login = (req, res) => {
     Users.findOne({
         where: {username: username, isDeleted: false}
     })
-        .then(user => {
+        .then(async user => {
             if (!user) {
                 return res.status(404).send({
                     message: "User not found!"
                 });
             }
 
-            if (user.password !== _password) {
-                return res.status(401).send({
-                    message: "Invalid password!"
-                });
+            const match = await bcrypt.compare(req.body.password, user.password);
+            if (!match) {
+                return res.status(401).send({message: "Invalid password!"});
             }
 
             // Exclude password from the response

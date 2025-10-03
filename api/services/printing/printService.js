@@ -3,7 +3,7 @@ const {
     renderTestRaw,
 } = require('./receiptRenderer');
 const {EscposStrategy} = require("./escposStrategy");
-const {openCashDrawer, textPrintLine, newLine, align, horizontalLine} = require("./printCommands");
+const {openCashDrawer} = require("./printCommands");
 
 const escpos = new EscposStrategy();
 
@@ -97,7 +97,7 @@ async function printSessionRequest({printerName, headers, sessionData}) {
 }
 
 async function listPrinters() {
-    return escpos.listPrinters();
+    return await escpos.listPrinters();
 }
 
 module.exports = {printTicketRequest, printSessionRequest, listPrinters};

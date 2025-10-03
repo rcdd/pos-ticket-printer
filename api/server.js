@@ -9,23 +9,31 @@ var corsOptions = {
 };
 
 app.use(cors(corsOptions));
-// parse requests of content-type - application/json
 app.use(express.json());
-
-// parse requests of content-type - application/x-www-form-urlencoded
 app.use(express.urlencoded({extended: true}));
 
 const db = require("./db");
 
-db.sequelize.sync({alter: true});
-// // drop the table if it already exists
-// db.sequelize.sync({ force: true }).then(() => {
-//   console.log("Drop and re-sync db.");
-// });
+db.sequelize.sync({alter: true}).then(async () => {
+    const admin = await db.users.findOne({where: {role: 'admin', isDeleted: 0}});
+    if (!admin) {
+        const hashedPass = await bcrypt.hash('admin123', 10);
+        await db.users.create({
+            name: 'Admin',
+            username: 'admin',
+            password: hashedPass,
+            role: 'admin'
+        });
+        console.log("Default admin user created: username 'admin', password 'admin123'");
+    }
+
+    app.listen(PORT, () => {
+        console.log(`Server is running on port ${PORT}.`);
+    });
+});
 
 const PORT = process.env.NODE_DOCKER_PORT || 9393;
 
-// const printer = require("./printer/printer.controller");
 const printer = require("./db/controllers/printer/printer.controller");
 const options = require("./db/controllers/options.controller");
 const products = require("./db/controllers/products.controller");
@@ -34,11 +42,7 @@ const menus = require("./db/controllers/menus.controller");
 const zones = require("./db/controllers/zones.controller");
 const users = require("./db/controllers/users.controller");
 const sessions = require("./db/controllers/sessions.controller");
-
-// set port, listen for requests
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}.`);
-});
+const bcrypt = require("bcrypt");
 
 // Health check
 app.get("/health", (req, res) => {
@@ -78,6 +82,7 @@ app.post('/printer/print-session', async (req, res) => {
 
 // Options
 app.get("/option/get-printer", options.getPrinter);
+
 app.post("/option/set-printer", async (req, res) => {
     await options.setPrinter(req, res)
 });
