@@ -2,8 +2,19 @@ const {execFile} = require('child_process');
 
 async function loadPrintersLib() {
     try {
-        return await import('@printers/printers');
-    } catch {
+        const mod = await import('@printers/printers');
+        const candidate = mod?.default ?? mod;
+
+        if (typeof candidate === 'function') {
+            try {
+                return new candidate();
+            } catch {
+            }
+        }
+
+        return candidate;
+    } catch (e) {
+        console.warn('[@printers/printers] import falhou:', e.message);
         return null;
     }
 }
