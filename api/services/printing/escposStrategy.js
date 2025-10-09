@@ -147,24 +147,26 @@ async function printViaWindows(printerName, buffer, jobName) {
     //         reject(err);
     //     }
     // });
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'posraw-'));
-    const file = path.join(dir, `${jobName}.bin`);
-    fs.writeFileSync(file, Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer));
+    return new Promise((resolve, reject) => {
+        try {
+            const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'posraw-'));
+            const tmpFile = path.join(tmpDir, `${jobName}.txt`); // print.exe trata como texto
+            fs.writeFileSync(tmpFile, Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer));
 
-    const exe = fileURLToPath(new URL('../bin/RawFileToPrinter.exe', import.meta.url));
+            const cmd = process.env.SystemRoot
+                ? path.join(process.env.SystemRoot, 'System32', 'print.exe')
+                : 'print';
+            const args = [`/D:"${String(printerName)}"`, tmpFile];
 
-    try {
-        await new Promise((res, rej) => {
-            const cp = spawn(exe, [printerName, file], { windowsHide: true });
-            let stderr = ''; let stdout = '';
-            cp.stdout.on('data', d => (stdout += d));
-            cp.stderr.on('data', d => (stderr += d));
-            cp.on('exit', c => c === 0 ? res() : rej(new Error(`RawPrint exited ${c}\n${stderr || stdout}`)));
-            cp.on('error', rej);
-        });
-    } finally {
-        try { fs.unlinkSync(file); fs.rmdirSync(dir); } catch {}
-    }
+            execFile(cmd, args, { windowsHide: true }, (e, stdout, stderr) => {
+                try { fs.unlinkSync(tmpFile); fs.rmdirSync(tmpDir); } catch {}
+                if (e) return reject(new Error(`${e.message}\nSTDOUT:${stdout}\nSTDERR:${stderr}`));
+                resolve();
+            });
+        } catch (err) {
+            reject(err);
+        }
+    });
 }
 
 /* ---------- Fallback via CUPS (macOS/Linux) ---------- */
