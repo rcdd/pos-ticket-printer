@@ -59,30 +59,26 @@ export async function printTicketRequest({printerName, headers, items, totalAmou
         await escpos.printRawByName(printerName, buf, `${jobPrefix} Open Drawer`);
     }
 
+    let buf = Buffer.concat([initPrinter(),]);
     if (printType === 'tickets' || printType === 'both') {
         for (const line of expanded) {
-            const buf = Buffer.concat([
-                initPrinter(),
+            buf = Buffer.concat([
+                buf,
                 renderItemTicketRaw(line.name || ''),
                 renderFooterRaw(headers),
-                renderHeaderRaw(headers),
-            ]);
-
-            await escpos.printRawByName(printerName, buf, `${jobPrefix} Ticket`);
-            if (INTER_JOB_DELAY_MS) await sleep(INTER_JOB_DELAY_MS);
+                renderHeaderRaw(headers)]);
         }
     }
 
     if (printType === 'totals' || printType === 'both') {
-        const buf = Buffer.concat([
-            initPrinter(),
-            renderTotalTicketRaw(items, totalEuros),
+        buf = Buffer.concat([buf,
+            renderTotalTicketRaw(expanded, totalEuros),
             renderFooterRaw(headers),
             renderHeaderRaw(headers),
         ]);
-
-        await escpos.printRawByName(printerName, buf, `${jobPrefix} Total`);
     }
+
+    await escpos.printRawByName(printerName, buf, `${jobPrefix} Job`);
 }
 
 export async function printSessionRequest({printerName, headers, sessionData}) {

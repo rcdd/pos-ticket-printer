@@ -130,17 +130,14 @@ async function listViaWindows() {
 
 function printViaWindows(printerName, buffer, jobName) {
     return new Promise((resolve, reject) => {
-        // 1) tenta UNC copy RAW, se a fila tiver ShareName
         const ps = [
             'powershell','-NoProfile','-Command',
-            // devolve so o ShareName da impressora pedida
             `($p = Get-Printer -Name '${printerName}' -ErrorAction SilentlyContinue) | ForEach-Object { $_.ShareName }`
         ];
         execFile(ps[0], ps.slice(1), { encoding: 'utf8', windowsHide: true }, (err, stdout) => {
             const share = (stdout || '').trim();
             const data = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
 
-            // cria ficheiro temporario
             let tmpDir, tmpFile;
             try {
                 tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'posraw-'));
@@ -155,11 +152,9 @@ function printViaWindows(printerName, buffer, jobName) {
             const tryUNC = () => {
                 if (!share) return false;
                 const unc = `\\\\localhost\\${share}`;
-                // copy /b job.bin \\localhost\ShareName
                 const args = ['/c', 'copy', '/b', tmpFile, unc];
                 execFile('cmd.exe', args, { windowsHide: true }, (e, so, se) => {
                     if (!e) { clean(); return resolve(); }
-                    // se falhar UNC, tenta print.exe
                     tryPrintExe();
                 });
                 return true;
@@ -178,7 +173,6 @@ function printViaWindows(printerName, buffer, jobName) {
             };
 
             if (!tryUNC()) {
-                // sem share, tenta logo print.exe
                 tryPrintExe();
             }
         });
