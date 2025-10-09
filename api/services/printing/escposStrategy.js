@@ -1,15 +1,15 @@
-// EscposStrategy (100% JS, sem binários nativos)
-// - Windows USB: usa 'print.exe' (RAW)
-// - macOS USB: usa 'lp' do CUPS (RAW)
-// - Geração ESC/POS opcional com thermal-printer-encoder (JS puro)
+// EscposStrategy usando @point-of-sale/receipt-printer-encoder (100% JS, sem binários nativos)
+// - Windows USB: envia RAW via print.exe
+// - macOS USB: envia RAW via CUPS (lp)
+// - Rede: podes chamar printRawByName com o teu próprio sender TCP, se precisares
 
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import ThermalPrinterEncoder from 'thermal-printer-encoder';
+import ReceiptPrinterEncoder from '@point-of-sale/receipt-printer-encoder';
 
-/* ---------- Helpers de SO ---------- */
+/* ---------- OS helpers ---------- */
 
 async function listViaWindows() {
     return new Promise((resolve) => {
@@ -52,7 +52,7 @@ async function listViaCUPS() {
     });
 }
 
-async function printViaWindows(printerName, buffer, jobName) {
+async function printViaWindows(printerName, buffer) {
     return new Promise((resolve, reject) => {
         try {
             const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'posraw-'));
@@ -66,8 +66,7 @@ async function printViaWindows(printerName, buffer, jobName) {
 
             execFile(cmd, args, { windowsHide: true }, (e) => {
                 try { fs.unlinkSync(tmpFile); fs.rmdirSync(tmpDir); } catch {}
-                if (e) return reject(e);
-                resolve();
+                e ? reject(e) : resolve();
             });
         } catch (err) { reject(err); }
     });
@@ -79,7 +78,7 @@ async function printViaCUPS(printerName, buffer, jobName) {
         const tmpFile = path.join(tmpDir, 'job.bin');
         fs.writeFileSync(tmpFile, Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer));
         const cmd = '/usr/bin/lp';
-        const args = ['-d', String(printerName), '-o', 'raw', '-t', String(jobName), tmpFile];
+        const args = ['-d', String(printerName), '-o', 'raw', '-t', String(jobName ?? 'POS Ticket'), tmpFile];
         execFile(cmd, args, (e) => {
             try { fs.unlinkSync(tmpFile); fs.rmdirSync(tmpDir); } catch {}
             e ? reject(e) : resolve();
@@ -87,19 +86,35 @@ async function printViaCUPS(printerName, buffer, jobName) {
     });
 }
 
-/* ---------- Encoder ESC/POS (opcional) ---------- */
+/* ---------- Encoder helpers ---------- */
 
-function buildEscposFromText(text, { width = 48, cut = true } = {}) {
-    const encoder = new ThermalPrinterEncoder({ type: 'epson', width });
-    let e = encoder.text(text).newline();
-    if (cut) e = e.cut();
-    return e.encode();
+function encodeReceipt(lines = [], {
+    width = 48,
+    cut = true,
+    align = 'left',      // 'left' | 'center' | 'right'
+    codepage = 'cp437',  // ver docs da lib para opções suportadas
+} = {}) {
+    const encoder = new ReceiptPrinterEncoder({
+        language: 'esc-pos',
+        characterSet: codepage
+    });
+
+    encoder.initialize();
+    if (align === 'center') encoder.align('center');
+    if (align === 'right')  encoder.align('right');
+
+    for (const line of lines) {
+        if (line === '\n') { encoder.newline(); continue; }
+        encoder.line(line);
+    }
+
+    if (cut) encoder.cutter();
+    return Buffer.from(encoder.encode());
 }
 
 /* ---------- Strategy ---------- */
 
 export class EscposStrategy {
-    // Lista impressoras instaladas (sem-deletadas)
     async listPrinters() {
         if (process.platform === 'win32') {
             const list = await listViaWindows();
@@ -108,7 +123,6 @@ export class EscposStrategy {
         return listViaCUPS();
     }
 
-    // Detalhes básicos por nome
     async getPrinterDetails(printerName) {
         const list = await this.listPrinters();
         if (!Array.isArray(list)) return null;
@@ -135,11 +149,11 @@ export class EscposStrategy {
         return null;
     }
 
-    // Envia bytes ESC/POS já prontos para a impressora
+    // Envia bytes RAW (ESC/POS) diretamente para a impressora
     async printRawByName(printerName, buffer, jobName = 'POS Ticket') {
         const data = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
         if (process.platform === 'win32') {
-            await printViaWindows(printerName, data, jobName);
+            await printViaWindows(printerName, data);
             return;
         }
         if (process.platform === 'darwin') {
@@ -149,9 +163,15 @@ export class EscposStrategy {
         throw new Error('Platform not supported');
     }
 
-    // Gera e imprime a partir de texto simples (helper)
-    async printTextByName(printerName, text, jobName = 'POS Ticket', opts = {}) {
-        const payload = buildEscposFromText(text, opts);
+    // Constrói um recibo simples (linhas) e imprime
+    async printLinesByName(printerName, lines, jobName = 'POS Ticket', opts = {}) {
+        const payload = encodeReceipt(lines, opts);
         await this.printRawByName(printerName, payload, jobName);
+    }
+
+    // Helper simples: uma string multi-linha
+    async printTextByName(printerName, text, jobName = 'POS Ticket', opts = {}) {
+        const lines = String(text).split(/\r?\n/);
+        await this.printLinesByName(printerName, lines, jobName, opts);
     }
 }
