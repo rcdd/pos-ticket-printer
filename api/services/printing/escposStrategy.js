@@ -19,7 +19,7 @@ async function loadPrintersLib() {
     }
 }
 
-class EscposStrategy {
+export class EscposStrategy {
     async listPrinters() {
         const lib = await loadPrintersLib();
 
@@ -171,5 +171,3 @@ async function printViaCUPS(printerName, buffer, jobName) {
         child.stdin.end(Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer));
     });
 }
-
-module.exports = { EscposStrategy };
