@@ -1,37 +1,46 @@
-import {execFile} from 'node:child_process';
+import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-/* -------- Optional backend (@printers/printers) -------- */
 let printersLibPromise = null;
+
+async function resolvePrinters(mod) {
+    const candidate = mod?.default ?? mod?.Printer ?? mod;
+    return (typeof candidate === 'function') ? new candidate() : candidate;
+}
+
+async function tryImport(spec, label) {
+    try {
+        const m = await import(spec);
+        const lib = await resolvePrinters(m);
+        if (lib) {
+            console.warn(`[@printers] usando ${label}`);
+            return lib;
+        }
+    } catch {}
+    return null;
+}
 
 async function loadPrintersLib() {
     if (!printersLibPromise) {
         printersLibPromise = (async () => {
-            try {
-                if (process.platform === 'darwin') {
-                    // On macOS, try to load the native module first
-                    const modMac = await import('@printers/printers-darwin-arm64');
-                    const candidateMac = modMac?.Printer ?? modMac;
-                    if (typeof candidateMac === 'function') return new candidateMac();
-                }
-                if (process.platform === 'win32') {
-                    // On Windows, try to load the native module first
-                    const modWin = await import('@printers/printers-win32-x64-msvc');
-                    const candidateWin = modWin?.Printer ?? modWin;
-                    if (typeof candidateWin === 'function') return new candidateWin();
-                }
-
-                // Fallback to the generic module
-                console.warn('a tentar import @printers/printers...');
-                const mod = await import('@printers/printers');
-                const candidate = mod?.Printer ?? mod;
-                return typeof candidate === 'function' ? new candidate() : candidate;
-            } catch (e) {
-                console.warn('[@printers/printers] import falhou:', e?.message || e);
-                return null;
+            // 1) Binário específico (não explode se não existir)
+            if (process.platform === 'darwin' && process.arch === 'arm64') {
+                const mac = await tryImport('@printers/printers-darwin-arm64', 'darwin-arm64');
+                if (mac) return mac;
             }
+            if (process.platform === 'win32' && process.arch === 'x64') {
+                const win = await tryImport('@printers/printers-win32-x64-msvc', 'win32-x64-msvc');
+                if (win) return win;
+            }
+
+            // 2) Pacote genérico
+            const generic = await tryImport('@printers/printers', 'genérico');
+            if (generic) return generic;
+
+            console.warn('[@printers] import falhou em todas as variantes');
+            return null;
         })();
     }
     return printersLibPromise;
@@ -45,16 +54,15 @@ export class EscposStrategy {
             try {
                 const printers = await lib.getAllPrinters();
                 return Array.isArray(printers) ? printers : [];
-            } catch { /* ignore and fallback */
-            }
+            } catch {}
         }
 
         if (process.platform === 'win32') {
-            console.warn("[@printers/printers] não disponível, usando fallback Windows via PowerShell");
+            console.warn("[@printers] não disponível, fallback Windows (PowerShell)");
             const list = await listViaWindows();
             return Array.isArray(list) ? list : [];
         }
-        console.warn("[@printers/printers] não disponível, usando fallback CUPS via 'lpstat'");
+        console.warn("[@printers] não disponível, fallback CUPS ('lpstat')");
         return listViaCUPS();
     }
 
@@ -65,23 +73,21 @@ export class EscposStrategy {
             try {
                 const p = await lib.getPrinterByName(printerName);
                 if (!p) throw new Error(`Printer "${printerName}" not found`);
-
                 const data = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
                 const printFn = p.printBytes ?? p.printRaw;
-                if (typeof printFn !== 'function') throw new Error('Método de impressão não encontrado no objeto da impressora');
+                if (typeof printFn !== 'function') throw new Error('Método de impressão não encontrado');
 
-                await printFn.call(p, data, {jobName, simple: {paperSize: 'COM10'}, waitForCompletion: true});
+                await printFn.call(p, data, { jobName, simple: { paperSize: 'COM10' }, waitForCompletion: true });
                 return;
-            } catch { /* ignore and fallback */
-            }
+            } catch {}
         }
 
         if (process.platform === 'win32') {
-            console.warn("[@printers/printers] não disponível, usando fallback Windows via 'print.exe'");
+            console.warn("[@printers] não disponível, fallback Windows ('print.exe')");
             await printViaWindows(printerName, buffer, jobName);
             return;
         }
-        console.warn("[@printers/printers] não disponível, usando fallback CUPS via 'lp'");
+        console.warn("[@printers] não disponível, fallback CUPS ('lp')");
         await printViaCUPS(printerName, buffer, jobName);
     }
 
@@ -114,32 +120,24 @@ export class EscposStrategy {
 }
 
 /* ---------- Fallback Windows ---------- */
-
 async function listViaWindows() {
     return new Promise((resolve) => {
         const ps = [
-            'powershell',
-            '-NoProfile',
-            '-Command',
+            'powershell','-NoProfile','-Command',
             'Get-Printer | Select-Object Name,DriverName,PortName,Default,Shared | ConvertTo-Json -Depth 2 -Compress'
         ];
-        execFile(ps[0], ps.slice(1), {encoding: 'utf8', windowsHide: true}, (err, stdout) => {
+        execFile(ps[0], ps.slice(1), { encoding: 'utf8', windowsHide: true }, (err, stdout) => {
             if (err || !stdout) return resolve([]);
             try {
                 const arr = JSON.parse(stdout);
                 const list = Array.isArray(arr) ? arr : [arr];
                 resolve(list.map(p => ({
-                    name: p.Name,
-                    systemName: p.Name,
-                    driverName: p.DriverName,
-                    portName: p.PortName,
-                    isDefault: !!p.Default,
-                    isShared: !!p.Shared,
+                    name: p.Name, systemName: p.Name,
+                    driverName: p.DriverName, portName: p.PortName,
+                    isDefault: !!p.Default, isShared: !!p.Shared,
                     nativePrinter: p
                 })));
-            } catch {
-                resolve([]);
-            }
+            } catch { resolve([]); }
         });
     });
 }
@@ -151,38 +149,26 @@ async function printViaWindows(printerName, buffer, jobName) {
             const tmpFile = path.join(tmpDir, 'job.bin');
             fs.writeFileSync(tmpFile, Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer));
 
-            const cmd = process.env.SystemRoot
-                ? path.join(process.env.SystemRoot, 'System32', 'print.exe')
-                : 'print';
+            const cmd = process.env.SystemRoot ? path.join(process.env.SystemRoot, 'System32', 'print.exe') : 'print';
             const args = ['/D:' + String(printerName), tmpFile];
 
-            execFile(cmd, args, {windowsHide: true}, (e) => {
-                try {
-                    fs.unlinkSync(tmpFile);
-                    fs.rmdirSync(tmpDir);
-                } catch { /* ignore */
-                }
+            execFile(cmd, args, { windowsHide: true }, (e) => {
+                try { fs.unlinkSync(tmpFile); fs.rmdirSync(tmpDir); } catch {}
                 if (e) return reject(e);
                 resolve();
             });
-        } catch (err) {
-            reject(err);
-        }
+        } catch (err) { reject(err); }
     });
 }
 
 /* ---------- Fallback via CUPS (macOS/Linux) ---------- */
-
 async function listViaCUPS() {
     return new Promise((resolve) => {
         const cmd = '/usr/bin/lpstat';
-        execFile(cmd, ['-p'], {encoding: 'utf8'}, (err, stdout) => {
+        execFile(cmd, ['-p'], { encoding: 'utf8' }, (err, stdout) => {
             if (err || !stdout) return resolve([]);
-            const names = String(stdout)
-                .split('\n')
-                .map(l => (l.split(' ')[1] || '').trim())
-                .filter(Boolean);
-            resolve(names.map(n => ({name: n, systemName: n})));
+            const names = String(stdout).split('\n').map(l => (l.split(' ')[1] || '').trim()).filter(Boolean);
+            resolve(names.map(n => ({ name: n, systemName: n })));
         });
     });
 }
