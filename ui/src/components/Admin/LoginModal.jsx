@@ -23,8 +23,8 @@ export default function LoginModal({open, close, setLogin}) {
         if (login) {
             UserService.login(username, password)
                 .then((response) => {
+                    response.data.loginExpires = Date.now() + 60 * 60 * 1000; // 1 hour
                     localStorage.setItem("user", JSON.stringify(response.data));
-                    localStorage.setItem("login", String(Date.now() + 60 * 60 * 1000));
                     setErrorText("");
                     setOpenModal(false);
                     close(true);

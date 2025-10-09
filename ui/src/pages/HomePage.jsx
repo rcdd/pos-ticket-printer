@@ -128,18 +128,32 @@ function HomePage() {
     const handleNavigation = (path) => {
         setPage(path);
         setOpen(false);
+
+        if (login) {
+            const userRaw = localStorage.getItem("user");
+            if (userRaw) {
+                const userData = JSON.parse(userRaw);
+                userData.loginExpires = Date.now() + 60 * 60 * 1000; // 1 hour
+                localStorage.setItem("user", JSON.stringify(userData));
+            }
+        }
     }
 
     React.useEffect(() => {
-        const loginData = localStorage.getItem("login");
-        if (loginData) {
-            const loginTime = new Date(loginData);
-            const currentTime = new Date();
-            if (currentTime - loginTime < 1000 * 60 * 60) { // 1 hour
+        const userRaw = localStorage.getItem("user");
+        if (userRaw) {
+            const userData = JSON.parse(userRaw);
+            const loginExpire = Number(userData?.loginExpires || 0);
+            const now = Date.now();
+            const isValid = now < loginExpire;
+
+            if (isValid) {
                 setLogin(true);
-                localStorage.setItem("login", String(Date.now() + 60 * 60 * 1000));
+                userData.loginExpires = now + 60 * 60 * 1000; // 1 hour
+
+                localStorage.setItem("user", JSON.stringify(userData));
             } else {
-                localStorage.removeItem("login");
+                localStorage.removeItem("user");
                 setPage("pos");
             }
         }
@@ -199,6 +213,14 @@ function HomePage() {
                 <div style={{flexGrow: 1}}/>
                 <IconButton
                     color="inherit"
+                    onClick={() => closeWindow()}
+                >
+                    <Typography variant="h6" color={"indianred"} component="div">
+                        <ExitToAppIcon/>
+                    </Typography>
+                </IconButton>
+                <IconButton
+                    color="inherit"
                     onClick={() => setPage('about')}
                 >
                     <Typography variant="h6" noWrap component="div">
@@ -206,14 +228,6 @@ function HomePage() {
                     </Typography>
                 </IconButton>
 
-                <IconButton
-                    color="inherit"
-                    onClick={() => closeWindow()}
-                >
-                    <Typography variant="h6" color={"red"} noWrap component="div">
-                        <ExitToAppIcon/>
-                    </Typography>
-                </IconButton>
             </Toolbar>
         </AppBar>
         <Drawer
