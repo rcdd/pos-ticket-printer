@@ -69,6 +69,8 @@ export class EscposStrategy {
     }
 
     async printRawByName(printerName, buffer, jobName = 'POS Ticket') {
+        const lib = await loadPrintersLib();
+
         const data = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
         if (lib) {
             try {
