@@ -150,7 +150,10 @@ async function printViaWindows(printerName, buffer, jobName) {
     const file = path.join(dir, `${jobName}.bin`);
     fs.writeFileSync(file, Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer));
 
-    const exe = path.resolve(__dirname, '../bin/RawPrint.exe'); // ou RawPrint.exe
+    import { fileURLToPath } from 'url';
+
+    const exe = fileURLToPath(new URL('../bin/RawFileToPrinter.exe', import.meta.url));
+
     try {
         await new Promise((res, rej) => {
             const cp = spawn(exe, [printerName, file], { windowsHide: true });
