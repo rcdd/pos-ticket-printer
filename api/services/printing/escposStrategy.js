@@ -2,6 +2,7 @@ import { execFile, spawn } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
 async function loadPrintersLib() {
     if (process.platform === 'win32') return null;
@@ -149,8 +150,6 @@ async function printViaWindows(printerName, buffer, jobName) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'posraw-'));
     const file = path.join(dir, `${jobName}.bin`);
     fs.writeFileSync(file, Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer));
-
-    import { fileURLToPath } from 'url';
 
     const exe = fileURLToPath(new URL('../bin/RawFileToPrinter.exe', import.meta.url));
 
