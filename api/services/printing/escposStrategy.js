@@ -128,30 +128,60 @@ async function listViaWindows() {
     });
 }
 
-async function printViaWindows(printerName, buffer, jobName) {
+function printViaWindows(printerName, buffer, jobName) {
     return new Promise((resolve, reject) => {
-        try {
-            const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'posraw-'));
-            const tmpFile = path.join(tmpDir, 'job.bin');
-            fs.writeFileSync(tmpFile, Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer));
+        // 1) tenta UNC copy RAW, se a fila tiver ShareName
+        const ps = [
+            'powershell','-NoProfile','-Command',
+            // devolve so o ShareName da impressora pedida
+            `($p = Get-Printer -Name '${printerName}' -ErrorAction SilentlyContinue) | ForEach-Object { $_.ShareName }`
+        ];
+        execFile(ps[0], ps.slice(1), { encoding: 'utf8', windowsHide: true }, (err, stdout) => {
+            const share = (stdout || '').trim();
+            const data = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
 
-            const cmd = process.env.SystemRoot
-                ? path.join(process.env.SystemRoot, 'System32', 'print.exe')
-                : 'print';
-            const args = ['/D:' + String(printerName), tmpFile];
+            // cria ficheiro temporario
+            let tmpDir, tmpFile;
+            try {
+                tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'posraw-'));
+                tmpFile = path.join(tmpDir, 'job.bin');
+                fs.writeFileSync(tmpFile, data);
+            } catch (e) {
+                return reject(e);
+            }
 
-            execFile(cmd, args, {windowsHide: true}, (e) => {
-                try {
-                    fs.unlinkSync(tmpFile);
-                    fs.rmdirSync(tmpDir);
-                } catch {
-                }
-                if (e) return reject(e);
-                resolve();
-            });
-        } catch (err) {
-            reject(err);
-        }
+            const clean = () => { try { fs.unlinkSync(tmpFile); fs.rmdirSync(tmpDir); } catch {} };
+
+            const tryUNC = () => {
+                if (!share) return false;
+                const unc = `\\\\localhost\\${share}`;
+                // copy /b job.bin \\localhost\ShareName
+                const args = ['/c', 'copy', '/b', tmpFile, unc];
+                execFile('cmd.exe', args, { windowsHide: true }, (e, so, se) => {
+                    if (!e) { clean(); return resolve(); }
+                    // se falhar UNC, tenta print.exe
+                    tryPrintExe();
+                });
+                return true;
+            };
+
+            const tryPrintExe = () => {
+                const cmd = process.env.SystemRoot
+                    ? path.join(process.env.SystemRoot, 'System32', 'print.exe')
+                    : 'print';
+                const args = ['/D:' + String(printerName), tmpFile];
+                execFile(cmd, args, { windowsHide: true }, (e2) => {
+                    clean();
+                    if (e2) return reject(e2);
+                    resolve();
+                });
+            };
+
+            if (!tryUNC()) {
+                // sem share, tenta logo print.exe
+                tryPrintExe();
+            }
+        });
     });
 }
 
