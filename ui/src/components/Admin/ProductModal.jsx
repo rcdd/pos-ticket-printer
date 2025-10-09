@@ -194,7 +194,7 @@ function ProductModal({open, close, selectedZone, zones = [], product = null}) {
                         id="theme"
                         sx={{
                             display: 'grid',
-                            gridTemplateColumns: 'repeat(5, 1fr)',
+                            gridTemplateColumns: 'repeat(3, 1fr)',
                             gap: 2,
                             mt: 1,
                             mb: 2,
@@ -206,8 +206,9 @@ function ProductModal({open, close, selectedZone, zones = [], product = null}) {
                                 onClick={() => setNewTheme(themeName)}
                                 data-active={newTheme === themeName ? '' : undefined}
                                 sx={{
-                                    p: 2,
-                                    fontSize: '12px',
+                                    px: 4,
+                                    py: 2,
+                                    fontSize: '14px',
                                     textAlign: 'center',
                                     cursor: 'pointer',
                                     borderRadius: '4px',

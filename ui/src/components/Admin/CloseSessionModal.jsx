@@ -25,6 +25,7 @@ export default function CloseSessionModal({open, setModal, onCloseSession}) {
             setIsLoading(false);
         } else {
             setModal(false);
+            setIsLoading(false);
         }
     };
 
