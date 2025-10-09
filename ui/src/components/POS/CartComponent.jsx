@@ -1,4 +1,4 @@
-import React, {useMemo} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Button, Stack, Box
 } from '@mui/material';
@@ -12,11 +12,18 @@ export default function CartComponent({
                                       }) {
     const eur = useMemo(() => new Intl.NumberFormat('pt-PT', {style: 'currency', currency: 'EUR'}), []);
 
+    const [windowsWidth, setWindowsWidth] = useState(window.innerWidth);
+
+    useEffect(() => {
+        const handleResize = () => setWindowsWidth(window.innerWidth);
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
+
     const COLS = {
-        qty: 64, price: 53, total: 56, actions: 37,
+        qty: windowsWidth < 1200 ? 64 : 74, price: windowsWidth <1200 ? 53 : 76, total: windowsWidth < 1200 ? 56 : 94, actions: windowsWidth < 1200 ? 37 : 45,
     };
     const fixedSum = COLS.qty + COLS.price + COLS.total + COLS.actions;
-
 
     const increaseQuantity = async (product) => {
         const newCart = cart.map(cartItem => {
@@ -64,7 +71,7 @@ export default function CartComponent({
                 aria-label="Carrinho"
                 sx={{
                     tableLayout: 'fixed',
-                    '& th, & td': {py: 0.5, px: 1, fontSize: 12, lineHeight: 2.5},
+                    '& th, & td': {py: 0.5, px: 1, fontSize: windowsWidth < 1200 ? 12 : 20, lineHeight: 2.5},
                     '& th': {fontWeight: 600, lineHeight: 2},
                 }}
             >
@@ -89,7 +96,7 @@ export default function CartComponent({
                 <TableBody>
                     {cart.length === 0 && (<TableRow>
                         <TableCell colSpan={5} align="center"
-                                   sx={{fontSize: "16px!important", fontWeight: 700, opacity: 0.6}}>
+                                   sx={{fontSize: windowsWidth < 1200 ? "16px!important" : "24px!important", fontWeight: 700, opacity: 0.6}}>
                             Carrinho vazio
                         </TableCell>
                     </TableRow>)}
@@ -99,26 +106,26 @@ export default function CartComponent({
                         <TableCell align="center" sx={{whiteSpace: 'nowrap'}}>
                             <Stack direction="row" alignItems="center" justifyContent="center">
                                 <IconButton
-                                    size="small"
+                                    size={windowsWidth < 1200 ? "small" : "medium"}
                                     color="primary"
-                                    sx={{p: 0.25}}
+                                    sx={{p: windowsWidth < 1200 ? 0.25 : 0.5}}
                                     aria-label={`Diminuir ${p.name}`}
                                     onClick={() => decreaseQuantity(p)}
                                     disabled={p.quantity <= 1}
                                 >
-                                    <RemoveIcon sx={{fontSize: 18}}/>
+                                    <RemoveIcon sx={{fontSize: windowsWidth < 1200 ? 18 : 24}}/>
                                 </IconButton>
 
                                 <Box sx={{minWidth: 18, textAlign: 'center'}}>{p.quantity}</Box>
 
                                 <IconButton
-                                    size="small"
+                                    size={windowsWidth < 1200 ? "small" : "medium"}
                                     color="primary"
-                                    sx={{p: 0.25}}
+                                    sx={{p: windowsWidth < 1200 ? 0.25 : 0.5}}
                                     aria-label={`Aumentar ${p.name}`}
                                     onClick={() => increaseQuantity(p)}
                                 >
-                                    <AddIcon sx={{fontSize: 18}}/>
+                                    <AddIcon sx={{fontSize: windowsWidth < 1200 ? 18 : 24}}/>
                                 </IconButton>
                             </Stack>
                         </TableCell>
@@ -146,7 +153,7 @@ export default function CartComponent({
                                 aria-label={`Remover ${p.name}`}
                                 onClick={() => removeProduct(p)}
                             >
-                                <DeleteIcon sx={{fontSize: 18}}/>
+                                <DeleteIcon sx={{fontSize: windowsWidth < 1200 ? 18 : 24}}/>
                             </IconButton>
                         </TableCell>
                     </TableRow>))}

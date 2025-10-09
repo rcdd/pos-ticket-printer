@@ -114,6 +114,8 @@ export default function SessionPage({session, setSession, onCloseSession}) {
         let cashTotal = session?.initialAmount ?? 0;
 
         for (const inv of invoices ?? []) {
+            if (inv.isDeleted) continue;
+
             const invTotal = inv?.total ?? 0;
             const method = inv?.paymentMethod ?? 'cash';
 
@@ -138,6 +140,7 @@ export default function SessionPage({session, setSession, onCloseSession}) {
                     const prev = discountedMap.get(key) ?? {
                         id: p.id,
                         name: p.name,
+                        zone: p.zone,
                         quantity: 0,
                         total: 0,
                         discount: discPct,
@@ -149,6 +152,7 @@ export default function SessionPage({session, setSession, onCloseSession}) {
                     const prev = productsMap.get(p.id) ?? {
                         id: p.id,
                         name: p.name,
+                        zone: p.zone,
                         quantity: 0,
                         total: 0,
                     };
@@ -198,6 +202,7 @@ export default function SessionPage({session, setSession, onCloseSession}) {
                                 <thead>
                                 <tr>
                                     <th>Produto</th>
+                                    <th>Zona</th>
                                     <th>Quantidade</th>
                                     <th>Total</th>
                                 </tr>
@@ -206,6 +211,7 @@ export default function SessionPage({session, setSession, onCloseSession}) {
                                 {productsAgg.map((p) => (
                                     <tr key={`p-${p.id}`}>
                                         <td>{p.name}</td>
+                                        <td>{p.zone?.name}</td>
                                         <td>{p.quantity}</td>
                                         <td>{eur(p.total)}</td>
                                     </tr>

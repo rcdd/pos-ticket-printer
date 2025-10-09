@@ -75,6 +75,11 @@ export const getAll = (req, res) => {
                 include: [
                     {
                         model: db.products, as: 'productItem',
+                        include: [
+                            {
+                                model: db.zones, as: 'zone'
+                            }
+                        ]
                     },
                     {
                         model: db.menus, as: 'menuItem',
@@ -144,6 +149,11 @@ export const getFromSession = (req, res) => {
                 include: [
                     {
                         model: db.products, as: 'productItem',
+                        include: [
+                            {
+                                model: db.zones, as: 'zone'
+                            }
+                        ]
                     },
                     {
                         model: db.menus, as: 'menuItem',

@@ -1,4 +1,4 @@
-import React, {useRef, useState} from 'react'
+import React, {useEffect, useRef, useState} from 'react'
 import {arrayMove, rectSortingStrategy, SortableContext} from "@dnd-kit/sortable";
 import {closestCenter, DndContext, PointerSensor, TouchSensor, useSensor, useSensors} from "@dnd-kit/core";
 import ProductService from "../../services/product.service";
@@ -8,6 +8,14 @@ import {Box} from "@mui/material";
 function ListProductComponent({products, editProduct, updateOrder}) {
     const [productsDraggable, setProductsDraggable] = useState(products);
     const timeoutRef = useRef(null);
+    const [windowsWidth, setWindowsWidth] = useState(window.innerWidth);
+
+    useEffect(() => {
+        const handleResize = () => setWindowsWidth(window.innerWidth);
+        console.log(windowsWidth);
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
 
     const handleDragStart = () => {
         timeoutRef.current = setTimeout(() => {
@@ -69,7 +77,7 @@ function ListProductComponent({products, editProduct, updateOrder}) {
                 <Box
                     sx={{
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(' + (windowsWidth < 1200 ? '150px' : '250px') + ', 1fr))',
                         gap: 1,
                         px: 1,
                         py: 2,

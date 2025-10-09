@@ -81,12 +81,16 @@ function ReportsPage() {
 
     // summary for invoices
     const summary = React.useMemo(() => {
-        const total = filteredInvoices.reduce((a, v) => a + (v.total || 0), 0);
-        const byMethod = filteredInvoices.reduce((map, v) => {
-            const k = v.paymentMethod || 'unknown';
-            map[k] = (map[k] || 0) + (v.total || 0);
-            return map;
-        }, {});
+        const total = filteredInvoices
+            .filter(inv => !inv.isDeleted)
+            .reduce((sum, inv) => sum + (inv.total || 0), 0);
+        const byMethod = filteredInvoices
+            .filter(inv => !inv.isDeleted)
+            .reduce((map, v) => {
+                const k = v.paymentMethod || 'unknown';
+                map[k] = (map[k] || 0) + (v.total || 0);
+                return map;
+            }, {});
         const count = filteredInvoices.length;
         const revoked = filteredInvoices.filter(i => i.isDeleted).length;
         return {total, byMethod, count, revoked};
@@ -105,6 +109,7 @@ function ReportsPage() {
                 const unit = disc > 0 ? Math.round(price * (1 - disc / 100)) : price;
                 const prev = map.get(key) ?? {
                     id: key,
+                    zone: item.zone?.name || '—' + (item.zone?.isDeleted ? ' (Eliminado)' : ''),
                     kind: r.productItem ? 'Produto' : 'Menu',
                     itemId: item.id,
                     name: item.name + (item.isDeleted ? ' (Eliminado)' : ''),
@@ -231,6 +236,7 @@ function ReportsPage() {
 
     const productsCols = [
         {field: 'name', headerName: 'Produto/Menu', flex: 1, minWidth: 220},
+        {field: 'zone', headerName: 'Zona', width: 110},
         {field: 'kind', headerName: 'Tipo', width: 110},
         {field: 'discount', headerName: 'Desc. (%)', width: 110},
         {field: 'quantity', headerName: 'Qt.', width: 100},
@@ -384,6 +390,11 @@ function ReportsPage() {
                         columns={sessionsCols}
                         loading={loading}
                         disableRowSelectionOnClick
+                        initialState={{
+                            sorting: {
+                                sortModel: [{ field: 'openedAt', sort: 'desc' }],
+                            },
+                        }}
                         density="compact"
                     />
                 )}
@@ -396,6 +407,11 @@ function ReportsPage() {
                         disableRowSelectionOnClick
                         density="compact"
                         getRowClassName={(p) => p.row.isDeleted ? 'row--revoked' : ''}
+                        initialState={{
+                            sorting: {
+                                sortModel: [{ field: 'createdAt', sort: 'desc' }],
+                            },
+                        }}
                         sx={{
                             '& .row--revoked': {opacity: 0.6, textDecoration: 'line-through'},
                         }}

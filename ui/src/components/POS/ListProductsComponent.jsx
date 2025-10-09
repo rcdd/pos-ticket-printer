@@ -1,15 +1,23 @@
-import React from 'react'
+import React, {useEffect, useState} from 'react'
 import {ProductComponent} from "../Common/ProductComponent";
 import {Box} from "@mui/material";
 
 export function ListProductsComponent({products, addToCart}) {
+    const [windowsWidth, setWindowsWidth] = useState(window.innerWidth);
+
+    useEffect(() => {
+        const handleResize = () => setWindowsWidth(window.innerWidth);
+        console.log(windowsWidth);
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
 
     return (
         <div className='products-list'>
             <Box
                 sx={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(' + (windowsWidth < 1200 ? '150px' : '250px') + ', 1fr))',
                     gap: 1,
                     px: 1,
                     py: 2,

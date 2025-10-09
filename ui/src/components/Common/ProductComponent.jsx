@@ -1,7 +1,7 @@
 import {useSortable} from "@dnd-kit/sortable";
 import {CSS} from "@dnd-kit/utilities";
 import {Box, Card, Typography} from "@mui/material";
-import React from "react";
+import React, {useEffect, useState} from "react";
 import {CardThemes} from "../../enums/CardThemes";
 
 export function ProductComponent({item, allowDrag = true}) {
@@ -21,6 +21,14 @@ export function ProductComponent({item, allowDrag = true}) {
     const themeKey = item.theme && CardThemes[item.theme] ? item.theme : "default";
     const themeStyles = CardThemes[themeKey];
 
+    const [windowsWidth, setWindowsWidth] = useState(window.innerWidth);
+
+    useEffect(() => {
+        const handleResize = () => setWindowsWidth(window.innerWidth);
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
+
     return (
         <Box ref={setNodeRef} style={style} {...attributes} {...listeners}>
             <Card variant="outlined"
@@ -29,7 +37,7 @@ export function ProductComponent({item, allowDrag = true}) {
                       alignItems: "center",
                       justifyContent: "center",
                       p: 2,
-                      minHeight: 60,
+                      minHeight: windowsWidth <= 1200 ? 60: 90,
                       borderRadius: 2,
                       userSelect: "none",
                       ...themeStyles,
@@ -47,7 +55,7 @@ export function ProductComponent({item, allowDrag = true}) {
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
                   }}>
-                <Typography sx={{fontSize: '14px'}} noWrap><b>{item.name}</b></Typography>
+                <Typography sx={{fontSize: windowsWidth <= 1200 ? '14px' : '24px'}} noWrap><b>{item.name}</b></Typography>
             </Card>
         </Box>
     );

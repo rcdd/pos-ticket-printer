@@ -100,7 +100,16 @@ export function renderSessionRaw(sessionData) {
     parts.push(bold(1));
     parts.push(textPrintLine('Produtos Vendidos:'));
     parts.push(bold(0));
-    for (const p of sessionData.products) {
+    const orderedProducts = sessionData.products.sort((a, b) => b.zone.name - a.zone.name);
+    let zone = null;
+    for (const p of orderedProducts) {
+        if (zone !== p.zone.name) {
+            zone = p.zone.name;
+            parts.push(newLine());
+            parts.push(fontUnderline(1));
+            parts.push(textPrintLine(zone));
+            parts.push(fontUnderline(0));
+        }
         parts.push(textPrintLine(`${p.quantity} x ${p.name} - ${toEuros(p.total / 100)}`));
     }
     if (sessionData.discountedProducts.length > 0) {

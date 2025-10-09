@@ -24,4 +24,9 @@ export const CardThemes = {
         color: "white",
         "&:hover": { backgroundColor: "#9a0007" },
     },
+    black: {
+        backgroundColor: "#000",
+        color: "white",
+        "&:hover": { backgroundColor: "#333" },
+    },
 };

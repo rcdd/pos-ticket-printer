@@ -1,4 +1,4 @@
-import React from 'react'
+import React, {useEffect, useState} from 'react'
 import {ListProductsComponent} from './ListProductsComponent';
 import Box from '@mui/material/Box';
 import Tab from '@mui/material/Tab';
@@ -15,6 +15,14 @@ export function ZoneSelectionComponent({
                                        }) {
 
     const [value, setValue] = React.useState("");
+
+    const [windowsWidth, setWindowsWidth] = useState(window.innerWidth);
+
+    useEffect(() => {
+        const handleResize = () => setWindowsWidth(window.innerWidth);
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
 
     const handleTabChange = (event, newValue) => {
         setValue(newValue);
@@ -36,7 +44,7 @@ export function ZoneSelectionComponent({
                                 onChange={handleTabChange}
                             >
                                 {zones && zones.map((zone) => (
-                                    <Tab style={{fontSize: 14}} key={zone.id} label={zone.name} value={zone.name}/>
+                                    <Tab style={{fontSize: windowsWidth < 1200 ? 14 : 18}} key={zone.id} label={zone.name} value={zone.name}/>
                                 ))}
 
                                 {menus.length && <Tab style={{fontSize: 16 + "px"}} value="menu" label="Menus"/>}
