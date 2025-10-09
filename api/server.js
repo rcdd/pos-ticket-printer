@@ -1,7 +1,5 @@
 import express from 'express';
 import 'dotenv/config';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
 
 import * as printer  from "./db/controllers/printer/printer.controller.js";
 import * as options from "./db/controllers/options.controller.js";

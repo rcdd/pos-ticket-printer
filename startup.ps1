@@ -240,43 +240,29 @@ try
         throw "node/pm2 não encontrados no PATH. Corra a instalação novamente ou caso tenho feito agora, reinicie o computador."
     }
 
+    $nodeDir = Split-Path -Parent $NodeExe
+    $env:Path = "$nodeDir;$env:Path"
+    Write-Host "[INFO] Using Node from: $nodeDir"
+    Write-Host "[INFO] node -v => " -NoNewline; & $NodeExe -v
+
     # PM2 daemon
-    function Ensure-PM2Daemon
-    {
-        try
-        {
-            & $Pm2Cmd ping *> $null; return
-        }
-        catch
-        {
-        }
-        try
-        {
-            & $Pm2Cmd kill *> $null
-        }
-        catch
-        {
-        }
+    function Ensure-PM2Daemon {
+        try { & $Pm2Cmd ping *> $null; return } catch {}
+
+        try { & $Pm2Cmd kill *> $null } catch {}
         Start-Sleep -Milliseconds 300
-        try
-        {
-            & $Pm2Cmd ls   *> $null
-        }
-        catch
-        {
-        }
+
+        & $Pm2Cmd ls *> $null
         Start-Sleep -Milliseconds 300
-        try
-        {
-            & $Pm2Cmd ping *> $null; return
-        }
-        catch
-        {
-        }
+
+        # Verifica
+        try { & $Pm2Cmd ping *> $null; return } catch {}
+
+        # Se portas ocupadas, muda e tenta outra vez
         $altBase = [int]$env:PM2_RPC_PORT + 50
         $env:PM2_RPC_PORT = "$altBase"
         $env:PM2_PUB_PORT = "$( $altBase + 1 )"
-        Write-Host "[WARN] PM2 ping falhou; a tentar com outras portas: RPC=$( $env:PM2_RPC_PORT ) PUB=$( $env:PM2_PUB_PORT ). Caso falhe novamente, reinicie o computador."
+        Write-Host "[WARN] PM2 ping falhou; a tentar com outras portas: RPC=$( $env:PM2_RPC_PORT ) PUB=$( $env:PM2_PUB_PORT )"
         Start-Sleep -Milliseconds 200
         & $Pm2Cmd ls *> $null
         Start-Sleep -Milliseconds 300
@@ -318,7 +304,10 @@ try
         & $Pm2Cmd start $apiEntry `
           --name api-pos `
           --cwd  $apiPath `
-          --interpreter $NodeExe | Out-Null
+          --interpreter $NodeExe `
+          --node-args "--enable-source-maps" `
+          --env "NODE_ENV=production" `
+          --env "PORT=9393" | Out-Null
         Write-Ok "Backend running at api-pos"
     }
 
@@ -364,7 +353,7 @@ try
     {
     }
 
-    & $Pm2Cmd start "php" --name pma-pos --cwd "$PSScriptRoot\phpmyadmin" -- -S localhost:8080 | Out-Null
+    & $Pm2Cmd start "php" --name pma-pos --cwd "$ScriptRoot\phpmyadmin" -- -S localhost:8080 | Out-Null
     Write-Ok "phpMyAdmin at http://localhost:8080"
 
     # --- Edge in kiosk mode ---
