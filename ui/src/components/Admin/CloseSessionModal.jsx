@@ -7,8 +7,10 @@ import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
 import CloseIcon from "@mui/icons-material/Close";
 import TextFieldKeyboard from "../Common/TextFieldKeyboard";
+import LoadingButton from "@mui/lab/LoadingButton";
 
 export default function CloseSessionModal({open, setModal, onCloseSession}) {
+    const [isLoading, setIsLoading] = React.useState(false);
     const [openModal, setOpenModal] = React.useState(open);
     const [notes, setNotes] = React.useState("");
 
@@ -18,7 +20,9 @@ export default function CloseSessionModal({open, setModal, onCloseSession}) {
 
     const handleCloseModal = async (confirm = false) => {
         if (confirm) {
+            setIsLoading(true);
             await onCloseSession(notes);
+            setIsLoading(false);
         } else {
             setModal(false);
         }
@@ -79,15 +83,18 @@ export default function CloseSessionModal({open, setModal, onCloseSession}) {
                 >
                     Cancelar
                 </Button>
-                <Button
+
+                <LoadingButton
+                    loading={isLoading}
                     variant="contained"
                     color="error"
                     onClick={() => {
                         handleCloseModal(true);
                     }}
+                    disabled={isLoading}
                 >
                     Fechar Turno
-                </Button>
+                </LoadingButton>
             </DialogActions>
         </Dialog>
     )

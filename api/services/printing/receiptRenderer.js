@@ -4,6 +4,12 @@ import {
     boldMedium, newLine, escInit, textPrint
 } from "./printCommands.js";
 
+/**
+ * Helpers
+ */
+const collator = new Intl.Collator('pt-PT', {numeric: true, sensitivity: 'base'});
+const getZoneName = (p) => (p?.zone?.name?.trim() || '(Sem zona)');
+
 export function initPrinter() {
     const parts = [];
     parts.push(escInit());
@@ -97,36 +103,51 @@ export function renderSessionRaw(sessionData) {
     parts.push(textPrintLine(` por ${sessionData.userClose || '-'}`));
     parts.push(newLine());
 
+    parts.push(align(1)); // center
     parts.push(bold(1));
-    parts.push(textPrintLine('Produtos Vendidos:'));
+    parts.push(textPrintLine('Produtos Vendidos'));
     parts.push(bold(0));
-    const orderedProducts = sessionData.products.sort((a, b) => b.zone.name - a.zone.name);
-    let zone = null;
+    parts.push(align(0));
+
+    const orderedProducts = [...sessionData.products].sort((a, b) => {
+        const za = getZoneName(a);
+        const zb = getZoneName(b);
+        const byZone = collator.compare(za, zb);
+        if (byZone !== 0) return byZone;
+        return collator.compare(a?.name || '', b?.name || '');
+    });
+
+    let currentZone = null;
     for (const p of orderedProducts) {
-        if (zone !== p.zone.name) {
-            zone = p.zone.name;
+        const z = getZoneName(p);
+        if (z !== currentZone) {
+            currentZone = z;
             parts.push(newLine());
             parts.push(fontUnderline(1));
-            parts.push(textPrintLine(zone));
+            parts.push(textPrintLine(z));
             parts.push(fontUnderline(0));
         }
-        parts.push(textPrintLine(`${p.quantity} x ${p.name} - ${toEuros(p.total / 100)}`));
+        parts.push(textPrintLine(`${p.quantity} x ${p.name} - ${toEuros((p.total || 0) / 100)}`));
     }
-    if (sessionData.discountedProducts.length > 0) {
+
+    if (Array.isArray(sessionData.discountedProducts) && sessionData.discountedProducts.length > 0) {
         parts.push(newLine());
         parts.push(fontUnderline(1));
         parts.push(textPrintLine('Produtos com Desconto:'));
         parts.push(fontUnderline(0));
         for (const p of sessionData.discountedProducts) {
-            parts.push(textPrintLine(`${p.quantity} x ${p.name} - ${toEuros(p.total / 100)} (${p.discount}% Desconto)`));
+            parts.push(textPrintLine(`${p.quantity} x ${p.name} - ${toEuros((p.total || 0) / 100)} (${p.discount}% Desconto)`));
         }
     }
 
     parts.push(newLine());
     parts.push(newLine());
+
+    parts.push(align(1));
     parts.push(bold(1));
-    parts.push(textPrintLine('Métodos de Pagamento:'));
+    parts.push(textPrintLine('Métodos de Pagamento'));
     parts.push(bold(0));
+    parts.push(align(0));
     for (const p of sessionData.payments) {
         const method = p.method === 'cash' ? 'Dinheiro' : (p.method === 'card' ? 'Cartão' : p.method === "mbway" ? "MBWay" : p.method);
         parts.push(textPrintLine(`${method}: ${toEuros(p.amount / 100)}`));
@@ -139,9 +160,11 @@ export function renderSessionRaw(sessionData) {
     parts.push(bold(0));
     parts.push(newLine());
 
+    parts.push(align(1)); // center
     parts.push(bold(1));
-    parts.push(textPrintLine(`Resumo de Caixa:`));
+    parts.push(textPrintLine(`Resumo de Caixa`));
     parts.push(bold(0));
+    parts.push(align(0));
     parts.push(textPrint(`Abertura: `));
     parts.push(bold(1));
     parts.push(textPrintLine(`${toEuros((sessionData.initialAmount || 0) / 100)}`));

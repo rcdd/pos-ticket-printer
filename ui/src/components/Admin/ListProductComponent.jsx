@@ -12,7 +12,6 @@ function ListProductComponent({products, editProduct, updateOrder}) {
 
     useEffect(() => {
         const handleResize = () => setWindowsWidth(window.innerWidth);
-        console.log(windowsWidth);
         window.addEventListener("resize", handleResize);
         return () => window.removeEventListener("resize", handleResize);
     }, []);
