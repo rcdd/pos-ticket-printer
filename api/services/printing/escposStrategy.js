@@ -52,25 +52,75 @@ async function listViaCUPS() {
     });
 }
 
-async function printViaWindows(printerName, buffer) {
+async function printViaWindows(printerName, buffer, jobName = 'POS Ticket') {
     return new Promise((resolve, reject) => {
         try {
             const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'posraw-'));
             const tmpFile = path.join(tmpDir, 'job.bin');
             fs.writeFileSync(tmpFile, Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer));
 
-            const cmd = process.env.SystemRoot
-                ? path.join(process.env.SystemRoot, 'System32', 'print.exe')
-                : 'print';
-            const args = ['/D:' + String(printerName), tmpFile];
+            // PowerShell script: envia RAW via Winspool (sem dependências externas)
+            const ps = `
+Add-Type -Name RawPrinterHelper -Namespace RPH -MemberDefinition @"
+  [System.Runtime.InteropServices.DllImport("winspool.Drv", SetLastError=true, CharSet=System.Runtime.InteropServices.CharSet.Auto)]
+  public static extern bool OpenPrinter(string pPrinterName, out System.IntPtr phPrinter, System.IntPtr pDefault);
+  [System.Runtime.InteropServices.DllImport("winspool.Drv", SetLastError=true)]
+  public static extern bool ClosePrinter(System.IntPtr hPrinter);
+  [System.Runtime.InteropServices.DllImport("winspool.Drv", SetLastError=true, CharSet=System.Runtime.InteropServices.CharSet.Auto)]
+  public static extern bool StartDocPrinter(System.IntPtr hPrinter, int level, System.IntPtr pDocInfo);
+  [System.Runtime.InteropServices.DllImport("winspool.Drv", SetLastError=true)]
+  public static extern bool EndDocPrinter(System.IntPtr hPrinter);
+  [System.Runtime.InteropServices.DllImport("winspool.Drv", SetLastError=true)]
+  public static extern bool StartPagePrinter(System.IntPtr hPrinter);
+  [System.Runtime.InteropServices.DllImport("winspool.Drv", SetLastError=true)]
+  public static extern bool EndPagePrinter(System.IntPtr hPrinter);
+  [System.Runtime.InteropServices.DllImport("winspool.Drv", SetLastError=true)]
+  public static extern bool WritePrinter(System.IntPtr hPrinter, System.IntPtr pBytes, int dwCount, out int dwWritten);
+"@
 
-            execFile(cmd, args, { windowsHide: true }, (e) => {
+param([string]$PrinterName,[string]$JobName,[string]$FilePath)
+$bytes = [System.IO.File]::ReadAllBytes($FilePath)
+$gch = [System.Runtime.InteropServices.GCHandle]::Alloc($bytes, [System.Runtime.InteropServices.GCHandleType]::Pinned)
+try {
+  $ptr = $gch.AddrOfPinnedObject()
+  $h=[IntPtr]::Zero
+  if (-not [RPH.RawPrinterHelper]::OpenPrinter($PrinterName, [ref]$h, [IntPtr]::Zero)) { throw "OpenPrinter failed" }
+  try {
+    $pDoc = [System.Runtime.InteropServices.Marshal]::StringToHGlobalUni($JobName)
+    try {
+      # DOC_INFO_1W => estrutura {pDocName, pOutputFile, pDatatype}; passamos só pDocName (hack simples)
+      if (-not [RPH.RawPrinterHelper]::StartDocPrinter($h, 1, $pDoc)) { throw "StartDocPrinter failed" }
+      try {
+        if (-not [RPH.RawPrinterHelper]::StartPagePrinter($h)) { throw "StartPagePrinter failed" }
+        try {
+          $written = 0
+          if (-not [RPH.RawPrinterHelper]::WritePrinter($h, $ptr, $bytes.Length, [ref]$written)) { throw "WritePrinter failed ($written/$($bytes.Length))" }
+        } finally { [void][RPH.RawPrinterHelper]::EndPagePrinter($h) }
+      } finally { [void][RPH.RawPrinterHelper]::EndDocPrinter($h) }
+    } finally { [System.Runtime.InteropServices.Marshal]::FreeHGlobal($pDoc) }
+  } finally { [void][RPH.RawPrinterHelper]::ClosePrinter($h) }
+} finally {
+  $gch.Free()
+}
+`;
+
+            const args = [
+                '-NoProfile', '-ExecutionPolicy', 'Bypass',
+                '-Command', ps + `; RawPrint -PrinterName "${printerName}" -JobName "${jobName}" -FilePath "${tmpFile}"`
+                    .replace('RawPrint','& { param($PrinterName,$JobName,$FilePath) ' + ps.split('\n').slice(-28).join('\n') + ' }') // safety if scope differs
+            ];
+
+            // mais simples/robusto: passa como script + args
+            const cmd = 'powershell';
+            execFile(cmd, args, { windowsHide: true }, (e, stdout, stderr) => {
                 try { fs.unlinkSync(tmpFile); fs.rmdirSync(tmpDir); } catch {}
-                e ? reject(e) : resolve();
+                if (e) return reject(new Error(stderr?.trim() || e.message));
+                resolve();
             });
         } catch (err) { reject(err); }
     });
 }
+
 
 async function printViaCUPS(printerName, buffer, jobName) {
     return new Promise((resolve, reject) => {
