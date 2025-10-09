@@ -146,8 +146,8 @@ async function printViaWindows(printerName, buffer, jobName) {
     //         reject(err);
     //     }
     // });
-    const tmp = require('path').join(require('os').tmpdir(), `ticket-${Date.now()}.bin`);
-    require('fs').writeFileSync(tmp, buffer);
+    const tmp = path.join(os.tmpdir(), `ticket-${Date.now()}.bin`);
+    fs.writeFileSync(tmp, buffer);
     await new Promise((res, rej) => {
         const cp = spawn('RawFileToPrinter.exe', [printerName, tmp], { windowsHide: true });
         cp.on('exit', code => code === 0 ? res() : rej(new Error(`RawPrint exited ${code}`)));
