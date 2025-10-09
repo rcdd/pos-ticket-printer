@@ -2,7 +2,6 @@ import {execFile} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {getAllPrinters, getPrinterByName, printBytes} from '@printers/printers';
 
 /* -------- Optional backend (@printers/printers) -------- */
 let printersLibPromise = null;
@@ -11,17 +10,25 @@ async function loadPrintersLib() {
     if (!printersLibPromise) {
         printersLibPromise = (async () => {
             try {
+                if (process.platform === 'darwin') {
+                    // On macOS, try to load the native module first
+                    const modMac = await import('@printers/printers-darwin-arm64');
+                    const candidateMac = modMac?.Printer ?? modMac;
+                    if (typeof candidateMac === 'function') return new candidateMac();
+                }
+                if (process.platform === 'win32') {
+                    // On Windows, try to load the native module first
+                    const modWin = await import('@printers/printers-win32-x64-msvc');
+                    const candidateWin = modWin?.Printer ?? modWin;
+                    if (typeof candidateWin === 'function') return new candidateWin();
+                }
+
+                // Fallback to the generic module
+                console.warn('a tentar import @printers/printers...');
                 const mod = await import('@printers/printers');
-                const candidate = mod?.default ?? mod;
+                const candidate = mod?.Printer ?? mod;
                 return typeof candidate === 'function' ? new candidate() : candidate;
             } catch (e) {
-                console.warn('a tentar import direto @printers/printers...');
-                try {
-                    return Printer
-                } catch (e) {
-                    console.warn('[@printers/printers] import direto falhou:', e?.message || e);
-
-                }
                 console.warn('[@printers/printers] import falhou:', e?.message || e);
                 return null;
             }
@@ -32,11 +39,14 @@ async function loadPrintersLib() {
 
 export class EscposStrategy {
     async listPrinters() {
-        try {
-            const printers = getAllPrinters();
-            return Array.isArray(printers) ? printers : [];
-        } catch { /* ignore and fallback */
-            console.warn('[@printers/printers] getAllPrinters falhou, a usar fallback...');
+        const lib = await loadPrintersLib();
+
+        if (lib?.getAllPrinters) {
+            try {
+                const printers = await lib.getAllPrinters();
+                return Array.isArray(printers) ? printers : [];
+            } catch { /* ignore and fallback */
+            }
         }
 
         if (process.platform === 'win32') {
@@ -49,16 +59,21 @@ export class EscposStrategy {
     }
 
     async printRawByName(printerName, buffer, jobName = 'POS Ticket') {
-        try {
-            const p = await getPrinterByName(printerName);
-            if (!p) throw new Error(`Printer "${printerName}" not found`);
+        const lib = await loadPrintersLib();
 
-            const data = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+        if (lib?.getPrinterByName) {
+            try {
+                const p = await lib.getPrinterByName(printerName);
+                if (!p) throw new Error(`Printer "${printerName}" not found`);
 
-            await printBytes(p, data, {jobName, simple: {paperSize: 'COM10'}, waitForCompletion: true});
-            return;
-        } catch {
-            console.warn('[@printers/printers] printRawByName falhou, a usar fallback...');
+                const data = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+                const printFn = p.printBytes ?? p.printRaw;
+                if (typeof printFn !== 'function') throw new Error('Método de impressão não encontrado no objeto da impressora');
+
+                await printFn.call(p, data, {jobName, simple: {paperSize: 'COM10'}, waitForCompletion: true});
+                return;
+            } catch { /* ignore and fallback */
+            }
         }
 
         if (process.platform === 'win32') {
