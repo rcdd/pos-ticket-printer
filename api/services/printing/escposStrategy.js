@@ -1,7 +1,7 @@
-const { execFile } = require('child_process');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
+import { execFile } from 'child_process';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 
 async function loadPrintersLib() {
     if (process.platform === 'win32') return null;
