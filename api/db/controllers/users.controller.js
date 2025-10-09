@@ -1,9 +1,9 @@
-const db = require("../index");
-const bcrypt = require('bcrypt');
+import db from "../index.js";
+import bcrypt from 'bcrypt';
 const Users = db.users;
 
 // Create and Save a new User
-exports.create = async (req, res) => {
+export const create = async (req, res) => {
     // Validate request
     if (!req.body.username) {
         res.status(400).send({
@@ -50,7 +50,7 @@ exports.create = async (req, res) => {
 };
 
 // Retrieve all Users from the database.
-exports.findAll = (req, res) => {
+export const findAll = (req, res) => {
     Users.findAll({
         where: {isDeleted: false},
         attributes: {exclude: ['password', 'isDeleted']}
@@ -67,7 +67,7 @@ exports.findAll = (req, res) => {
 };
 
 // Find a single User with an id
-exports.findOne = (req, res) => {
+export const findOne = (req, res) => {
     const id = req.params.id;
 
     Users.findByPk(id, {attributes: {exclude: ['password', 'isDeleted']}})
@@ -88,7 +88,7 @@ exports.findOne = (req, res) => {
 };
 
 // Update User by ID
-exports.update = (req, res) => {
+export const update = (req, res) => {
     const id = req.body.id;
 
     const updateData = {
@@ -132,7 +132,7 @@ exports.update = (req, res) => {
         });
 }
 
-exports.updatePassword = async (req, res) => {
+export const updatePassword = async (req, res) => {
     const id = req.body.id;
     const newPassword = req.body.password;
 
@@ -167,7 +167,7 @@ exports.updatePassword = async (req, res) => {
 }
 
 // Soft delete User (isDeleted = true)
-exports.softDelete = (req, res) => {
+export const softDelete = (req, res) => {
     const id = req.params.id;
 
     Users.update({isDeleted: true}, {
@@ -192,7 +192,7 @@ exports.softDelete = (req, res) => {
 };
 
 // Login user
-exports.login = async (req, res) => {
+export const login = async (req, res) => {
     const username = req.body.username;
     const _password = req.body.password;
 

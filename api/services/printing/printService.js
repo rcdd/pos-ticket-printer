@@ -1,9 +1,9 @@
-const {
-    renderHeaderRaw, renderItemTicketRaw, renderTotalTicketRaw, escCut, renderFooterRaw, initPrinter, renderSessionRaw,
+import {
+    renderHeaderRaw, renderItemTicketRaw, renderTotalTicketRaw, renderFooterRaw, initPrinter, renderSessionRaw,
     renderTestRaw,
-} = require('./receiptRenderer');
-const {EscposStrategy} = require("./escposStrategy");
-const {openCashDrawer} = require("./printCommands");
+} from './receiptRenderer.js';
+import {EscposStrategy} from "./escposStrategy.js";
+import {openCashDrawer} from "./printCommands.js";
 
 const escpos = new EscposStrategy();
 
@@ -36,7 +36,7 @@ function expandItems(items = []) {
     return lines;
 }
 
-async function printTicketRequest({printerName, headers, items, totalAmount, printType, openDrawer, isTest}) {
+export async function printTicketRequest({printerName, headers, items, totalAmount, printType, openDrawer, isTest}) {
     const totalEuros = toEuros(totalAmount);
     const expanded = expandItems(items);
 
@@ -85,7 +85,7 @@ async function printTicketRequest({printerName, headers, items, totalAmount, pri
     }
 }
 
-async function printSessionRequest({printerName, headers, sessionData}) {
+export async function printSessionRequest({printerName, headers, sessionData}) {
     const jobPrefix = 'POS';
 
     const buf = Buffer.concat([
@@ -96,8 +96,6 @@ async function printSessionRequest({printerName, headers, sessionData}) {
     await escpos.printRawByName(printerName, buf, `${jobPrefix} Session Summary`);
 }
 
-async function listPrinters() {
+export async function listPrinters() {
     return await escpos.listPrinters();
 }
-
-module.exports = {printTicketRequest, printSessionRequest, listPrinters};

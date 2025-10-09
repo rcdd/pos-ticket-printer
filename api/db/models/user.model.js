@@ -1,12 +1,10 @@
-const UserRoles = {
+export const UserRoles = Object.freeze({
     ADMIN: 'admin',
     CASHIER: 'cashier',
     WAITER: 'waiter'
-};
+});
 
-module.exports.UserRoles = Object.freeze(UserRoles);
-
-module.exports = (sequelize, Sequelize) => {
+export default (sequelize, Sequelize) => {
     return sequelize.define("user", {
         id: {
             type: Sequelize.INTEGER,
@@ -26,8 +24,8 @@ module.exports = (sequelize, Sequelize) => {
         },
         role: {
             type: Sequelize.ENUM,
-            values: Object.values(this.UserRoles),
-            defaultValue: this.UserRoles.WAITER
+            values: Object.values(UserRoles),
+            defaultValue: UserRoles.WAITER
         },
         isDeleted: {
             type: Sequelize.BOOLEAN,

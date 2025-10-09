@@ -153,7 +153,7 @@ function Npm-Install-And-Build {
                     npm ci
                 } else {
                     Write-Host "npm install ($projPath) - tentativa $i"
-                    npm install
+                    npm install --include optional
                 }
                 $installed = $true
             } catch {

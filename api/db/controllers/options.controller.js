@@ -1,4 +1,4 @@
-const db = require("../index");
+import db from "../index.js";
 const Option = db.options;
 
 const optionPrintName = 'printer';
@@ -7,7 +7,7 @@ const optionSecondLine = 'secondLine';
 const optionPrintType = 'printOptionType';
 const optionOpenDrawer = 'openDrawer';
 
-exports.getPrinter = (req, res) => {
+export const getPrinter = (req, res) => {
     Option.findOne({
         where: {
             name: optionPrintName
@@ -27,7 +27,7 @@ exports.getPrinter = (req, res) => {
         });
 }
 
-exports.setPrinter = async (req, res) => {
+export const setPrinter = async (req, res) => {
     // Validate request
     if (!req.body.name) {
         res.status(400).send({
@@ -82,7 +82,7 @@ exports.setPrinter = async (req, res) => {
     });
 };
 
-exports.setHeaderFirstLine = (req, res) => {
+export const setHeaderFirstLine = (req, res) => {
     // Validate request
     if (!req.body.firstLine) {
         res.status(400).send({
@@ -137,7 +137,7 @@ exports.setHeaderFirstLine = (req, res) => {
     });
 }
 
-exports.setHeaderSecondLine = (req, res) => {
+export const setHeaderSecondLine = (req, res) => {
     const secondLine = req.body.secondLine || '';
 
     Option.findOne({
@@ -183,7 +183,7 @@ exports.setHeaderSecondLine = (req, res) => {
     });
 }
 
-exports.setTypePrint = (req, res) => {
+export const setTypePrint = (req, res) => {
     // Validate request
     if (!req.body.printType) {
         res.status(400).send({
@@ -244,7 +244,7 @@ exports.setTypePrint = (req, res) => {
     });
 }
 
-exports.getHeaders = (req, res) => {
+export const getHeaders = (req, res) => {
     return Option.findOne({
         where: {
             name: optionFirstLine
@@ -280,7 +280,7 @@ exports.getHeaders = (req, res) => {
         });
 }
 
-exports.getPrintType = (req, res) => {
+export const getPrintType = (req, res) => {
     return Option.findOne({
         where: {
             name: optionPrintType
@@ -300,7 +300,7 @@ exports.getPrintType = (req, res) => {
         });
 }
 
-exports.setOpenDrawer = (req, res) => {
+export const setOpenDrawer = (req, res) => {
     // Validate request
     if (req.body.openDrawer === undefined || req.body.openDrawer === null) {
         res.status(400).send({
@@ -361,7 +361,7 @@ exports.setOpenDrawer = (req, res) => {
     });
 }
 
-exports.getOpenDrawer = (req, res) => {
+export const getOpenDrawer = (req, res) => {
     return Option.findOne({
         where: {
             name: optionOpenDrawer
@@ -381,17 +381,17 @@ exports.getOpenDrawer = (req, res) => {
         });
 }
 
-exports.getPrintTypeVariable = async () => {
+export const getPrintTypeVariable = async () => {
     const row = await Option.findOne({where: {name: optionPrintType}});
     return row?.value ?? 'totals';
 }
 
-exports.getPrinterVariable = async () => {
+export const getPrinterVariable = async () => {
     const row = await Option.findOne({where: {name: optionPrintName}})
     return row?.value ?? null;
 }
 
-exports.getHeadersVariable = async () => {
+export const getHeadersVariable = async () => {
     const rowFirstLine = await Option.findOne({where: {name: optionFirstLine}});
 
     const rowSecondLine = await Option.findOne({where: {name: optionSecondLine}});
@@ -399,7 +399,7 @@ exports.getHeadersVariable = async () => {
     return {firstLine: rowFirstLine?.value ?? null, secondLine: rowSecondLine?.value ?? null};
 }
 
-exports.getOpenDrawerVariable = async () => {
+export const getOpenDrawerVariable = async () => {
     const row = await Option.findOne({where: {name: optionOpenDrawer}});
     if (!row) return false;
     return row.value === 'true' || row.value === true || row.value === 1 || row.value === '1';

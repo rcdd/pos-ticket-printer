@@ -1,9 +1,9 @@
-module.exports.SessionStatus = Object.freeze({
+export const SessionStatus = Object.freeze({
     OPEN: 'opened',
     CLOSED: 'closed'
 })
 
-module.exports = (sequelize, Sequelize) => {
+export default (sequelize, Sequelize) => {
     return sequelize.define("session", {
         id: {
             type: Sequelize.INTEGER,
@@ -35,8 +35,8 @@ module.exports = (sequelize, Sequelize) => {
         },
         status: {
             type: Sequelize.ENUM,
-            values: Object.values(this.SessionStatus),
-            defaultValue: this.SessionStatus.OPEN
+            values: Object.values(SessionStatus),
+            defaultValue: SessionStatus.OPEN
         },
         initialAmount: {
             type: Sequelize.INTEGER,

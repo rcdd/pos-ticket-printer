@@ -156,7 +156,7 @@ function Invoke-NpmCiOrInstall([string]$NpmCmd, [string]$Path)
         }
         else
         {
-            Write-Warn "NPM registry offline; using 'npm install'..."; & $NpmCmd install --no-audit --no-fund
+            Write-Warn "NPM registry offline; using 'npm install'..."; & $NpmCmd install --include optional --no-audit --no-fund
         }
     }
     catch

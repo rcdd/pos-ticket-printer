@@ -3,6 +3,7 @@
   "version": "0.3.0",
   "private": true,
   "main": "server.js",
+  "type": "module",
   "dependencies": {
     "@printers/printers": "^0.7.4",
     "bcrypt": "^6.0.0",
@@ -17,6 +18,8 @@
     "sequelize": "^6.37.7"
   },
   "scripts": {
+    "start": "node --enable-source-maps server.js",
+    "dev": "nodemon --exec node --enable-source-maps server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "devDependencies": {

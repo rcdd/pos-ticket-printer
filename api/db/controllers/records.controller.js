@@ -1,7 +1,8 @@
-const db = require("../index");
+import db from "../index.js";
+
 const Record = db.records;
 
-exports.create = (req, res) => {
+export const create = (req, res) => {
     // Validate request
     if (!req.body.items) {
         res.status(400).send({

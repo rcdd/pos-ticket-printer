@@ -1,17 +1,17 @@
-const {toEuros} = require('./utils');
-const {
+import {toEuros} from './utils.js';
+import {
     escSelectCodepage, align, bold, horizontalLine, fullCut, sizeNormal, sizeWide, textPrintLine, fontUnderline,
     boldMedium, newLine, escInit, textPrint
-} = require("./printCommands");
+} from "./printCommands.js";
 
-function initPrinter() {
+export function initPrinter() {
     const parts = [];
     parts.push(escInit());
     parts.push(escSelectCodepage());
     return Buffer.concat(parts);
 }
 
-function renderHeaderRaw(headers) {
+export function renderHeaderRaw(headers) {
     const parts = [];
     parts.push(escInit());
     parts.push(escSelectCodepage());
@@ -26,7 +26,7 @@ function renderHeaderRaw(headers) {
     return Buffer.concat(parts);
 }
 
-function renderItemTicketRaw(productName) {
+export function renderItemTicketRaw(productName) {
     const parts = [];
     parts.push(sizeWide());
     parts.push(textPrintLine(`1 ${productName ?? ''}`));
@@ -35,7 +35,7 @@ function renderItemTicketRaw(productName) {
     return Buffer.concat(parts);
 }
 
-function renderTotalTicketRaw(items, totalEuros) {
+export function renderTotalTicketRaw(items, totalEuros) {
     const parts = [];
     parts.push(fontUnderline(1));
     parts.push(textPrintLine('Pedido:'));
@@ -59,7 +59,7 @@ function renderTotalTicketRaw(items, totalEuros) {
     return Buffer.concat(parts);
 }
 
-function renderFooterRaw() {
+export function renderFooterRaw() {
     const parts = [];
     const date = new Date().toLocaleString('pt-PT', {timeZone: 'Europe/Lisbon'});
     parts.push(align(1)); // center
@@ -71,7 +71,7 @@ function renderFooterRaw() {
     return Buffer.concat(parts);
 }
 
-function renderSessionRaw(sessionData) {
+export function renderSessionRaw(sessionData) {
     const parts = [];
     parts.push(align(1)); // center
     parts.push(bold(1));
@@ -174,7 +174,7 @@ function renderSessionRaw(sessionData) {
     return Buffer.concat(parts);
 }
 
-const renderTestRaw = (headers, ticketType, openDrawer, printerDetails) => {
+export function renderTestRaw(headers, ticketType, openDrawer, printerDetails) {
     const parts = [];
     parts.push(align(1));
     parts.push(bold(1));
@@ -219,13 +219,3 @@ const renderTestRaw = (headers, ticketType, openDrawer, printerDetails) => {
 
     return Buffer.concat(parts);
 }
-
-module.exports = {
-    initPrinter,
-    renderHeaderRaw,
-    renderItemTicketRaw,
-    renderTotalTicketRaw,
-    renderFooterRaw,
-    renderSessionRaw,
-    renderTestRaw
-};

@@ -1,8 +1,24 @@
-require("dotenv").config();
-const express = require('express');
+import express from 'express';
+import 'dotenv/config';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+import * as printer  from "./db/controllers/printer/printer.controller.js";
+import * as options from "./db/controllers/options.controller.js";
+import * as products from "./db/controllers/products.controller.js";
+import * as invoices from "./db/controllers/invoices.controller.js";
+import * as menus from "./db/controllers/menus.controller.js";
+import * as zones from "./db/controllers/zones.controller.js";
+import * as users from "./db/controllers/users.controller.js";
+import * as sessions from "./db/controllers/sessions.controller.js";
+import bcrypt from "bcrypt";
+import cors from "cors";
+import db from "./db/index.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
-const cors = require("cors");
 
 var corsOptions = {
     origin: process.env.CLIENT_ORIGIN?.split(',') || ["http://localhost:8888", "http://localhost:3000"],
@@ -11,8 +27,6 @@ var corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({extended: true}));
-
-const db = require("./db");
 
 db.sequelize.sync({alter: true}).then(async () => {
     const admin = await db.users.findOne({where: {role: 'admin', isDeleted: 0}});
@@ -33,16 +47,6 @@ db.sequelize.sync({alter: true}).then(async () => {
 });
 
 const PORT = process.env.NODE_DOCKER_PORT || 9393;
-
-const printer = require("./db/controllers/printer/printer.controller");
-const options = require("./db/controllers/options.controller");
-const products = require("./db/controllers/products.controller");
-const invoices = require("./db/controllers/invoices.controller");
-const menus = require("./db/controllers/menus.controller");
-const zones = require("./db/controllers/zones.controller");
-const users = require("./db/controllers/users.controller");
-const sessions = require("./db/controllers/sessions.controller");
-const bcrypt = require("bcrypt");
 
 // Health check
 app.get("/health", (req, res) => {
@@ -65,7 +69,7 @@ app.post('/printer/print-ticket', async (req, res) => {
     req.body.printType = await options.getPrintTypeVariable()
     req.body.openDrawer = dbOpenDrawerOption ? (req.body.openDrawer || false) : false;
 
-    await printer.printTicketRequest(req, res);
+    await printer.printTicket(req, res);
 });
 
 app.post('/printer/print-session', async (req, res) => {
@@ -124,7 +128,7 @@ app.post("/invoice/session", invoices.getFromSession);
 app.post("/menu/add", menus.create);
 app.get("/menus", menus.findAll);
 app.put("/menu/:id", menus.update);
-app.delete("/menu/:id", menus.delete);
+app.delete("/menu/:id", menus.deleteMenu);
 
 // Zones
 app.post("/zone/add", zones.create);

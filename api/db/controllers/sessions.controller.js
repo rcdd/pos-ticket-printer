@@ -1,8 +1,9 @@
-const db = require("../index");
+import db from "../index.js";
+
 const Session = db.sessions;
 
 // Create and Save a new Session
-exports.open = (req, res) => {
+export const open = (req, res) => {
     // Validate request
     if (!req.body.userId) {
         res.status(400).send({
@@ -43,7 +44,7 @@ exports.open = (req, res) => {
 }
 
 // Close a session
-exports.closeSession = (req, res) => {
+export const closeSession = (req, res) => {
     const id = req.params.id;
 
     if (!req.body.userId) {
@@ -83,7 +84,7 @@ exports.closeSession = (req, res) => {
 }
 
 // Retrieve all Sessions from the database.
-exports.findAll = (req, res) => {
+export const findAll = (req, res) => {
     Session.findAll()
         .then(data => {
             res.send(data);
@@ -95,7 +96,7 @@ exports.findAll = (req, res) => {
 }
 
 // Find a single Session with an id
-exports.findOne = (req, res) => {
+export const findOne = (req, res) => {
     const id = req.params.id;
 
     Session.findByPk(id)
@@ -116,7 +117,7 @@ exports.findOne = (req, res) => {
 }
 
 // Update a Session by the id in the request
-exports.update = (req, res) => {
+export const update = (req, res) => {
     const id = req.params.id;
 
     Session.update(req.body, {
@@ -141,7 +142,7 @@ exports.update = (req, res) => {
 }
 
 // Get last active session
-exports.getLastActiveSession = (req, res) => {
+export const getLastActiveSession = (req, res) => {
     Session.findOne({
         where: {status: "opened"},
         order: [['createdAt', 'DESC']]

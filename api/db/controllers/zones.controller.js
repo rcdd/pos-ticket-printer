@@ -1,8 +1,8 @@
-const db = require("../index");
+import db from "../index.js";
 const Zone = db.zones;
 
 // Create and Save a new Zone
-exports.create = (req, res) => {
+export const create = (req, res) => {
     if (!req.body.name) {
         return res.status(400).send({message: "Name cannot be empty!"});
     }
@@ -19,7 +19,7 @@ exports.create = (req, res) => {
 };
 
 // Get all Zones (non-deleted)
-exports.findAll = (req, res) => {
+export const findAll = (req, res) => {
     Zone.findAll({
         where: {isDeleted: false},
         attributes: {exclude: ['isDeleted']}
@@ -31,7 +31,7 @@ exports.findAll = (req, res) => {
 };
 
 // Get one Zone by ID
-exports.findOne = (req, res) => {
+export const findOne = (req, res) => {
     const id = req.params.id;
 
     Zone.findByPk(id)
@@ -45,7 +45,7 @@ exports.findOne = (req, res) => {
 };
 
 // Update Zone by ID
-exports.update = (req, res) => {
+export const update = (req, res) => {
     const id = req.body.id;
 
     const updateData = {
@@ -69,7 +69,7 @@ exports.update = (req, res) => {
 };
 
 // Soft delete Zone (isDeleted = true)
-exports.softDelete = (req, res) => {
+export const softDelete = (req, res) => {
     const id = req.params.id;
 
     Zone.update({isDeleted: true}, {
@@ -88,7 +88,7 @@ exports.softDelete = (req, res) => {
 };
 
 // Hard delete Zone
-exports.delete = (req, res) => {
+export const deleteZone = (req, res) => {
     const id = req.params.id;
 
     Zone.destroy({
@@ -107,7 +107,7 @@ exports.delete = (req, res) => {
 };
 
 // Update the position of multiple zones
-exports.updatePositions = (req, res) => {
+export const updatePositions = (req, res) => {
     const zones = req.body.zones;
 
     if (!Array.isArray(zones) || zones.length === 0) {

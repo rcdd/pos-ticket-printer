@@ -1,18 +1,19 @@
-const db = require('../../index');
+import db from '../../index.js';
+
 const Option = db.options;
 
-const {listPrinters, printTicketRequest, printSessionRequest} = require('../../../services/printing/printService');
+import {listPrinters, printTicketRequest, printSessionRequest} from '../../../services/printing/printService.js';
 
 let PRINTER_NAME = 'undefined';
 let HEADERS = {firstLine: 'Undefined', secondLine: 'Undefined'};
 
-exports.getPrintName = async () => {
+export const getPrintName = async () => {
     const opt = await Option.findOne({where: {name: 'printer'}});
     if (!opt || !opt.value) throw new Error('Printer not found !!');
     return opt.value;
 };
 
-exports.getPrinterList = async (req, res) => {
+export const getPrinterList = async (req, res) => {
     try {
         const list = await listPrinters();
         const simpleList = [];
@@ -30,7 +31,7 @@ exports.getPrinterList = async (req, res) => {
     }
 };
 
-exports.printTicketRequest = async (req, res) => {
+export const printTicket = async (req, res) => {
     try {
         PRINTER_NAME = req.body.printer;
         HEADERS = req.body.headers;
@@ -43,7 +44,7 @@ exports.printTicketRequest = async (req, res) => {
 
         if (!PRINTER_NAME || PRINTER_NAME === 'undefined') {
             try {
-                PRINTER_NAME = await exports.getPrintName();
+                PRINTER_NAME = await getPrintName();
             } catch {
             }
         }
@@ -68,14 +69,14 @@ exports.printTicketRequest = async (req, res) => {
     }
 };
 
-exports.printSessionSummary = async (req, res) => {
+export const printSessionSummary = async (req, res) => {
     try {
         PRINTER_NAME = req.body.printer;
         HEADERS = req.body.headers;
 
         if (!PRINTER_NAME || PRINTER_NAME === 'undefined') {
             try {
-                PRINTER_NAME = await exports.getPrintName();
+                PRINTER_NAME = await getPrintName();
             } catch {
             }
         }

@@ -1,25 +1,28 @@
-const { execFile } = require('child_process');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
+import { execFile } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
+/* -------- Optional backend (@printers/printers) -------- */
+let printersLibPromise = null;
 async function loadPrintersLib() {
     if (process.platform === 'win32') return null;
-    try {
-        const mod = await import('@printers/printers');
-        const candidate = mod?.default ?? mod;
-
-        if (typeof candidate === 'function') {
-            try { return new candidate(); } catch { /* ignore */ }
-        }
-        return candidate;
-    } catch (e) {
-        console.warn('[@printers/printers] import falhou:', e.message);
-        return null;
+    if (!printersLibPromise) {
+        printersLibPromise = (async () => {
+            try {
+                const mod = await import('@printers/printers');
+                const candidate = mod?.default ?? mod;
+                return typeof candidate === 'function' ? new candidate() : candidate;
+            } catch (e) {
+                console.warn('[@printers/printers] import falhou:', e?.message || e);
+                return null;
+            }
+        })();
     }
+    return printersLibPromise;
 }
 
-class EscposStrategy {
+export class EscposStrategy {
     async listPrinters() {
         const lib = await loadPrintersLib();
 
@@ -27,8 +30,7 @@ class EscposStrategy {
             try {
                 const printers = await lib.getAllPrinters();
                 return Array.isArray(printers) ? printers : [];
-            } catch {
-            }
+            } catch { /* ignore and fallback */ }
         }
 
         if (process.platform === 'win32') {
@@ -52,8 +54,7 @@ class EscposStrategy {
 
                 await printFn.call(p, data, { jobName, simple: { paperSize: 'COM10' }, waitForCompletion: true });
                 return;
-            } catch {
-            }
+            } catch { /* ignore and fallback */ }
         }
 
         if (process.platform === 'win32') {
@@ -135,7 +136,10 @@ async function printViaWindows(printerName, buffer, jobName) {
             const args = ['/D:' + String(printerName), tmpFile];
 
             execFile(cmd, args, { windowsHide: true }, (e) => {
-                try { fs.unlinkSync(tmpFile); fs.rmdirSync(tmpDir); } catch {}
+                try {
+                    fs.unlinkSync(tmpFile);
+                    fs.rmdirSync(tmpDir);
+                } catch { /* ignore */ }
                 if (e) return reject(e);
                 resolve();
             });
@@ -149,7 +153,7 @@ async function printViaWindows(printerName, buffer, jobName) {
 
 async function listViaCUPS() {
     return new Promise((resolve) => {
-        const cmd = '/usr/bin/lpstat'; // caminho típico no macOS; em Linux pode ser /usr/bin/lpstat também
+        const cmd = '/usr/bin/lpstat';
         execFile(cmd, ['-p'], { encoding: 'utf8' }, (err, stdout) => {
             if (err || !stdout) return resolve([]);
             const names = String(stdout)
@@ -163,12 +167,10 @@ async function listViaCUPS() {
 
 async function printViaCUPS(printerName, buffer, jobName) {
     return new Promise((resolve, reject) => {
-        const cmd = '/usr/bin/lp'; // macOS/Linux
+        const cmd = '/usr/bin/lp';
         const args = ['-d', String(printerName), '-o', 'raw', '-t', String(jobName)];
         const child = execFile(cmd, args, (e) => (e ? reject(e) : resolve()));
         child.stdin.on('error', reject);
         child.stdin.end(Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer));
     });
 }
-
-module.exports = { EscposStrategy };

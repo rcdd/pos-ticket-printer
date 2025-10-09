@@ -1,9 +1,9 @@
-module.exports = {
+export default {
     apps: [
         {
             name: 'api-pos',
             script: 'server.js',
-            cwd: __dirname,
+            cwd: import.meta.dirname,
             env: {
                 NODE_ENV: 'production',
                 PORT: 9393

@@ -1,7 +1,7 @@
-const db = require("../index");
+import db from "../index.js";
 const Invoices = db.invoices;
 
-exports.create = (req, res) => {
+export const create = (req, res) => {
     // Validate request
     if (!req.body.items) {
         res.status(400).send({
@@ -67,7 +67,7 @@ exports.create = (req, res) => {
         });
 };
 
-exports.getAll = (req, res) => {
+export const getAll = (req, res) => {
     Invoices.findAll({
         include: [
             {
@@ -97,7 +97,7 @@ exports.getAll = (req, res) => {
         });
 }
 
-exports.revoke = (req, res) => {
+export const revoke = (req, res) => {
     const id = req.body.id;
     if (!id) {
         res.status(400).send({
@@ -127,7 +127,7 @@ exports.revoke = (req, res) => {
         });
 }
 
-exports.getFromSession = (req, res) => {
+export const getFromSession = (req, res) => {
     const sessionId = req.body.sessionId;
     if (!sessionId) {
         res.status(400).send({

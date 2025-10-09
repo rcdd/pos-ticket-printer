@@ -1,4 +1,4 @@
-module.exports = (sequelize, Sequelize) => {
+export default (sequelize, Sequelize) => {
     return sequelize.define("menuProduct", {
         id: {
             type: Sequelize.INTEGER,

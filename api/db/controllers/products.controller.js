@@ -1,9 +1,9 @@
-const db = require("../index");
+import db from "../index.js";
 const Product = db.products;
 const Op = db.Sequelize.Op;
 
 // Create and Save a new Product
-exports.create = (req, res) => {
+export const create = (req, res) => {
     // Validate request
     if (!req.body.name) {
         res.status(400).send({
@@ -49,7 +49,7 @@ exports.create = (req, res) => {
 };
 
 // Retrieve all Products from the database.
-exports.findAll = (req, res) => {
+export const findAll = (req, res) => {
     const nameFilter = req.query.name;
     const condition = nameFilter ? {name: {[Op.like]: `%${nameFilter}%`}, isDeleted: false} : {isDeleted: false};
 
@@ -73,7 +73,7 @@ exports.findAll = (req, res) => {
 };
 
 // Find a single Product with an id
-exports.findOne = (req, res) => {
+export const findOne = (req, res) => {
     const id = req.params.id;
 
     Product.findByPk(id)
@@ -88,7 +88,7 @@ exports.findOne = (req, res) => {
 };
 
 // Update a Product by the id in the request
-exports.update = (req, res) => {
+export const update = (req, res) => {
     const id = req.body.id;
 
     Product.update(req.body, {
@@ -113,7 +113,7 @@ exports.update = (req, res) => {
         });
 };
 
-exports.softDelete = (req, res) => {
+export const softDelete = (req, res) => {
     const id = req.params.id;
 
     Product.update({isDeleted: true}, {
@@ -138,7 +138,7 @@ exports.softDelete = (req, res) => {
         });
 };
 
-exports.delete = (req, res) => {
+export const deleteProduct = (req, res) => {
     const id = req.params.id;
 
     Product.destroy({
@@ -163,7 +163,7 @@ exports.delete = (req, res) => {
 };
 
 // Delete all Products from the database.
-exports.deleteAll = (req, res) => {
+export const deleteAll = (req, res) => {
     Product.destroy({
         where: {},
         truncate: false
@@ -180,7 +180,7 @@ exports.deleteAll = (req, res) => {
 };
 
 // Update the position of products
-exports.updatePositions = (req, res) => {
+export const updatePositions = (req, res) => {
     const products = req.body.products;
 
     if (!Array.isArray(products) || products.length === 0) {

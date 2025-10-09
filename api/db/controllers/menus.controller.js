@@ -1,8 +1,8 @@
-const db = require("../index");
+import db from "../index.js";
 const Products = db.products;
 const Menus = db.menus;
 
-exports.findAll = async (req, res) => {
+export const findAll = async (req, res) => {
     try {
         const menus = await Menus.findAll({
             where: {isDeleted: false},
@@ -23,7 +23,7 @@ exports.findAll = async (req, res) => {
     }
 };
 
-exports.create = async (req, res) => {
+export const create = async (req, res) => {
     try {
         // Validate request
         if (!req.body.menu || !req.body.menu.name) {
@@ -72,7 +72,7 @@ exports.create = async (req, res) => {
     }
 };
 
-exports.update = async (req, res) => {
+export const update = async (req, res) => {
     try {
         const menuId = req.params.id;
 
@@ -119,7 +119,7 @@ exports.update = async (req, res) => {
     }
 };
 
-exports.delete = async (req, res) => {
+export const deleteMenu = async (req, res) => {
     try {
         const menuId = req.params.id;
 

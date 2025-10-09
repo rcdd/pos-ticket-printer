@@ -1,11 +1,11 @@
-module.exports.PaymentTypes = Object.freeze({
+export const PaymentTypes = Object.freeze({
     CASH: 'cash',
     CARD: 'card',
     MBWAY: 'mbway',
     OTHER: 'other'
 });
 
-module.exports = (sequelize, Sequelize) => {
+export default (sequelize, Sequelize) => {
     return sequelize.define("invoice", {
         id: {
             type: Sequelize.INTEGER,
@@ -31,8 +31,8 @@ module.exports = (sequelize, Sequelize) => {
         },
         paymentMethod: {
             type: Sequelize.ENUM,
-            values: Object.values(this.PaymentTypes),
-            defaultValue: this.PaymentTypes.CASH
+            values: Object.values(PaymentTypes),
+            defaultValue: PaymentTypes.CASH
         },
         discountPercent: {
             type: Sequelize.INTEGER,

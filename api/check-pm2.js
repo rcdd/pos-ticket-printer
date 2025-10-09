@@ -1,4 +1,4 @@
-const { execSync } = require('child_process');
+import { execSync } from 'child_process';
 
 try {
     const list = JSON.parse(execSync('pm2 jlist', { encoding: 'utf8' }));
