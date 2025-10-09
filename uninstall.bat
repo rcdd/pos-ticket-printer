@@ -10,6 +10,6 @@ if %errorlevel% neq 0 (
 )
 
 cd /d "%~dp0"
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0clean_install.ps1" -Execute -RemoveChocoPkgs -PurgeMySqlData -RemoveGlobalNpm
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\clean_install.ps1" -Execute -RemoveChocoPkgs -PurgeMySqlData -RemoveGlobalNpm
 pause
 
