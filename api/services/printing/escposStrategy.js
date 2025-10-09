@@ -127,40 +127,20 @@ async function listViaWindows() {
 }
 
 async function printViaWindows(printerName, buffer, jobName) {
-    // return new Promise((resolve, reject) => {
-    //     try {
-    //         const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'posraw-'));
-    //         const tmpFile = path.join(tmpDir, 'job.bin');
-    //         fs.writeFileSync(tmpFile, Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer));
-    //
-    //         const cmd = process.env.SystemRoot
-    //             ? path.join(process.env.SystemRoot, 'System32', 'print.exe')
-    //             : 'print';
-    //         const args = ['/D:' + String(printerName), tmpFile];
-    //
-    //         execFile(cmd, args, { windowsHide: true }, (e) => {
-    //             try { fs.unlinkSync(tmpFile); fs.rmdirSync(tmpDir); } catch {}
-    //             if (e) return reject(e);
-    //             resolve();
-    //         });
-    //     } catch (err) {
-    //         reject(err);
-    //     }
-    // });
     return new Promise((resolve, reject) => {
         try {
             const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'posraw-'));
-            const tmpFile = path.join(tmpDir, `${jobName}.txt`); // print.exe trata como texto
+            const tmpFile = path.join(tmpDir, 'job.bin');
             fs.writeFileSync(tmpFile, Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer));
 
             const cmd = process.env.SystemRoot
                 ? path.join(process.env.SystemRoot, 'System32', 'print.exe')
                 : 'print';
-            const args = [`/D:"${String(printerName)}"`, tmpFile];
+            const args = ['/D:' + String(printerName), tmpFile];
 
-            execFile(cmd, args, { windowsHide: true }, (e, stdout, stderr) => {
+            execFile(cmd, args, { windowsHide: true }, (e) => {
                 try { fs.unlinkSync(tmpFile); fs.rmdirSync(tmpDir); } catch {}
-                if (e) return reject(new Error(`${e.message}\nSTDOUT:${stdout}\nSTDERR:${stderr}`));
+                if (e) return reject(e);
                 resolve();
             });
         } catch (err) {
