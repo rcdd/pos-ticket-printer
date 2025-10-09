@@ -34,9 +34,11 @@ export class EscposStrategy {
         }
 
         if (process.platform === 'win32') {
+            console.warn("[@printers/printers] não disponível, usando fallback Windows via PowerShell");
             const list = await listViaWindows();
             return Array.isArray(list) ? list : [];
         }
+        console.warn("[@printers/printers] não disponível, usando fallback CUPS via 'lpstat'");
         return listViaCUPS();
     }
 
@@ -58,9 +60,11 @@ export class EscposStrategy {
         }
 
         if (process.platform === 'win32') {
+            console.warn("[@printers/printers] não disponível, usando fallback Windows via 'print.exe'");
             await printViaWindows(printerName, buffer, jobName);
             return;
         }
+        console.warn("[@printers/printers] não disponível, usando fallback CUPS via 'lp'");
         await printViaCUPS(printerName, buffer, jobName);
     }
 
