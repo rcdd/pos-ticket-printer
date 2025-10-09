@@ -1,171 +1,36 @@
-// EscposStrategy usando @point-of-sale/receipt-printer-encoder (100% JS, sem binários nativos)
-// - Windows USB: envia RAW via print.exe
-// - macOS USB: envia RAW via CUPS (lp)
-// - Rede: podes chamar printRawByName com o teu próprio sender TCP, se precisares
+const { execFile } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 
-import { execFile } from 'node:child_process';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import ReceiptPrinterEncoder from '@point-of-sale/receipt-printer-encoder';
-
-/* ---------- OS helpers ---------- */
-
-async function listViaWindows() {
-    return new Promise((resolve) => {
-        const ps = [
-            'powershell',
-            '-NoProfile',
-            '-Command',
-            'Get-Printer | Select-Object Name,DriverName,PortName,Default,Shared | ConvertTo-Json -Depth 2 -Compress'
-        ];
-        execFile(ps[0], ps.slice(1), { encoding: 'utf8', windowsHide: true }, (err, stdout) => {
-            if (err || !stdout) return resolve([]);
-            try {
-                const arr = JSON.parse(stdout);
-                const list = Array.isArray(arr) ? arr : [arr];
-                resolve(list.map(p => ({
-                    name: p.Name,
-                    systemName: p.Name,
-                    driverName: p.DriverName,
-                    portName: p.PortName,
-                    isDefault: !!p.Default,
-                    isShared: !!p.Shared,
-                    nativePrinter: p
-                })));
-            } catch { resolve([]); }
-        });
-    });
-}
-
-async function listViaCUPS() {
-    return new Promise((resolve) => {
-        const cmd = '/usr/bin/lpstat';
-        execFile(cmd, ['-p'], { encoding: 'utf8' }, (err, stdout) => {
-            if (err || !stdout) return resolve([]);
-            const names = String(stdout)
-                .split('\n')
-                .map(l => (l.split(' ')[1] || '').trim())
-                .filter(Boolean);
-            resolve(names.map(n => ({ name: n, systemName: n })));
-        });
-    });
-}
-
-async function printViaWindows(printerName, buffer, jobName = 'POS Ticket') {
-    return new Promise((resolve, reject) => {
-        try {
-            const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'posraw-'));
-            const tmpFile = path.join(tmpDir, 'job.bin');
-            fs.writeFileSync(tmpFile, Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer));
-
-            // PowerShell script: envia RAW via Winspool (sem dependências externas)
-            const ps = `
-Add-Type -Name RawPrinterHelper -Namespace RPH -MemberDefinition @"
-  [System.Runtime.InteropServices.DllImport("winspool.Drv", SetLastError=true, CharSet=System.Runtime.InteropServices.CharSet.Auto)]
-  public static extern bool OpenPrinter(string pPrinterName, out System.IntPtr phPrinter, System.IntPtr pDefault);
-  [System.Runtime.InteropServices.DllImport("winspool.Drv", SetLastError=true)]
-  public static extern bool ClosePrinter(System.IntPtr hPrinter);
-  [System.Runtime.InteropServices.DllImport("winspool.Drv", SetLastError=true, CharSet=System.Runtime.InteropServices.CharSet.Auto)]
-  public static extern bool StartDocPrinter(System.IntPtr hPrinter, int level, System.IntPtr pDocInfo);
-  [System.Runtime.InteropServices.DllImport("winspool.Drv", SetLastError=true)]
-  public static extern bool EndDocPrinter(System.IntPtr hPrinter);
-  [System.Runtime.InteropServices.DllImport("winspool.Drv", SetLastError=true)]
-  public static extern bool StartPagePrinter(System.IntPtr hPrinter);
-  [System.Runtime.InteropServices.DllImport("winspool.Drv", SetLastError=true)]
-  public static extern bool EndPagePrinter(System.IntPtr hPrinter);
-  [System.Runtime.InteropServices.DllImport("winspool.Drv", SetLastError=true)]
-  public static extern bool WritePrinter(System.IntPtr hPrinter, System.IntPtr pBytes, int dwCount, out int dwWritten);
-"@
-
-param([string]$PrinterName,[string]$JobName,[string]$FilePath)
-$bytes = [System.IO.File]::ReadAllBytes($FilePath)
-$gch = [System.Runtime.InteropServices.GCHandle]::Alloc($bytes, [System.Runtime.InteropServices.GCHandleType]::Pinned)
-try {
-  $ptr = $gch.AddrOfPinnedObject()
-  $h=[IntPtr]::Zero
-  if (-not [RPH.RawPrinterHelper]::OpenPrinter($PrinterName, [ref]$h, [IntPtr]::Zero)) { throw "OpenPrinter failed" }
-  try {
-    $pDoc = [System.Runtime.InteropServices.Marshal]::StringToHGlobalUni($JobName)
+async function loadPrintersLib() {
+    if (process.platform === 'win32') return null;
     try {
-      # DOC_INFO_1W => estrutura {pDocName, pOutputFile, pDatatype}; passamos só pDocName (hack simples)
-      if (-not [RPH.RawPrinterHelper]::StartDocPrinter($h, 1, $pDoc)) { throw "StartDocPrinter failed" }
-      try {
-        if (-not [RPH.RawPrinterHelper]::StartPagePrinter($h)) { throw "StartPagePrinter failed" }
-        try {
-          $written = 0
-          if (-not [RPH.RawPrinterHelper]::WritePrinter($h, $ptr, $bytes.Length, [ref]$written)) { throw "WritePrinter failed ($written/$($bytes.Length))" }
-        } finally { [void][RPH.RawPrinterHelper]::EndPagePrinter($h) }
-      } finally { [void][RPH.RawPrinterHelper]::EndDocPrinter($h) }
-    } finally { [System.Runtime.InteropServices.Marshal]::FreeHGlobal($pDoc) }
-  } finally { [void][RPH.RawPrinterHelper]::ClosePrinter($h) }
-} finally {
-  $gch.Free()
-}
-`;
+        const mod = await import('@printers/printers');
+        const candidate = mod?.default ?? mod;
 
-            const args = [
-                '-NoProfile', '-ExecutionPolicy', 'Bypass',
-                '-Command', ps + `; RawPrint -PrinterName "${printerName}" -JobName "${jobName}" -FilePath "${tmpFile}"`
-                    .replace('RawPrint','& { param($PrinterName,$JobName,$FilePath) ' + ps.split('\n').slice(-28).join('\n') + ' }') // safety if scope differs
-            ];
-
-            // mais simples/robusto: passa como script + args
-            const cmd = 'powershell';
-            execFile(cmd, args, { windowsHide: true }, (e, stdout, stderr) => {
-                try { fs.unlinkSync(tmpFile); fs.rmdirSync(tmpDir); } catch {}
-                if (e) return reject(new Error(stderr?.trim() || e.message));
-                resolve();
-            });
-        } catch (err) { reject(err); }
-    });
-}
-
-
-async function printViaCUPS(printerName, buffer, jobName) {
-    return new Promise((resolve, reject) => {
-        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'posraw-'));
-        const tmpFile = path.join(tmpDir, 'job.bin');
-        fs.writeFileSync(tmpFile, Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer));
-        const cmd = '/usr/bin/lp';
-        const args = ['-d', String(printerName), '-o', 'raw', '-t', String(jobName ?? 'POS Ticket'), tmpFile];
-        execFile(cmd, args, (e) => {
-            try { fs.unlinkSync(tmpFile); fs.rmdirSync(tmpDir); } catch {}
-            e ? reject(e) : resolve();
-        });
-    });
-}
-
-/* ---------- Encoder helpers ---------- */
-
-function encodeReceipt(lines = [], {
-    width = 48,
-    cut = true,
-    align = 'left',      // 'left' | 'center' | 'right'
-    codepage = 'cp437',  // ver docs da lib para opções suportadas
-} = {}) {
-    const encoder = new ReceiptPrinterEncoder({
-        language: 'esc-pos',
-        characterSet: codepage
-    });
-
-    encoder.initialize();
-    if (align === 'center') encoder.align('center');
-    if (align === 'right')  encoder.align('right');
-
-    for (const line of lines) {
-        if (line === '\n') { encoder.newline(); continue; }
-        encoder.line(line);
+        if (typeof candidate === 'function') {
+            try { return new candidate(); } catch { /* ignore */ }
+        }
+        return candidate;
+    } catch (e) {
+        console.warn('[@printers/printers] import falhou:', e.message);
+        return null;
     }
-
-    if (cut) encoder.cutter();
-    return Buffer.from(encoder.encode());
 }
 
-/* ---------- Strategy ---------- */
-
-export class EscposStrategy {
+class EscposStrategy {
     async listPrinters() {
+        const lib = await loadPrintersLib();
+
+        if (lib?.getAllPrinters) {
+            try {
+                const printers = await lib.getAllPrinters();
+                return Array.isArray(printers) ? printers : [];
+            } catch {
+            }
+        }
+
         if (process.platform === 'win32') {
             const list = await listViaWindows();
             return Array.isArray(list) ? list : [];
@@ -173,9 +38,35 @@ export class EscposStrategy {
         return listViaCUPS();
     }
 
+    async printRawByName(printerName, buffer, jobName = 'POS Ticket') {
+        const lib = await loadPrintersLib();
+
+        if (lib?.getPrinterByName) {
+            try {
+                const p = await lib.getPrinterByName(printerName);
+                if (!p) throw new Error(`Printer "${printerName}" not found`);
+
+                const data = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+                const printFn = p.printBytes ?? p.printRaw;
+                if (typeof printFn !== 'function') throw new Error('Método de impressão não encontrado no objeto da impressora');
+
+                await printFn.call(p, data, { jobName, simple: { paperSize: 'COM10' }, waitForCompletion: true });
+                return;
+            } catch {
+            }
+        }
+
+        if (process.platform === 'win32') {
+            await printViaWindows(printerName, buffer, jobName);
+            return;
+        }
+        await printViaCUPS(printerName, buffer, jobName);
+    }
+
     async getPrinterDetails(printerName) {
         const list = await this.listPrinters();
         if (!Array.isArray(list)) return null;
+
         const target = String(printerName).toLowerCase();
         for (const printer of list) {
             const np = printer.nativePrinter ?? printer;
@@ -198,30 +89,87 @@ export class EscposStrategy {
         }
         return null;
     }
-
-    // Envia bytes RAW (ESC/POS) diretamente para a impressora
-    async printRawByName(printerName, buffer, jobName = 'POS Ticket') {
-        const data = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
-        if (process.platform === 'win32') {
-            await printViaWindows(printerName, data);
-            return;
-        }
-        if (process.platform === 'darwin') {
-            await printViaCUPS(printerName, data, jobName);
-            return;
-        }
-        throw new Error('Platform not supported');
-    }
-
-    // Constrói um recibo simples (linhas) e imprime
-    async printLinesByName(printerName, lines, jobName = 'POS Ticket', opts = {}) {
-        const payload = encodeReceipt(lines, opts);
-        await this.printRawByName(printerName, payload, jobName);
-    }
-
-    // Helper simples: uma string multi-linha
-    async printTextByName(printerName, text, jobName = 'POS Ticket', opts = {}) {
-        const lines = String(text).split(/\r?\n/);
-        await this.printLinesByName(printerName, lines, jobName, opts);
-    }
 }
+
+/* ---------- Fallback Windows ---------- */
+
+async function listViaWindows() {
+    // Usa PowerShell Get-Printer e devolve em JSON
+    return new Promise((resolve) => {
+        const ps = [
+            'powershell',
+            '-NoProfile',
+            '-Command',
+            'Get-Printer | Select-Object Name,DriverName,PortName,Default,Shared | ConvertTo-Json -Depth 2 -Compress'
+        ];
+        execFile(ps[0], ps.slice(1), { encoding: 'utf8', windowsHide: true }, (err, stdout) => {
+            if (err || !stdout) return resolve([]);
+            try {
+                const arr = JSON.parse(stdout);
+                const list = Array.isArray(arr) ? arr : [arr];
+                resolve(list.map(p => ({
+                    name: p.Name,
+                    systemName: p.Name,
+                    driverName: p.DriverName,
+                    portName: p.PortName,
+                    isDefault: !!p.Default,
+                    isShared: !!p.Shared,
+                    nativePrinter: p
+                })));
+            } catch {
+                resolve([]);
+            }
+        });
+    });
+}
+
+async function printViaWindows(printerName, buffer, jobName) {
+    return new Promise((resolve, reject) => {
+        try {
+            const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'posraw-'));
+            const tmpFile = path.join(tmpDir, 'job.bin');
+            fs.writeFileSync(tmpFile, Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer));
+
+            const cmd = process.env.SystemRoot
+                ? path.join(process.env.SystemRoot, 'System32', 'print.exe')
+                : 'print';
+            const args = ['/D:' + String(printerName), tmpFile];
+
+            execFile(cmd, args, { windowsHide: true }, (e) => {
+                try { fs.unlinkSync(tmpFile); fs.rmdirSync(tmpDir); } catch {}
+                if (e) return reject(e);
+                resolve();
+            });
+        } catch (err) {
+            reject(err);
+        }
+    });
+}
+
+/* ---------- Fallback via CUPS (macOS/Linux) ---------- */
+
+async function listViaCUPS() {
+    return new Promise((resolve) => {
+        const cmd = '/usr/bin/lpstat'; // caminho típico no macOS; em Linux pode ser /usr/bin/lpstat também
+        execFile(cmd, ['-p'], { encoding: 'utf8' }, (err, stdout) => {
+            if (err || !stdout) return resolve([]);
+            const names = String(stdout)
+                .split('\n')
+                .map(l => (l.split(' ')[1] || '').trim())
+                .filter(Boolean);
+            resolve(names.map(n => ({ name: n, systemName: n })));
+        });
+    });
+}
+
+async function printViaCUPS(printerName, buffer, jobName) {
+    return new Promise((resolve, reject) => {
+        const cmd = '/usr/bin/lp'; // macOS/Linux
+        const args = ['-d', String(printerName), '-o', 'raw', '-t', String(jobName)];
+        const child = execFile(cmd, args, (e) => (e ? reject(e) : resolve()));
+        child.stdin.on('error', reject);
+        child.stdin.end(Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer));
+    });
+}
+
+module.exports = { EscposStrategy };
