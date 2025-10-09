@@ -146,13 +146,23 @@ async function printViaWindows(printerName, buffer, jobName) {
     //         reject(err);
     //     }
     // });
-    const tmp = path.join(os.tmpdir(), `ticket-${Date.now()}.bin`);
-    fs.writeFileSync(tmp, buffer);
-    await new Promise((res, rej) => {
-        const cp = spawn('RawFileToPrinter.exe', [printerName, tmp], { windowsHide: true });
-        cp.on('exit', code => code === 0 ? res() : rej(new Error(`RawPrint exited ${code}`)));
-        cp.on('error', rej);
-    });
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'posraw-'));
+    const file = path.join(dir, `${jobName}.bin`);
+    fs.writeFileSync(file, Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer));
+
+    const exe = path.resolve(__dirname, '../bin/RawFileToPrinter.exe'); // ou RawPrint.exe
+    try {
+        await new Promise((res, rej) => {
+            const cp = spawn(exe, [printerName, file], { windowsHide: true });
+            let stderr = ''; let stdout = '';
+            cp.stdout.on('data', d => (stdout += d));
+            cp.stderr.on('data', d => (stderr += d));
+            cp.on('exit', c => c === 0 ? res() : rej(new Error(`RawPrint exited ${c}\n${stderr || stdout}`)));
+            cp.on('error', rej);
+        });
+    } finally {
+        try { fs.unlinkSync(file); fs.rmdirSync(dir); } catch {}
+    }
 }
 
 /* ---------- Fallback via CUPS (macOS/Linux) ---------- */
