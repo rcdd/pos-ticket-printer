@@ -1,8 +1,7 @@
-import { execFile, spawn } from 'child_process';
+import {execFile} from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { fileURLToPath } from 'url';
 
 async function loadPrintersLib() {
     if (process.platform === 'win32') return null;
@@ -11,7 +10,10 @@ async function loadPrintersLib() {
         const candidate = mod?.default ?? mod;
 
         if (typeof candidate === 'function') {
-            try { return new candidate(); } catch { /* ignore */ }
+            try {
+                return new candidate();
+            } catch { /* ignore */
+            }
         }
         return candidate;
     } catch (e) {
@@ -52,7 +54,7 @@ export class EscposStrategy {
                 const printFn = p.printBytes ?? p.printRaw;
                 if (typeof printFn !== 'function') throw new Error('Método de impressão não encontrado no objeto da impressora');
 
-                await printFn.call(p, data, { jobName, simple: { paperSize: 'COM10' }, waitForCompletion: true });
+                await printFn.call(p, data, {jobName, simple: {paperSize: 'COM10'}, waitForCompletion: true});
                 return;
             } catch {
             }
@@ -105,7 +107,7 @@ async function listViaWindows() {
             '-Command',
             'Get-Printer | Select-Object Name,DriverName,PortName,Default,Shared | ConvertTo-Json -Depth 2 -Compress'
         ];
-        execFile(ps[0], ps.slice(1), { encoding: 'utf8', windowsHide: true }, (err, stdout) => {
+        execFile(ps[0], ps.slice(1), {encoding: 'utf8', windowsHide: true}, (err, stdout) => {
             if (err || !stdout) return resolve([]);
             try {
                 const arr = JSON.parse(stdout);
@@ -138,8 +140,12 @@ async function printViaWindows(printerName, buffer, jobName) {
                 : 'print';
             const args = ['/D:' + String(printerName), tmpFile];
 
-            execFile(cmd, args, { windowsHide: true }, (e) => {
-                try { fs.unlinkSync(tmpFile); fs.rmdirSync(tmpDir); } catch {}
+            execFile(cmd, args, {windowsHide: true}, (e) => {
+                try {
+                    fs.unlinkSync(tmpFile);
+                    fs.rmdirSync(tmpDir);
+                } catch {
+                }
                 if (e) return reject(e);
                 resolve();
             });
@@ -154,13 +160,13 @@ async function printViaWindows(printerName, buffer, jobName) {
 async function listViaCUPS() {
     return new Promise((resolve) => {
         const cmd = '/usr/bin/lpstat'; // caminho típico no macOS; em Linux pode ser /usr/bin/lpstat também
-        execFile(cmd, ['-p'], { encoding: 'utf8' }, (err, stdout) => {
+        execFile(cmd, ['-p'], {encoding: 'utf8'}, (err, stdout) => {
             if (err || !stdout) return resolve([]);
             const names = String(stdout)
                 .split('\n')
                 .map(l => (l.split(' ')[1] || '').trim())
                 .filter(Boolean);
-            resolve(names.map(n => ({ name: n, systemName: n })));
+            resolve(names.map(n => ({name: n, systemName: n})));
         });
     });
 }
