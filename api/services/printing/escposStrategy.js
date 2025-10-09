@@ -6,7 +6,6 @@ import path from 'node:path';
 /* -------- Optional backend (@printers/printers) -------- */
 let printersLibPromise = null;
 async function loadPrintersLib() {
-    if (process.platform === 'win32') return null;
     if (!printersLibPromise) {
         printersLibPromise = (async () => {
             try {
