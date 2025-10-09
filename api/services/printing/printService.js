@@ -71,8 +71,9 @@ export async function printTicketRequest({printerName, headers, items, totalAmou
     }
 
     if (printType === 'totals' || printType === 'both') {
-        buf = Buffer.concat([buf,
-            renderTotalTicketRaw(expanded, totalEuros),
+        buf = Buffer.concat([
+            buf,
+            renderTotalTicketRaw(items, totalEuros),
             renderFooterRaw(headers),
             renderHeaderRaw(headers),
         ]);
