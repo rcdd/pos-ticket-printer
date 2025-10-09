@@ -2,7 +2,7 @@ import {execFile} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {Printer} from '@printers/printers';
+import {getAllPrinters, getPrinterByName, printBytes} from '@printers/printers';
 
 /* -------- Optional backend (@printers/printers) -------- */
 let printersLibPromise = null;
@@ -32,14 +32,11 @@ async function loadPrintersLib() {
 
 export class EscposStrategy {
     async listPrinters() {
-        const lib = await loadPrintersLib();
-
-        if (lib?.getAllPrinters) {
-            try {
-                const printers = await lib.getAllPrinters();
-                return Array.isArray(printers) ? printers : [];
-            } catch { /* ignore and fallback */
-            }
+        try {
+            const printers = getAllPrinters();
+            return Array.isArray(printers) ? printers : [];
+        } catch { /* ignore and fallback */
+            console.warn('[@printers/printers] getAllPrinters falhou, a usar fallback...');
         }
 
         if (process.platform === 'win32') {
@@ -52,21 +49,16 @@ export class EscposStrategy {
     }
 
     async printRawByName(printerName, buffer, jobName = 'POS Ticket') {
-        const lib = await loadPrintersLib();
+        try {
+            const p = await getPrinterByName(printerName);
+            if (!p) throw new Error(`Printer "${printerName}" not found`);
 
-        if (lib?.getPrinterByName) {
-            try {
-                const p = await lib.getPrinterByName(printerName);
-                if (!p) throw new Error(`Printer "${printerName}" not found`);
+            const data = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
 
-                const data = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
-                const printFn = p.printBytes ?? p.printRaw;
-                if (typeof printFn !== 'function') throw new Error('Método de impressão não encontrado no objeto da impressora');
-
-                await printFn.call(p, data, {jobName, simple: {paperSize: 'COM10'}, waitForCompletion: true});
-                return;
-            } catch { /* ignore and fallback */
-            }
+            await printBytes(p, data, {jobName, simple: {paperSize: 'COM10'}, waitForCompletion: true});
+            return;
+        } catch {
+            console.warn('[@printers/printers] printRawByName falhou, a usar fallback...');
         }
 
         if (process.platform === 'win32') {
