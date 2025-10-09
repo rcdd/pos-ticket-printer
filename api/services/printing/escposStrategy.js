@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process';
+import {execFile} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -18,7 +18,8 @@ async function tryImport(spec, label) {
             console.warn(`[@printers] usando ${label}`);
             return lib;
         }
-    } catch {}
+    } catch {
+    }
     return null;
 }
 
@@ -54,7 +55,8 @@ export class EscposStrategy {
             try {
                 const printers = await lib.getAllPrinters();
                 return Array.isArray(printers) ? printers : [];
-            } catch {}
+            } catch {
+            }
         }
 
         if (process.platform === 'win32') {
@@ -67,19 +69,46 @@ export class EscposStrategy {
     }
 
     async printRawByName(printerName, buffer, jobName = 'POS Ticket') {
-        const lib = await loadPrintersLib();
-
-        if (lib?.getPrinterByName) {
+        const data = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+        if (lib) {
             try {
-                const p = await lib.getPrinterByName(printerName);
-                if (!p) throw new Error(`Printer "${printerName}" not found`);
-                const data = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
-                const printFn = p.printBytes ?? p.printRaw;
-                if (typeof printFn !== 'function') throw new Error('Método de impressão não encontrado');
+                // 1) procura impressora
+                const p = (typeof lib.getPrinterByName === 'function')
+                    ? await lib.getPrinterByName(printerName)
+                    : null;
+                if (!p) {
+                    console.warn(`[@printers] getPrinterByName falhou ou não encontrou "${printerName}"`);
+                } else {
+                    // 2) tenta vários métodos no "printer"
+                    const candidates = [
+                        p.printBytes, p.printRaw, p.print, p.write
+                    ].filter(fn => typeof fn === 'function');
+                    for (const fn of candidates) {
+                        try {
+                            // muitas builds rebentam com opções estranhas; começa simples
+                            await fn.call(p, data, {jobName, waitForCompletion: true});
+                            return;
+                        } catch (e) {
+                            console.warn('[@printers] tentativa em objeto printer falhou:', e?.message || e);
+                        }
+                    }
+                }
 
-                await printFn.call(p, data, { jobName, simple: { paperSize: 'COM10' }, waitForCompletion: true });
-                return;
-            } catch {}
+                // 3) tenta na própria LIB (algumas expõem helpers globais)
+                const libFns = [lib.printRawByName, lib.printBytesByName, lib.print];
+                for (const fn of libFns) {
+                    if (typeof fn === 'function') {
+                        try {
+                            await fn.call(lib, printerName, data, {jobName, waitForCompletion: true});
+                            return;
+                        } catch (e) {
+                            console.warn('[@printers] tentativa em lib falhou:', e?.message || e);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('[@printers] erro ao imprimir via lib:', e?.message || e);
+            }
         }
 
         if (process.platform === 'win32') {
@@ -123,10 +152,10 @@ export class EscposStrategy {
 async function listViaWindows() {
     return new Promise((resolve) => {
         const ps = [
-            'powershell','-NoProfile','-Command',
+            'powershell', '-NoProfile', '-Command',
             'Get-Printer | Select-Object Name,DriverName,PortName,Default,Shared | ConvertTo-Json -Depth 2 -Compress'
         ];
-        execFile(ps[0], ps.slice(1), { encoding: 'utf8', windowsHide: true }, (err, stdout) => {
+        execFile(ps[0], ps.slice(1), {encoding: 'utf8', windowsHide: true}, (err, stdout) => {
             if (err || !stdout) return resolve([]);
             try {
                 const arr = JSON.parse(stdout);
@@ -137,7 +166,9 @@ async function listViaWindows() {
                     isDefault: !!p.Default, isShared: !!p.Shared,
                     nativePrinter: p
                 })));
-            } catch { resolve([]); }
+            } catch {
+                resolve([]);
+            }
         });
     });
 }
@@ -152,12 +183,18 @@ async function printViaWindows(printerName, buffer, jobName) {
             const cmd = process.env.SystemRoot ? path.join(process.env.SystemRoot, 'System32', 'print.exe') : 'print';
             const args = ['/D:' + String(printerName), tmpFile];
 
-            execFile(cmd, args, { windowsHide: true }, (e) => {
-                try { fs.unlinkSync(tmpFile); fs.rmdirSync(tmpDir); } catch {}
+            execFile(cmd, args, {windowsHide: true}, (e) => {
+                try {
+                    fs.unlinkSync(tmpFile);
+                    fs.rmdirSync(tmpDir);
+                } catch {
+                }
                 if (e) return reject(e);
                 resolve();
             });
-        } catch (err) { reject(err); }
+        } catch (err) {
+            reject(err);
+        }
     });
 }
 
@@ -165,10 +202,10 @@ async function printViaWindows(printerName, buffer, jobName) {
 async function listViaCUPS() {
     return new Promise((resolve) => {
         const cmd = '/usr/bin/lpstat';
-        execFile(cmd, ['-p'], { encoding: 'utf8' }, (err, stdout) => {
+        execFile(cmd, ['-p'], {encoding: 'utf8'}, (err, stdout) => {
             if (err || !stdout) return resolve([]);
             const names = String(stdout).split('\n').map(l => (l.split(' ')[1] || '').trim()).filter(Boolean);
-            resolve(names.map(n => ({ name: n, systemName: n })));
+            resolve(names.map(n => ({name: n, systemName: n})));
         });
     });
 }
