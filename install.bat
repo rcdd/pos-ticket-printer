@@ -10,4 +10,4 @@ if %errorlevel% neq 0 (
 )
 
 cd /d "%~dp0"
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\install_script.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0install_script.ps1"
