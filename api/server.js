@@ -15,12 +15,9 @@ import bcrypt from "bcrypt";
 import cors from "cors";
 import db from "./db/index.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
 const app = express();
 
-var corsOptions = {
+const corsOptions = {
     origin: process.env.CLIENT_ORIGIN?.split(',') || ["http://localhost:8888", "http://localhost:3000"],
 };
 

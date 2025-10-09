@@ -12,7 +12,7 @@ try {
             // No processes to delete
         }
 
-        execSync('pm2 start ecosystem.config.js', { stdio: 'inherit' });
+        execSync('pm2 start ecosystem.config.cjs', { stdio: 'inherit' });
         execSync('pm2 save', { stdio: 'inherit' });
     } else {
         const status = proc.pm2_env.status;
@@ -24,9 +24,9 @@ try {
         }
     }
 } catch (err) {
-    console.error('[WARN] PM2 check failed. Attempting fallback start from ecosystem.config.js...');
+    console.error('[WARN] PM2 check failed. Attempting fallback start from ecosystem.config.cjs...');
     try {
-        execSync('pm2 start ecosystem.config.js', { stdio: 'inherit' });
+        execSync('pm2 start ecosystem.config.cjs', { stdio: 'inherit' });
         execSync('pm2 save', { stdio: 'inherit' });
     } catch (e) {
         console.error('[ERROR] Fallback start failed:', e.message);
