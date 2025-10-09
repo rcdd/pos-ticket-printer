@@ -2,7 +2,7 @@ import {execFile} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import printer from '@printers/printers';
+import Printer from '@printers/printers';
 
 /* -------- Optional backend (@printers/printers) -------- */
 let printersLibPromise = null;
@@ -17,7 +17,7 @@ async function loadPrintersLib() {
             } catch (e) {
                 console.warn('a tentar import direto @printers/printers...');
                 try {
-                    return printer
+                    return Printer
                 } catch (e) {
                     console.warn('[@printers/printers] import direto falhou:', e?.message || e);
 
