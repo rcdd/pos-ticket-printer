@@ -1,10 +1,12 @@
-import { execFile } from 'node:child_process';
+import {execFile} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import printer from '@printers/printers';
 
 /* -------- Optional backend (@printers/printers) -------- */
 let printersLibPromise = null;
+
 async function loadPrintersLib() {
     if (!printersLibPromise) {
         printersLibPromise = (async () => {
@@ -13,6 +15,13 @@ async function loadPrintersLib() {
                 const candidate = mod?.default ?? mod;
                 return typeof candidate === 'function' ? new candidate() : candidate;
             } catch (e) {
+                console.warn('a tentar import direto @printers/printers...');
+                try {
+                    return printer
+                } catch (e) {
+                    console.warn('[@printers/printers] import direto falhou:', e?.message || e);
+
+                }
                 console.warn('[@printers/printers] import falhou:', e?.message || e);
                 return null;
             }
@@ -29,7 +38,8 @@ export class EscposStrategy {
             try {
                 const printers = await lib.getAllPrinters();
                 return Array.isArray(printers) ? printers : [];
-            } catch { /* ignore and fallback */ }
+            } catch { /* ignore and fallback */
+            }
         }
 
         if (process.platform === 'win32') {
@@ -53,9 +63,10 @@ export class EscposStrategy {
                 const printFn = p.printBytes ?? p.printRaw;
                 if (typeof printFn !== 'function') throw new Error('Método de impressão não encontrado no objeto da impressora');
 
-                await printFn.call(p, data, { jobName, simple: { paperSize: 'COM10' }, waitForCompletion: true });
+                await printFn.call(p, data, {jobName, simple: {paperSize: 'COM10'}, waitForCompletion: true});
                 return;
-            } catch { /* ignore and fallback */ }
+            } catch { /* ignore and fallback */
+            }
         }
 
         if (process.platform === 'win32') {
@@ -105,7 +116,7 @@ async function listViaWindows() {
             '-Command',
             'Get-Printer | Select-Object Name,DriverName,PortName,Default,Shared | ConvertTo-Json -Depth 2 -Compress'
         ];
-        execFile(ps[0], ps.slice(1), { encoding: 'utf8', windowsHide: true }, (err, stdout) => {
+        execFile(ps[0], ps.slice(1), {encoding: 'utf8', windowsHide: true}, (err, stdout) => {
             if (err || !stdout) return resolve([]);
             try {
                 const arr = JSON.parse(stdout);
@@ -138,11 +149,12 @@ async function printViaWindows(printerName, buffer, jobName) {
                 : 'print';
             const args = ['/D:' + String(printerName), tmpFile];
 
-            execFile(cmd, args, { windowsHide: true }, (e) => {
+            execFile(cmd, args, {windowsHide: true}, (e) => {
                 try {
                     fs.unlinkSync(tmpFile);
                     fs.rmdirSync(tmpDir);
-                } catch { /* ignore */ }
+                } catch { /* ignore */
+                }
                 if (e) return reject(e);
                 resolve();
             });
@@ -157,13 +169,13 @@ async function printViaWindows(printerName, buffer, jobName) {
 async function listViaCUPS() {
     return new Promise((resolve) => {
         const cmd = '/usr/bin/lpstat';
-        execFile(cmd, ['-p'], { encoding: 'utf8' }, (err, stdout) => {
+        execFile(cmd, ['-p'], {encoding: 'utf8'}, (err, stdout) => {
             if (err || !stdout) return resolve([]);
             const names = String(stdout)
                 .split('\n')
                 .map(l => (l.split(' ')[1] || '').trim())
                 .filter(Boolean);
-            resolve(names.map(n => ({ name: n, systemName: n })));
+            resolve(names.map(n => ({name: n, systemName: n})));
         });
     });
 }
