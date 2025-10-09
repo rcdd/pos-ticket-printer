@@ -387,7 +387,7 @@ try
         }
     }
 
-    Write-Host "Update concluido. O arranque fica a cargo do teu startup."
+    Write-Host "Update concluido."
 }
 finally
 {
