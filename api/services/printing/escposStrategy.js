@@ -32,6 +32,7 @@ export class EscposStrategy {
         }
 
         if (process.platform === 'win32') {
+            console.warn('[@printers/printers] não disponível no Windows, usando fallback via PowerShell');
             const list = await listViaWindows();
             return Array.isArray(list) ? list : [];
         }
@@ -57,9 +58,11 @@ export class EscposStrategy {
         }
 
         if (process.platform === 'win32') {
+            console.warn('[@printers/printers] não disponível no Windows, usando fallback via print.exe');
             await printViaWindows(printerName, buffer, jobName);
             return;
         }
+
         await printViaCUPS(printerName, buffer, jobName);
     }
 
@@ -94,7 +97,6 @@ export class EscposStrategy {
 /* ---------- Fallback Windows ---------- */
 
 async function listViaWindows() {
-    // Usa PowerShell Get-Printer e devolve em JSON
     return new Promise((resolve) => {
         const ps = [
             'powershell',
