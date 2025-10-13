@@ -29,7 +29,7 @@ class InvoiceService {
         return result.data;
     }
 
-    async GetFromSession(sessionId) {
+    async getFromSession(sessionId) {
         const result = await http.post(this.BASE_URL + "/invoice/session", {sessionId});
 
         return result.data;

@@ -10,6 +10,7 @@ import menuProductsModel from "./models/menuProducts.model.js";
 import zoneModel from "./models/zone.model.js";
 import userModel from "./models/user.model.js";
 import sessionModel from "./models/session.model.js";
+import cashMovement from "./models/cashMovement.model.js";
 
 const sequelize = new Sequelize(dbConfig.DB, dbConfig.USER, dbConfig.PASSWORD, {
     host: dbConfig.HOST,
@@ -38,6 +39,7 @@ db.menuProducts = menuProductsModel(sequelize, Sequelize);
 db.zones = zoneModel(sequelize, Sequelize);
 db.users = userModel(sequelize, Sequelize);
 db.sessions = sessionModel(sequelize, Sequelize);
+db.cashMovements = cashMovement(sequelize, Sequelize);
 
 // relations
 db.invoices.hasMany(db.records, { foreignKey: 'invoiceId' });
@@ -51,5 +53,11 @@ db.records.belongsTo(db.menus, { foreignKey: 'menu', as: 'menuItem' });
 
 db.products.belongsTo(db.zones, { foreignKey: 'zoneId', as: 'zone' });
 db.zones.hasMany(db.products, { foreignKey: 'zoneId', as: 'products' });
+
+db.sessions.hasMany(db.cashMovements, { foreignKey: 'sessionId', as: 'cashMovements' });
+db.cashMovements.belongsTo(db.sessions, { foreignKey: 'sessionId', as: 'session' });
+
+db.users.hasMany(db.cashMovements, { foreignKey: 'userId', as: 'cashMovements' });
+db.cashMovements.belongsTo(db.users, { foreignKey: 'userId', as: 'user' });
 
 export default db;

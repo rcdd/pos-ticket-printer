@@ -3,8 +3,9 @@ import http from "../http";
 class UserService {
     BASE_URL = (process.env.REACT_APP_API_BASE_URL || 'http://localhost:9393');
 
-    getAll() {
-        return http.get(this.BASE_URL + "/users");
+    async getAll() {
+        const result = await http.get(this.BASE_URL + "/users");
+        return result.data;
     }
 
     get(id) {

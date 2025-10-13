@@ -89,7 +89,7 @@ export function PaymentModalComponent({
         <Dialog open={openModal} onClose={handleModalClose} fullWidth maxWidth="sm">
             <DialogTitle sx={{display: 'flex', justifyContent: 'space-between', alignItems: 'baseline'}}>
                 <span>{invoiceId ? `Pagamento nº ${invoiceId}` : 'Pagamento'}</span>
-                <Typography variant="h6" component="span" color="text.secondary">
+                <Typography variant="h5" component="span" color="text.secondary">
                     Total: <b>{eurFmt.format(discountedDue)}</b>
                 </Typography>
             </DialogTitle>
@@ -200,43 +200,48 @@ export function PaymentModalComponent({
 
                             <Box sx={{mt: "0!important", mb: "8px!important"}}>
                                 <Button variant="contained" fullWidth color="success" onClick={setExact}
-                                        sx={{py: 0.5, fontSize: 14}}>
+                                        sx={{py: 0.5, fontSize: 16}}>
                                     Valor Exacto
                                 </Button>
                                 <Box
                                     sx={{
                                         mt: 1.2,
                                         display: 'grid',
-                                        gridTemplateColumns: 'repeat(5, 1fr)',
+                                        gridTemplateColumns: 'repeat(6, 1fr)',
                                         gap: 1.2,
                                     }}
                                 >
-                                    <Button variant="outlined" onClick={() => bump(0.10)}
-                                            sx={{py: 0.5, fontSize: 14}}>+0,10</Button>
-                                    <Button variant="outlined" onClick={() => bump(0.50)}
-                                            sx={{py: 0.5, fontSize: 14}}>+0,50</Button>
-                                    <Button variant="outlined" onClick={() => bump(1)}
-                                            sx={{py: 0.5, fontSize: 14}}>+1</Button>
-                                    <Button variant="outlined" onClick={() => bump(2)}
-                                            sx={{py: 0.5, fontSize: 14}}>+2</Button>
-                                    <Button variant="outlined" onClick={() => bump(5)}
-                                            sx={{py: 0.5, fontSize: 14}}>+5</Button>
+                                    <Button variant="contained" onClick={() => setNote(0)}
+                                            sx={{py: 0.5, fontSize: 16}}>€0</Button>
+                                    <Button variant="contained" onClick={() => setNote(1)}
+                                            sx={{py: 0.5, fontSize: 16}}>€1</Button>
                                     <Button variant="contained" onClick={() => setNote(5)}
-                                            sx={{py: 0.5, fontSize: 14}}>€5</Button>
+                                            sx={{py: 0.5, fontSize: 16}}>€5</Button>
                                     <Button variant="contained" onClick={() => setNote(10)}
-                                            sx={{py: 0.5, fontSize: 14}}>€10</Button>
+                                            sx={{py: 0.5, fontSize: 16}}>€10</Button>
                                     <Button variant="contained" onClick={() => setNote(20)}
-                                            sx={{py: 0.5, fontSize: 14}}>€20</Button>
+                                            sx={{py: 0.5, fontSize: 16}}>€20</Button>
                                     <Button variant="contained" onClick={() => setNote(50)}
-                                            sx={{py: 0.5, fontSize: 14}}>€50</Button>
-                                    <Button variant="contained" onClick={() => setNote(100)}
-                                            sx={{py: 0.5, fontSize: 14}}>€100</Button>
+                                            sx={{py: 0.5, fontSize: 16}}>€50</Button>
+
+                                    <Button variant="outlined" onClick={() => bump(0.05)}
+                                            sx={{py: 0.5, fontSize: 16}}>+0,05</Button>
+                                    <Button variant="outlined" onClick={() => bump(0.10)}
+                                            sx={{py: 0.5, fontSize: 16}}>+0,10</Button>
+                                    <Button variant="outlined" onClick={() => bump(0.50)}
+                                            sx={{py: 0.5, fontSize: 16}}>+0,50</Button>
+                                    <Button variant="outlined" onClick={() => bump(1)}
+                                            sx={{py: 0.5, fontSize: 16}}>+1</Button>
+                                    <Button variant="outlined" onClick={() => bump(2)}
+                                            sx={{py: 0.5, fontSize: 16}}>+2</Button>
+                                    <Button variant="outlined" onClick={() => bump(5)}
+                                            sx={{py: 0.5, fontSize: 16}}>+5</Button>
                                 </Box>
                             </Box>
 
                             <Box sx={{display: 'flex', justifyContent: 'space-between', mt: "16px!important"}}>
                                 <Typography variant="h6">Troco</Typography>
-                                <Typography variant="h6" fontWeight={700}>
+                                <Typography variant="h5" fontWeight={700}>
                                     {eurFmt.format(change)}
                                 </Typography>
                             </Box>

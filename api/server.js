@@ -9,6 +9,7 @@ import * as menus from "./db/controllers/menus.controller.js";
 import * as zones from "./db/controllers/zones.controller.js";
 import * as users from "./db/controllers/users.controller.js";
 import * as sessions from "./db/controllers/sessions.controller.js";
+import * as cashMovements from "./db/controllers/cashMovement.controller.js";
 import bcrypt from "bcrypt";
 import cors from "cors";
 import db from "./db/index.js";
@@ -146,3 +147,7 @@ app.post("/session/start", sessions.open);
 app.post("/session/close/:id", sessions.closeSession);
 app.get("/sessions", sessions.findAll);
 app.get("/session/active", sessions.getLastActiveSession);
+
+// Cash Movements
+app.post("/cash-movement", cashMovements.create);
+app.get("/cash-movements/:sessionId", cashMovements.listBySession);

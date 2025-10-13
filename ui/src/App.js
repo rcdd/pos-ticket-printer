@@ -1,8 +1,4 @@
-import {
-    BrowserRouter as Router,
-    Routes,
-    Route,
-} from 'react-router-dom';
+import {BrowserRouter} from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import {ToastProvider} from "./components/Common/ToastProvider";
 import {useEffect} from "react";
@@ -18,19 +14,15 @@ function App() {
         }
     }, [])
 
-    return (
-        <ToastProvider
+    return (<ToastProvider
             defaultTitle="Operation failed"
             defaultAutoHideDuration={6000}
             defaultAnchorOrigin={{vertical: 'top', horizontal: 'right'}}
         >
-            <Router>
-                <Routes>
-                    <Route path="/" element={<HomePage/>}/>
-                </Routes>
-            </Router>
-        </ToastProvider>
-    );
+            <BrowserRouter>
+                <HomePage/>
+            </BrowserRouter>
+        </ToastProvider>);
 }
 
 export default App;

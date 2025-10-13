@@ -118,26 +118,43 @@ export function renderSessionRaw(sessionData) {
     });
 
     let currentZone = null;
+    let subtotal = 0;
     for (const p of orderedProducts) {
         const z = getZoneName(p);
         if (z !== currentZone) {
             currentZone = z;
+            subtotal = 0;
             parts.push(newLine());
             parts.push(fontUnderline(1));
             parts.push(textPrintLine(z));
             parts.push(fontUnderline(0));
         }
         parts.push(textPrintLine(`${p.quantity} x ${p.name} - ${toEuros((p.total || 0) / 100)}`));
+        subtotal += (p.total || 0);
     }
+
+    parts.push(newLine());
+    parts.push(bold(1));
+    parts.push(textPrint(`Subtotal: `));
+    parts.push(textPrintLine(`${toEuros(subtotal / 100)}`));
+    parts.push(bold(0));
 
     if (Array.isArray(sessionData.discountedProducts) && sessionData.discountedProducts.length > 0) {
         parts.push(newLine());
         parts.push(fontUnderline(1));
         parts.push(textPrintLine('Produtos com Desconto:'));
         parts.push(fontUnderline(0));
+        let subtotalDiscounted = 0;
         for (const p of sessionData.discountedProducts) {
             parts.push(textPrintLine(`${p.quantity} x ${p.name} - ${toEuros((p.total || 0) / 100)} (${p.discount}% Desconto)`));
+            subtotalDiscounted += (p.total || 0);
         }
+
+        parts.push(newLine());
+        parts.push(bold(1));
+        parts.push(textPrint(`Subtotal com Desconto: `));
+        parts.push(textPrintLine(`${toEuros(subtotalDiscounted / 100)}`));
+        parts.push(bold(0));
     }
 
     parts.push(newLine());
@@ -170,11 +187,22 @@ export function renderSessionRaw(sessionData) {
     parts.push(textPrintLine(`${toEuros((sessionData.initialAmount || 0) / 100)}`));
     parts.push(bold(0));
 
-    const cashMoney = sessionData.payments.find(p => p.method === 'cash')?.amount || 0;
-    const moneyInCash = ((cashMoney + sessionData.initialAmount) / 100);
+    for (const m of sessionData.cashMovements) {
+        const date = new Date(m.createdAt).toLocaleString('pt-PT', {timeZone: 'Europe/Lisbon'});
+        parts.push(textPrint(`${date} - `));
+        parts.push(bold(1));
+        parts.push(textPrint(`${m.user?.name || 'n/a'} - `));
+        parts.push(bold(0));
+        const type = m.type === 'CASH_IN' ? 'Reforço' : (m.type === 'CASH_OUT' ? 'Sangria' : m.type);
+        parts.push(textPrint(`${type}: `));
+        parts.push(bold(1));
+        parts.push(textPrintLine(`${toEuros((m.amount || 0) / 100)}`));
+        parts.push(bold(0));
+    }
+
     parts.push(textPrint(`Fecho: `));
     parts.push(bold(1));
-    parts.push(textPrintLine(`${toEuros(moneyInCash)}`));
+    parts.push(textPrintLine(`${toEuros(sessionData.finalCashValue)}`));
     parts.push(bold(0));
     parts.push(newLine());
 
