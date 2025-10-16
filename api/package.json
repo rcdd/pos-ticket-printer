@@ -20,8 +20,8 @@
   },
   "scripts": {
     "start": "node --enable-source-maps server.js",
-    "dev": "nodemon --exec node --enable-source-maps server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "nodemon --watch . --ext js,mjs,cjs,json --exec node --enable-source-maps server.js",
+    "test": "node -e \"console.log('No automated tests yet.')\""
   },
   "devDependencies": {
     "express": "^4.21.2",
