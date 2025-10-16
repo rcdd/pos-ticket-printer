@@ -10,11 +10,10 @@ import Papa from "papaparse";
 import {useToast} from "../../components/Common/ToastProvider";
 import ProductService from "../../services/product.service";
 import ZoneService from "../../services/zone.service";
-
-const THEMES = ["default", "blue", "green", "orange", "red"];
+import {CardThemes} from "../../enums/CardThemes";
 
 export default function ImportExportPage() {
-    const {pushNetworkError} = useToast();
+    const {pushNetworkError, pushMessage} = useToast();
     const [rows, setRows] = useState([]);
     const [report, setReport] = useState(null);
     const [createZones, setCreateZones] = useState(true);
@@ -39,9 +38,8 @@ export default function ImportExportPage() {
                 type: "product",
                 id: p.id,
                 name: p.name,
-                price_eur: (p.price / 100).toFixed(2),
+                price: (p.price / 100).toFixed(2),
                 zone_name: p.zone?.name ?? "",
-                zone_id: p.zoneId ?? "",
                 theme: p.theme || "default",
                 position: p.position ?? ""
             }));
@@ -75,8 +73,8 @@ export default function ImportExportPage() {
     };
     const handleProductDownloadTemplate = () => {
         const sample = [
-            {type: "product", name: "Imperial", price_eur: "1.10", zone_name: "Bar", theme: "green", position: 10},
-            {type: "product", name: "Bifana", price_eur: "3.50", zone_name: "Cozinha", theme: "orange"},
+            {type: "product", name: "Imperial", price: "1.10", zone_name: "Bar", theme: "green", position: 10},
+            {type: "product", name: "Bifana", price: "3.50", zone_name: "Cozinha", theme: "orange"},
         ];
         download("template_import_products.csv", sample);
     };
@@ -98,9 +96,10 @@ export default function ImportExportPage() {
         });
     };
 
-    const validate = (rows, knownZonesByName, knownZonesById) => {
+    const validate = (rows, knownZonesByName, knownZonesById, existingProductsByKey) => {
         const issues = [];
         const normalized = [];
+        const seenProducts = new Map();
 
         for (let i = 0; i < rows.length; i++) {
             const raw = rows[i];
@@ -122,7 +121,7 @@ export default function ImportExportPage() {
             }
 
             // product
-            const name = raw.name || "";
+            const name = typeof raw.name === "string" ? raw.name.trim() : "";
             if (!name) {
                 issues.push({row: i + 1, level: "error", msg: "produto: 'name' obrigatório"});
                 continue;
@@ -136,48 +135,89 @@ export default function ImportExportPage() {
             }
 
             // price
-            const pstr = String(raw.price_eur || "").replace(",", ".");
+            const priceSource = raw.price ?? raw.price_eur ?? "";
+            const pstr = String(priceSource).replace(",", ".");
             const price = Number(pstr);
             if (!Number.isFinite(price) || price < 0) {
-                issues.push({row: i + 1, level: "error", msg: "produto: 'price_eur' inválido"});
+                issues.push({row: i + 1, level: "error", msg: "produto: 'price' inválido"});
                 continue;
             }
 
             // theme
             let theme = (raw.theme || "default").toLowerCase();
-            if (!THEMES.includes(theme)) {
+            if (!Object.keys(CardThemes).includes(theme)) {
                 issues.push({row: i + 1, level: "warning", msg: `theme desconhecido '${raw.theme}', a usar 'default'`});
                 theme = "default";
             }
 
             // zona
-            let zoneId = raw.zone_id ? parseInt(raw.zone_id, 10) : null;
-            let zoneName = raw.zone_name || null;
+            let zoneId = raw.zone_id ? parseInt(raw.zone_id, 10) : null; // legacy support
+            let zoneName = typeof raw.zone_name === "string" ? raw.zone_name.trim() : null;
+            let zoneRecord = null;
 
-            if (zoneId && !knownZonesById.has(zoneId)) {
-                issues.push({row: i + 1, level: "error", msg: `zone_id ${zoneId} não existe`});
-                continue;
+            if (zoneId && knownZonesById.has(zoneId)) {
+                zoneRecord = knownZonesById.get(zoneId);
+                zoneName = zoneRecord?.name ?? zoneName;
             }
-            if (!zoneId && zoneName) {
-                if (!knownZonesByName.has(zoneName) && !createZones) {
-                    issues.push({
-                        row: i + 1,
-                        level: "error",
-                        msg: `zone_name '${zoneName}' não existe (desliga o erro ativando 'Criar zonas')`
-                    });
-                    continue;
+
+            if (!zoneRecord && zoneName) {
+                const lookup = knownZonesByName.get(zoneName.toLowerCase());
+                if (lookup) {
+                    zoneRecord = lookup;
+                    zoneId = lookup.id;
+                    zoneName = lookup.name;
                 }
             }
 
+            if (zoneId && !zoneRecord) {
+                issues.push({row: i + 1, level: "error", msg: `zone_id ${zoneId} não existe`});
+                continue;
+            }
+
+            if (!zoneRecord && zoneName && !createZones) {
+                issues.push({
+                    row: i + 1,
+                    level: "error",
+                    msg: `zone_name '${zoneName}' não existe (desliga o erro ativando 'Criar zonas')`
+                });
+                continue;
+            }
+
+            const resolvedZoneName = zoneRecord?.name || zoneName || "";
+            const zoneKey = resolvedZoneName.trim().toLowerCase() || "__nozone__";
+
             const position = raw.position ? parseInt(raw.position, 10) : null;
+            const productKey = `${zoneKey}::${name.toLowerCase()}`;
+
+            const existingProduct = existingProductsByKey.get(productKey) || null;
+            if (existingProduct) {
+                issues.push({
+                    row: i + 1,
+                    level: "warning",
+                    msg: `produto '${name}' na zona '${resolvedZoneName || 'Sem Zona'}' já existe e será atualizado.`
+                });
+            }
+
+            if (seenProducts.has(productKey)) {
+                issues.push({
+                    row: i + 1,
+                    level: "warning",
+                    msg: "produto duplicado no ficheiro; a última entrada prevalece."
+                });
+            }
+            seenProducts.set(productKey, i + 1);
+
             normalized.push({
                 kind: "product",
                 id: raw.id || null,
                 name,
                 price_cents: Math.round(price * 100),
                 theme,
-                zoneId, zoneName,
-                position
+                zoneId: zoneRecord?.id ?? zoneId ?? null,
+                zoneName: resolvedZoneName,
+                position,
+                zoneKey,
+                existingProductId: existingProduct?.id ?? null
             });
         }
         return {normalized, issues};
@@ -187,23 +227,70 @@ export default function ImportExportPage() {
         setReport(null);
         try {
             const {data: zones} = await ZoneService.getAll();
-            const byName = new Map((zones || []).map(z => [z.name, z]));
-            const byId = new Map((zones || []).map(z => [z.id, z]));
+            const byName = new Map();
+            const byId = new Map();
+            (zones || []).forEach((z) => {
+                const key = typeof z.name === "string" ? z.name.trim().toLowerCase() : "";
+                if (key) {
+                    byName.set(key, z);
+                }
+                if (z.id != null) {
+                    byId.set(z.id, z);
+                }
+            });
 
-            const {normalized, issues} = validate(rows, byName, byId);
+            const {data: products} = await ProductService.getAll();
+            const productsByKey = new Map();
+            const productIdToKey = new Map();
+            (products || []).forEach((p) => {
+                const zoneNameLower = (p.zone?.name || "").trim().toLowerCase() || "__nozone__";
+                const nameLower = typeof p.name === "string" ? p.name.trim().toLowerCase() : "";
+                if (!nameLower) return;
+                const key = `${zoneNameLower}::${nameLower}`;
+                productsByKey.set(key, p);
+                if (p.id != null) {
+                    productIdToKey.set(p.id, key);
+                }
+            });
+
+            const {normalized, issues} = validate(rows, byName, byId, productsByKey);
             const hasErrors = issues.some(i => i.level === "error");
-            setReport({issues});
+            const success = !hasErrors;
+            setReport({issues, success});
 
-            if (dryRun || hasErrors) return;
+            if (dryRun) {
+                if (success) {
+                    pushMessage("success", "Validação concluída sem erros.");
+                }
+                return;
+            }
+
+            if (hasErrors) return;
 
             if (createZones) {
-                const newZones = [...new Set(
-                    normalized.filter(n => n.kind === "product" && !n.zoneId && n.zoneName && !byName.has(n.zoneName))
-                        .map(n => n.zoneName)
-                )];
-                for (const name of newZones) {
-                    const res = await ZoneService.create({name});
-                    byName.set(res.data.name, res.data);
+                const newZonesNeeded = new Map();
+                normalized
+                    .filter(n => n.kind === "product" && !n.zoneId && n.zoneName)
+                    .forEach(n => {
+                        const key = n.zoneName.trim().toLowerCase();
+                        if (!key) return;
+                        if (!byName.has(key) && !newZonesNeeded.has(key)) {
+                            newZonesNeeded.set(key, n.zoneName.trim());
+                        }
+                    });
+
+                for (const [key, originalName] of newZonesNeeded) {
+                    const res = await ZoneService.create({name: originalName});
+                    const zone = res.data || res;
+                    if (zone) {
+                        const zoneKey = typeof zone.name === "string" ? zone.name.trim().toLowerCase() : key;
+                        if (zoneKey) {
+                            byName.set(zoneKey, zone);
+                        }
+                        if (zone.id != null) {
+                            byId.set(zone.id, zone);
+                        }
+                    }
                 }
             }
 
@@ -216,13 +303,53 @@ export default function ImportExportPage() {
             }
 
             for (const p of normalized.filter(n => n.kind === "product")) {
-                const zId = p.zoneId ?? byName.get(p.zoneName || "")?.id ?? null;
-                const payload = {name: p.name, price: p.price_cents, zoneId: zId, theme: p.theme, position: p.position};
-                if (p.id) await ProductService.update({id: p.id, ...payload});
-                else await ProductService.create(payload);
+                let zoneIdResolved = p.zoneId;
+                if (!zoneIdResolved && p.zoneName) {
+                    const lookup = byName.get(p.zoneName.trim().toLowerCase());
+                    zoneIdResolved = lookup?.id ?? null;
+                }
+                const zoneRecord = zoneIdResolved ? byId.get(zoneIdResolved) : null;
+                const zoneKey = (zoneRecord?.name || p.zoneName || "").trim().toLowerCase() || "__nozone__";
+                const productNameLower = p.name.trim().toLowerCase();
+
+                const payload = {
+                    name: p.name,
+                    price: p.price_cents,
+                    zoneId: zoneIdResolved,
+                    theme: p.theme,
+                    position: p.position
+                };
+
+                const existingId = p.id || p.existingProductId;
+                if (existingId) {
+                    const previousKey = productIdToKey.get(existingId);
+                    await ProductService.update({id: existingId, ...payload});
+                    if (previousKey && previousKey !== `${zoneKey}::${productNameLower}`) {
+                        productsByKey.delete(previousKey);
+                    }
+                    productsByKey.set(`${zoneKey}::${productNameLower}`, {
+                        id: existingId,
+                        zoneId: zoneIdResolved,
+                        name: p.name
+                    });
+                    productIdToKey.set(existingId, `${zoneKey}::${productNameLower}`);
+                } else {
+                    const res = await ProductService.create(payload);
+                    const created = res?.data || res;
+                    const newId = created?.id;
+                    if (newId) {
+                        productsByKey.set(`${zoneKey}::${productNameLower}`, {
+                            id: newId,
+                            zoneId: zoneIdResolved,
+                            name: p.name
+                        });
+                        productIdToKey.set(newId, `${zoneKey}::${productNameLower}`);
+                    }
+                }
             }
 
-            setReport(r => ({...(r || {}), done: true}));
+            setReport(r => ({...(r || {}), done: true, success: true}));
+            pushMessage("success", "Importação concluída com sucesso.");
         } catch (e) {
             pushNetworkError(e, {title: "Falha no import"});
         }
@@ -295,6 +422,9 @@ export default function ImportExportPage() {
                                     </Alert>
                                 ))}
                             </Stack>
+                        )}
+                        {report?.success && !report?.done && (
+                            <Alert severity="success">Validação concluída sem erros críticos.</Alert>
                         )}
                         {report?.done && <Alert severity="success">Importação concluída com sucesso.</Alert>}
 
