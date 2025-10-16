@@ -4,9 +4,6 @@ const Option = db.options;
 
 import {listPrinters, printTicketRequest, printSessionRequest} from '../../../services/printing/printService.js';
 
-let PRINTER_NAME = 'undefined';
-let HEADERS = {firstLine: 'Undefined', secondLine: 'Undefined'};
-
 export const getPrintName = async () => {
     const opt = await Option.findOne({where: {name: 'printer'}});
     if (!opt || !opt.value) throw new Error('Printer not found !!');
@@ -33,8 +30,8 @@ export const getPrinterList = async (req, res) => {
 
 export const printTicket = async (req, res) => {
     try {
-        PRINTER_NAME = req.body.printer;
-        HEADERS = req.body.headers;
+        let printerName = req.body.printer;
+        const headers = req.body.headers;
 
         const items = req.body.items || [];
         const totalAmount = req.body.totalAmount ?? '0';
@@ -42,19 +39,19 @@ export const printTicket = async (req, res) => {
         const openDrawer = req.body.openDrawer || false;
         const isTest = req.body.test || false;
 
-        if (!PRINTER_NAME || PRINTER_NAME === 'undefined') {
+        if (!printerName || printerName === 'undefined') {
             try {
-                PRINTER_NAME = await getPrintName();
+                printerName = await getPrintName();
             } catch {
             }
         }
-        if (!PRINTER_NAME) {
+        if (!printerName) {
             return res.status(404).send('Printer not defined');
         }
 
         await printTicketRequest({
-            printerName: PRINTER_NAME,
-            headers: HEADERS,
+            printerName,
+            headers,
             items,
             totalAmount,
             printType,
@@ -71,16 +68,16 @@ export const printTicket = async (req, res) => {
 
 export const printSessionSummary = async (req, res) => {
     try {
-        PRINTER_NAME = req.body.printer;
-        HEADERS = req.body.headers;
+        let printerName = req.body.printer;
+        const headers = req.body.headers;
 
-        if (!PRINTER_NAME || PRINTER_NAME === 'undefined') {
+        if (!printerName || printerName === 'undefined') {
             try {
-                PRINTER_NAME = await getPrintName();
+                printerName = await getPrintName();
             } catch {
             }
         }
-        if (!PRINTER_NAME) {
+        if (!printerName) {
             return res.status(404).send('Printer not defined');
         }
 
@@ -88,8 +85,8 @@ export const printSessionSummary = async (req, res) => {
         delete req.body.headers;
 
         await printSessionRequest({
-            printerName: PRINTER_NAME,
-            headers: HEADERS,
+            printerName,
+            headers,
             sessionData: req.body
         });
         res.send('OK');

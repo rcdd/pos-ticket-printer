@@ -10,7 +10,6 @@ import * as zones from "./db/controllers/zones.controller.js";
 import * as users from "./db/controllers/users.controller.js";
 import * as sessions from "./db/controllers/sessions.controller.js";
 import * as cashMovements from "./db/controllers/cashMovement.controller.js";
-import bcrypt from "bcrypt";
 import cors from "cors";
 import db from "./db/index.js";
 
@@ -24,25 +23,28 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({extended: true}));
 
-db.sequelize.sync({alter: true}).then(async () => {
-    const admin = await db.users.findOne({where: {role: 'admin', isDeleted: 0}});
-    if (!admin) {
-        const hashedPass = await bcrypt.hash('admin123', 10);
-        await db.users.create({
-            name: 'Admin',
-            username: 'admin',
-            password: hashedPass,
-            role: 'admin'
-        });
-        console.log("Default admin user created: username 'admin', password 'admin123'");
+const PORT = process.env.NODE_DOCKER_PORT || 9393;
+
+async function startServer() {
+    try {
+        await db.sequelize.authenticate();
+        console.log('Database connection established.');
+
+        if (process.env.DB_SYNC_ON_BOOT === 'true') {
+            await db.sequelize.sync();
+            console.log('Database synchronized (DB_SYNC_ON_BOOT=true).');
+        }
+    } catch (err) {
+        console.error('Unable to connect to the database:', err);
+        process.exit(1);
     }
 
     app.listen(PORT, () => {
         console.log(`Server is running on port ${PORT}.`);
     });
-});
+}
 
-const PORT = process.env.NODE_DOCKER_PORT || 9393;
+startServer();
 
 // Health check
 app.get("/health", (req, res) => {

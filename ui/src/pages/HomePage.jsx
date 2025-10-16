@@ -47,6 +47,10 @@ import Tooltip from '@mui/material/Tooltip';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
+import UsersPage from "./Admin/UsersPage";
+import UserService from "../services/user.service";
+import InitialUserSetup from "../components/Admin/InitialUserSetup";
 
 const drawerWidth = 240;
 
@@ -94,15 +98,37 @@ function HomePage() {
     const [/*userMenuAnchor*/, setUserMenuAnchor] = React.useState(null);
     const closeUserMenu = () => setUserMenuAnchor(null);
 
+    const [checkingUsers, setCheckingUsers] = React.useState(true);
+    const [requireUserSetup, setRequireUserSetup] = React.useState(false);
+
+    const checkExistingUsers = React.useCallback(async () => {
+        setCheckingUsers(true);
+        try {
+            const data = await UserService.getAll();
+            const list = Array.isArray(data) ? data : [];
+            setRequireUserSetup(list.length === 0);
+        } catch (error) {
+            console.error("Erro ao verificar utilizadores existentes:", error);
+            setRequireUserSetup(false);
+        } finally {
+            setCheckingUsers(false);
+        }
+    }, []);
+
+    React.useEffect(() => {
+        checkExistingUsers();
+    }, [checkExistingUsers]);
+
     const items = React.useMemo(() => ([
         {icon: <HomeIcon/>, name: "POS", path: "/pos", visible: true},
         {icon: <CategoryIcon/>, name: "Produtos", path: "/products", visible: true},
-        {icon: <AssessmentIcon/>, name: "Relatórios", path: "/reports", visible: true},
+        {icon: <AssessmentIcon/>, name: "Relatórios", path: "/reports", visible: adminMode},
         {icon: <ImportExportIcon/>, name: "Importar/Exportar", path: "/migration", visible: true},
         {icon: <PointOfSaleIcon/>, name: "Tesouraria", path: "/session", visible: session !== null},
-        {icon: <SettingsIcon/>, name: "Configurações", path: "/setup", visible: true},
+        {icon: <PeopleAltIcon/>, name: "Utilizadores", path: "/users", visible: adminMode},
+        {icon: <SettingsIcon/>, name: "Configurações", path: "/setup", visible: adminMode},
         {icon: <InfoIcon/>, name: "Sobre", path: "/about", visible: true},
-    ]), [session]);
+    ]), [session, adminMode]);
 
     const handleNav = (path) => {
         navigate(path);
@@ -243,7 +269,11 @@ function HomePage() {
                     <Box sx={{flexGrow: 1}}/>
 
                     {!login ? (
-                        <IconButton color="inherit" onClick={() => setLoginModal(true)}>
+                        <IconButton color="inherit" onClick={() => {
+                            if (!requireUserSetup) {
+                                setLoginModal(true);
+                            }
+                        }}>
                             <Typography variant="h6" noWrap component="div"
                                         sx={{display: 'flex', alignItems: 'center', gap: 0.5}}>
                                 <LoginIcon fontSize="inherit"/> Login
@@ -346,6 +376,7 @@ function HomePage() {
                     <Route path="/reports" element={<ReportsPage/>}/>
                     <Route path="/about" element={<AboutPage/>}/>
                     <Route path="/migration" element={<ImportExportPage/>}/>
+                    <Route path="/users" element={<UsersPage/>}/>
                     <Route path="/session" element={<SessionPage session={session} setSession={setSession}
                                                                  onCloseSession={() => handleNav('/pos')}/>}/>
                     {/* rota fallback */}
@@ -354,6 +385,14 @@ function HomePage() {
             </Main>
 
             <LoginModal open={loginModal} close={(state) => setLoginModal(state)} setLogin={handleLogin}/>
+
+            <InitialUserSetup
+                open={!checkingUsers && requireUserSetup}
+                onCompleted={async () => {
+                    await checkExistingUsers();
+                    setLoginModal(true);
+                }}
+            />
 
             <Dialog
                 open={openCloseModal}

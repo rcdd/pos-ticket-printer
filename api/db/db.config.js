@@ -1,9 +1,23 @@
+const requiredVars = ["DB_HOST", "DB_USER", "DB_PASSWORD", "DB_NAME", "DB_PORT"];
+const missing = requiredVars.filter((name) => !process.env[name]);
+
+if (missing.length > 0) {
+  throw new Error(
+    `Missing database environment variables: ${missing.join(", ")}`
+  );
+}
+
+const port = Number(process.env.DB_PORT);
+if (!Number.isInteger(port) || port <= 0) {
+  throw new Error("DB_PORT must be a positive integer.");
+}
+
 export default {
-  HOST: process.env.DB_HOST || "localhost",
-  USER: process.env.DB_USER || "root",
-  PASSWORD: process.env.DB_PASSWORD || "123456",
-  DB: process.env.DB_NAME || "ptp_db",
-  port: process.env.DB_PORT || 3307,
+  HOST: process.env.DB_HOST,
+  USER: process.env.DB_USER,
+  PASSWORD: process.env.DB_PASSWORD,
+  DB: process.env.DB_NAME,
+  port,
   dialect: "mysql",
   pool: {
     max: 5,

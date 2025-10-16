@@ -17,7 +17,6 @@ export default (sequelize, Sequelize) => {
         username: {
             type: Sequelize.STRING,
             allowNull: false,
-            unique: 'uniq_users_username',
         },
         password: {
             type: Sequelize.STRING

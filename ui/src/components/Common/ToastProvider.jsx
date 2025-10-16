@@ -46,12 +46,12 @@ export function ToastProvider({
 
     // Convenience helpers
     const pushError = useCallback(
-        (error, opts = {}) => push({type: "error", error: error, ...opts}),
+        (error, opts = {}) => push({type: "error", title: "Erro", error: error, ...opts}),
         [push]
     );
 
     const pushMessage = useCallback(
-        (type, message, opts = {}) => push({type: type, error: message, ...opts}),
+        (type, message, opts = {}) => push({type: type, title: "Sucesso", error: message, ...opts}),
         [push]
     );
 

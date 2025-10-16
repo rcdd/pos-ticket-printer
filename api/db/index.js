@@ -8,7 +8,7 @@ import invoiceModel from "./models/invoice.model.js";
 import menuModel from "./models/menu.model.js";
 import menuProductsModel from "./models/menuProducts.model.js";
 import zoneModel from "./models/zone.model.js";
-import userModel from "./models/user.model.js";
+import userModel, {UserRoles} from "./models/user.model.js";
 import sessionModel from "./models/session.model.js";
 import cashMovement from "./models/cashMovement.model.js";
 
@@ -40,6 +40,7 @@ db.zones = zoneModel(sequelize, Sequelize);
 db.users = userModel(sequelize, Sequelize);
 db.sessions = sessionModel(sequelize, Sequelize);
 db.cashMovements = cashMovement(sequelize, Sequelize);
+db.UserRoles = UserRoles;
 
 // relations
 db.invoices.hasMany(db.records, { foreignKey: 'invoiceId' });

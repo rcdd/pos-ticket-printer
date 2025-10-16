@@ -1,52 +1,79 @@
 import db from "../index.js";
 import bcrypt from 'bcrypt';
-const Users = db.users;
+import {Op} from "sequelize";
 
-// Create and Save a new User
+const Users = db.users;
+const {UserRoles} = db;
+
+const USERNAME_CONFLICT_MESSAGE = "Esse nome de utilizador já existe. Escolha outro.";
+
+const toPublicUser = (userInstance) => {
+    if (!userInstance) return null;
+    const json = userInstance.toJSON();
+    delete json.password;
+    delete json.isDeleted;
+    return json;
+};
+
 export const create = async (req, res) => {
-    // Validate request
-    if (!req.body.username) {
+    const username = String(req.body.username || '').trim();
+    const rawPassword = String(req.body.password || '');
+    const name = typeof req.body.name === 'string' && req.body.name.trim() !== ''
+        ? req.body.name.trim()
+        : null;
+    const role = req.body.role ? String(req.body.role) : UserRoles.WAITER;
+
+    if (!username) {
         res.status(400).send({
             message: "Username cannot be empty!"
         });
         return;
     }
-    if (!req.body.password) {
+    if (!rawPassword.trim()) {
         res.status(400).send({
             message: "Password cannot be empty!"
         });
         return;
     }
 
-    if (req.body.role
-        && !Object.values(db.UserRoles).includes(req.body.role)) {
+    if (role && !Object.values(UserRoles).includes(role)) {
         res.status(400).send({
-            message: "Invalid role! Valid roles are: " + Object.values(db.UserRoles).join(', ') + "."
+            message: "Invalid role! Valid roles are: " + Object.values(UserRoles).join(', ') + "."
         });
         return;
     }
 
-    // Create User
-    const hashedPassword = await bcrypt.hash(req.body.password, 10);
-    const user = {
-        name: req.body.name ? req.body.name : null,
-        username: req.body.username,
-        password: hashedPassword,
-        role: req.body.role ? req.body.role : db.UserRoles.WAITER,
-        isDeleted: false
-    };
-
-    // Save User in the database
-    Users.create(user)
-        .then(data => {
-            res.send(data);
-        })
-        .catch(err => {
-            res.status(500).send({
-                message:
-                    err.message || "Some error occurred while creating the User."
-            });
+    try {
+        const existingActive = await Users.findOne({
+            where: {username, isDeleted: false}
         });
+        if (existingActive) {
+            res.status(409).send({message: USERNAME_CONFLICT_MESSAGE});
+            return;
+        }
+
+        const hashedPassword = await bcrypt.hash(rawPassword, 10);
+        const payload = {
+            name,
+            username,
+            password: hashedPassword,
+            role,
+            isDeleted: false
+        };
+
+        const created = await Users.create(payload);
+        res.status(201).send(toPublicUser(created));
+    } catch (err) {
+        console.error("[users.create] error:", err);
+        if (err?.name === 'SequelizeUniqueConstraintError') {
+            res.status(409).send({message: USERNAME_CONFLICT_MESSAGE});
+            return;
+        }
+        res.status(500).send({
+            message:
+                err?.message || "Some error occurred while creating the User."
+        });
+    }
 };
 
 // Retrieve all Users from the database.
@@ -88,48 +115,87 @@ export const findOne = (req, res) => {
 };
 
 // Update User by ID
-export const update = (req, res) => {
+export const update = async (req, res) => {
     const id = req.body.id;
+    if (!id) {
+        res.status(400).send({message: "User id is required."});
+        return;
+    }
 
-    const updateData = {
-        name: req.body.name,
-        username: req.body.username,
-        role: req.body.role
-    };
+    const updateData = {};
 
-    if (req.body.role
-        && !Object.values(db.UserRoles).includes(req.body.role)) {
+    if (req.body.name !== undefined) {
+        updateData.name = typeof req.body.name === 'string' && req.body.name.trim() !== ''
+            ? req.body.name.trim()
+            : null;
+    }
+
+    if (req.body.username !== undefined) {
+        const username = String(req.body.username || '').trim();
+        if (!username) {
+            res.status(400).send({message: "Username cannot be empty!"});
+            return;
+        }
+        updateData.username = username;
+    }
+
+    if (req.body.role !== undefined) {
+        updateData.role = req.body.role;
+    }
+
+    if (updateData.role
+        && !Object.values(UserRoles).includes(updateData.role)) {
         res.status(400).send({
-            message: "Invalid role! Valid roles are: " + Object.values(db.UserRoles).join(', ') + "."
+            message: "Invalid role! Valid roles are: " + Object.values(UserRoles).join(', ') + "."
         });
         return;
     }
 
-    // Only update password if provided
-    if (req.body.password && req.body.password.trim() !== '') {
-        updateData.password = req.body.password;
-    }
-
-    Users.update(updateData, {
-        where: {id: id}
-    })
-        .then(num => {
-            if (num[0] === 1) {
-                res.send({
-                    message: "User was updated successfully."
-                });
-            } else {
-                res.send({
-                    message: `Cannot update User with id=${id}.`
-                });
-            }
-        })
-        .catch(err => {
-            res.status(500).send({
-                message: "Error updating User with id=" + id,
-                error: err.message || err
+    try {
+        if (updateData.username) {
+            const conflict = await Users.findOne({
+                where: {
+                    username: updateData.username,
+                    isDeleted: false,
+                    id: { [Op.ne]: id }
+                }
             });
+            if (conflict) {
+                res.status(409).send({message: USERNAME_CONFLICT_MESSAGE});
+                return;
+            }
+        }
+
+        if (req.body.password && req.body.password.trim() !== '') {
+            updateData.password = await bcrypt.hash(req.body.password, 10);
+        }
+
+        const [affected] = await Users.update(updateData, {
+            where: {id: id}
         });
+
+        if (affected === 1) {
+            const fresh = await Users.findByPk(id);
+            res.send({
+                message: "User was updated successfully.",
+                user: toPublicUser(fresh)
+            });
+        } else {
+            res.status(404).send({
+                message: `User with id=${id} not found.`
+            });
+        }
+    } catch (err) {
+        console.error("[users.update] error:", err);
+        if (err?.name === 'SequelizeUniqueConstraintError') {
+            res.status(409).send({message: USERNAME_CONFLICT_MESSAGE});
+            return;
+        }
+        res.status(500).send({
+            message: "Error updating User with id=" + id,
+            error: err.message || err
+        });
+    }
 }
 
 export const updatePassword = async (req, res) => {
