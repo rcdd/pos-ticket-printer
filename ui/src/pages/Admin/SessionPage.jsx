@@ -58,7 +58,7 @@ export default function SessionPage({ session, setSession, onCloseSession }) {
             setUsers([]);
             return [];
         }
-    }, [session?.id]);
+    }, []);
 
     const fetchCashMovements = useCallback(async () => {
         if (!session?.id) return [];
