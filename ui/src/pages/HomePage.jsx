@@ -49,8 +49,10 @@ import MenuItem from '@mui/material/MenuItem';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
 import UsersPage from "./Admin/UsersPage";
-import UserService from "../services/user.service";
 import InitialUserSetup from "../components/Admin/InitialUserSetup";
+import AuthService from "../services/auth.service";
+import UserService from "../services/user.service";
+import OptionService from "../services/option.service";
 
 const drawerWidth = 240;
 
@@ -101,14 +103,13 @@ function HomePage() {
     const [checkingUsers, setCheckingUsers] = React.useState(true);
     const [requireUserSetup, setRequireUserSetup] = React.useState(false);
 
-    const checkExistingUsers = React.useCallback(async () => {
+    const checkOnboardingStatus = React.useCallback(async () => {
         setCheckingUsers(true);
         try {
-            const data = await UserService.getAll();
-            const list = Array.isArray(data) ? data : [];
-            setRequireUserSetup(list.length === 0);
+            const {data} = await OptionService.getOnboardingStatus();
+            setRequireUserSetup(!(data?.completed));
         } catch (error) {
-            console.error("Erro ao verificar utilizadores existentes:", error);
+            console.error("Erro ao verificar estado de onboarding:", error?.response || error);
             setRequireUserSetup(false);
         } finally {
             setCheckingUsers(false);
@@ -116,8 +117,8 @@ function HomePage() {
     }, []);
 
     React.useEffect(() => {
-        checkExistingUsers();
-    }, [checkExistingUsers]);
+        checkOnboardingStatus();
+    }, [checkOnboardingStatus]);
 
     const items = React.useMemo(() => ([
         {icon: <HomeIcon/>, name: "POS", path: "/pos", visible: true},
@@ -133,14 +134,6 @@ function HomePage() {
     const handleNav = (path) => {
         navigate(path);
         setOpen(false);
-        if (login) {
-            const userRaw = localStorage.getItem("user");
-            if (userRaw) {
-                const userData = JSON.parse(userRaw);
-                userData.loginExpires = Date.now() + 60 * 60 * 1000; // 1 hora
-                localStorage.setItem("user", JSON.stringify(userData));
-            }
-        }
     };
 
     const doCloseWindow = () => {
@@ -149,54 +142,55 @@ function HomePage() {
         window.close();
     };
 
-    const handleLogin = (value) => {
+    const handleLogin = React.useCallback(async (value, userInfo = null) => {
         setLogin(value);
 
         if (value) {
             try {
-                const raw = localStorage.getItem("user");
-                const u = raw ? JSON.parse(raw) : null;
-                const role = (u?.role || u?.roles || '').toString().toLowerCase();
+                let resolvedUser = userInfo;
+                if (!resolvedUser) {
+                    const {data} = await UserService.getCurrent();
+                    resolvedUser = data;
+                }
+                const role = (resolvedUser?.role || '').toString().toLowerCase();
                 setAdminMode(role.includes('admin'));
-            } catch (_) {
+            } catch (error) {
+                console.error("Falha ao obter utilizador atual:", error?.response?.data || error);
                 setAdminMode(false);
             }
             setOpen(true);
         } else {
             setAdminMode(false);
         }
-    };
+    }, []);
 
     const handleLogout = () => {
         setLogin(false);
         setAdminMode(false);
         setOpen(false);
         setLoginModal(false);
-        localStorage.removeItem("login");
-        const userRaw = localStorage.getItem("user");
-        if (userRaw) localStorage.removeItem("user");
+        AuthService.clearSession();
         closeUserMenu();
         navigate('/pos');
     };
 
     React.useEffect(() => {
-        const userRaw = localStorage.getItem("user");
-        if (userRaw) {
-            const userData = JSON.parse(userRaw);
-            const loginExpire = Number(userData?.loginExpires || 0);
-            const now = Date.now();
-            const isValid = now < loginExpire;
-
-            if (isValid) {
-                setLogin(true);
-                userData.loginExpires = now + 60 * 60 * 1000; // 1 hora
-                localStorage.setItem("user", JSON.stringify(userData));
-                const role = (userData.role || '').toString().toLowerCase();
-                setAdminMode(role.includes('admin'));
-            } else {
-                localStorage.removeItem("user");
-                navigate('/pos', {replace: true});
-            }
+        if (AuthService.isAuthenticated()) {
+            (async () => {
+                try {
+                    const {data} = await UserService.getCurrent();
+                    setLogin(true);
+                    const role = (data?.role || '').toString().toLowerCase();
+                    setAdminMode(role.includes('admin'));
+                } catch (error) {
+                    console.error("Falha ao validar sessão:", error?.response?.data || error);
+                    AuthService.clearSession();
+                    setLogin(false);
+                    setAdminMode(false);
+                }
+            })();
+        } else {
+            AuthService.clearSession();
         }
 
         SessionService.getActiveSession()
@@ -283,7 +277,7 @@ function HomePage() {
                         <IconButton color="inherit" onClick={handleLogout}>
                             <Typography variant="h6" noWrap component="div"
                                         sx={{display: 'flex', alignItems: 'center', gap: 0.5}}>
-                                <LogoutIcon fontSize="inherit"/> Logout
+                                <LogoutIcon fontSize="inherit"/> Terminar Sessão
                             </Typography>
                         </IconButton>
                     )}
@@ -358,7 +352,7 @@ function HomePage() {
                         <ListItem disablePadding onClick={handleLogout}>
                             <ListItemButton>
                                 <ListItemIcon><LogoutIcon/></ListItemIcon>
-                                <ListItemText primary={"Logout"}/>
+                                <ListItemText primary={"Terminar Sessão"}/>
                             </ListItemButton>
                         </ListItem>
                     </List>
@@ -389,7 +383,7 @@ function HomePage() {
             <InitialUserSetup
                 open={!checkingUsers && requireUserSetup}
                 onCompleted={async () => {
-                    await checkExistingUsers();
+                    await checkOnboardingStatus();
                     setLoginModal(true);
                 }}
             />

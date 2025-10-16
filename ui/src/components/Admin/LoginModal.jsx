@@ -5,6 +5,7 @@ import {
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import UserService from "../../services/user.service";
+import AuthService from "../../services/auth.service";
 import TextFieldKeyboard from "../Common/TextFieldKeyboard";
 
 export default function LoginModal({open, close, setLogin}) {
@@ -19,20 +20,22 @@ export default function LoginModal({open, close, setLogin}) {
         setPassword("")
     }, [open]);
 
-    const handleCloseModal = (login = false) => {
+    const handleCloseModal = async (login = false) => {
         if (login) {
-            UserService.login(username, password)
-                .then((response) => {
-                    response.data.loginExpires = Date.now() + 60 * 60 * 1000; // 1 hour
-                    localStorage.setItem("user", JSON.stringify(response.data));
-                    setErrorText("");
-                    setOpenModal(false);
-                    close(true);
-                    setLogin(true);
-                })
-                .catch(() => {
-                    setErrorText("Utilizador ou password incorreta.");
+            try {
+                const { data } = await UserService.login(username, password);
+                AuthService.setSession({
+                    token: data?.token || null,
+                    expiresAt: data?.expiresAt || null,
                 });
+                setErrorText("");
+                setOpenModal(false);
+                close(true);
+                setLogin(true, data?.user || null);
+            } catch (err) {
+                console.error("Login falhou:", err?.response?.data || err);
+                setErrorText("Utilizador ou password incorreta.");
+            }
         } else {
             close(false);
         }

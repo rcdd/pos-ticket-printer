@@ -15,7 +15,8 @@
     "mysql": "^2.18.1",
     "mysql2": "^3.9.8",
     "pino-http": "^10.5.0",
-    "sequelize": "^6.37.7"
+    "sequelize": "^6.37.7",
+    "jsonwebtoken": "^9.0.2"
   },
   "scripts": {
     "start": "node --enable-source-maps server.js",

@@ -1,11 +1,14 @@
 import db from "../index.js";
 import bcrypt from 'bcrypt';
 import {Op} from "sequelize";
+import jwt from "jsonwebtoken";
+import {readOnboardingStatus, setOnboardingStatus} from "./options.controller.js";
 
 const Users = db.users;
 const {UserRoles} = db;
 
 const USERNAME_CONFLICT_MESSAGE = "Esse nome de utilizador já existe. Escolha outro.";
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "12h";
 
 const toPublicUser = (userInstance) => {
     if (!userInstance) return null;
@@ -13,6 +16,23 @@ const toPublicUser = (userInstance) => {
     delete json.password;
     delete json.isDeleted;
     return json;
+};
+
+const createTokenForUser = (user) => {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+        throw new Error("JWT secret not configured (JWT_SECRET)");
+    }
+    const payload = {
+        id: user.id,
+        role: user.role,
+    };
+    const token = jwt.sign(payload, secret, {expiresIn: JWT_EXPIRES_IN});
+    const decoded = jwt.decode(token);
+    return {
+        token,
+        expiresAt: decoded?.exp ? decoded.exp * 1000 : null,
+    };
 };
 
 export const create = async (req, res) => {
@@ -44,6 +64,19 @@ export const create = async (req, res) => {
     }
 
     try {
+        const onboardingCompleted = await readOnboardingStatus();
+        const isAuthenticated = Boolean(req.user?.id);
+
+        if (onboardingCompleted && !isAuthenticated) {
+            res.status(401).send({message: "Autenticação necessária para criar utilizadores."});
+            return;
+        }
+
+        if (!onboardingCompleted && role !== UserRoles.ADMIN) {
+            res.status(400).send({message: "O primeiro utilizador deve ter perfil de administrador."});
+            return;
+        }
+
         const existingActive = await Users.findOne({
             where: {username, isDeleted: false}
         });
@@ -62,6 +95,9 @@ export const create = async (req, res) => {
         };
 
         const created = await Users.create(payload);
+        if (!onboardingCompleted) {
+            await setOnboardingStatus(true);
+        }
         res.status(201).send(toPublicUser(created));
     } catch (err) {
         console.error("[users.create] error:", err);
@@ -259,39 +295,66 @@ export const softDelete = (req, res) => {
 
 // Login user
 export const login = async (req, res) => {
-    const username = req.body.username;
-    const _password = req.body.password;
+    const username = String(req.body.username || '').trim();
+    const rawPassword = String(req.body.password || '');
 
-    if (!username || !_password) {
+    if (!username || !rawPassword) {
         res.status(400).send({
             message: "Username and password are required!"
         });
         return;
     }
 
-    Users.findOne({
-        where: {username: username, isDeleted: false}
-    })
-        .then(async user => {
-            if (!user) {
-                return res.status(404).send({
-                    message: "User not found!"
-                });
-            }
-
-            const match = await bcrypt.compare(req.body.password, user.password);
-            if (!match) {
-                return res.status(401).send({message: "Invalid password!"});
-            }
-
-            // Exclude password from the response
-            const {password, ...userWithoutPassword} = user.toJSON();
-
-            res.send(userWithoutPassword);
-        })
-        .catch(() => {
-            res.status(500).send({
-                message: "Error logging in user"
-            });
+    try {
+        const user = await Users.findOne({
+            where: {username: username, isDeleted: false}
         });
+
+        if (!user) {
+            return res.status(404).send({
+                message: "User not found!"
+            });
+        }
+
+        const match = await bcrypt.compare(rawPassword, user.password);
+        if (!match) {
+            return res.status(401).send({message: "Invalid password!"});
+        }
+
+        const publicUser = toPublicUser(user);
+        const {token, expiresAt} = createTokenForUser(user);
+
+        res.send({
+            token,
+            expiresAt,
+            user: publicUser,
+        });
+    } catch (err) {
+        console.error("[users.login] error:", err);
+        res.status(500).send({
+            message: "Error logging in user"
+        });
+    }
+};
+
+export const me = async (req, res) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).send({message: "Token inválido"});
+        }
+
+        const user = await Users.findByPk(userId, {
+            attributes: {exclude: ['password', 'isDeleted']}
+        });
+
+        if (!user) {
+            return res.status(404).send({message: "Utilizador não encontrado."});
+        }
+
+        res.send(user);
+    } catch (err) {
+        console.error("[users.me] error:", err);
+        res.status(500).send({message: "Erro ao obter utilizador atual."});
+    }
 };

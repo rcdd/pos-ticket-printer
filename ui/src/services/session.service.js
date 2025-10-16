@@ -15,10 +15,6 @@ class SessionService {
         return http.post(this.BASE_URL + `/session/close/${sessionId}`, data);
     }
 
-    update(data) {
-        return http.put(this.BASE_URL + "/session/update", data);
-    }
-
     getActiveSession() {
         return http.get(this.BASE_URL + "/session/active");
     }

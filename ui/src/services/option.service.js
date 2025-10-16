@@ -38,6 +38,10 @@ class OptionService {
     setOpenDrawer(openDrawer) {
         return http.post(this.BASE_URL + "/option/set-open-drawer", {openDrawer});
     }
+
+    getOnboardingStatus() {
+        return http.get(this.BASE_URL + "/option/onboarding-status");
+    }
 }
 
 export default new OptionService();

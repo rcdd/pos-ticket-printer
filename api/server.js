@@ -12,6 +12,7 @@ import * as sessions from "./db/controllers/sessions.controller.js";
 import * as cashMovements from "./db/controllers/cashMovement.controller.js";
 import cors from "cors";
 import db from "./db/index.js";
+import {authenticate, optionalAuthenticate} from "./middleware/auth.js";
 
 const app = express();
 
@@ -51,7 +52,11 @@ app.get("/health", (req, res) => {
     res.send("OK");
 });
 
-// Printer
+// Public authentication routes
+app.post("/user/login", users.login);
+app.post("/user/add", optionalAuthenticate, users.create);
+
+// Public POS/runtime endpoints
 app.get('/printer/list', printer.getPrinterList);
 
 app.post('/printer/print-ticket', async (req, res) => {
@@ -64,7 +69,7 @@ app.post('/printer/print-ticket', async (req, res) => {
 
     req.body.printer = printNameOption;
     req.body.headers = await options.getHeadersVariable();
-    req.body.printType = await options.getPrintTypeVariable()
+    req.body.printType = await options.getPrintTypeVariable();
     req.body.openDrawer = dbOpenDrawerOption ? (req.body.openDrawer || false) : false;
 
     await printer.printTicket(req, res);
@@ -82,11 +87,29 @@ app.post('/printer/print-session', async (req, res) => {
     await printer.printSessionSummary(req, res);
 });
 
+app.get("/db/products", products.findAll);
+app.get("/menus", menus.findAll);
+app.get("/zones", zones.findAll);
+app.get("/session/active", sessions.getLastActiveSession);
+app.post("/invoice/add", invoices.create);
+app.get("/option/onboarding-status", options.getOnboardingStatus);
+
+// Require authentication for everything else
+app.use(authenticate);
+
+// Users
+app.get("/users", users.findAll);
+app.get("/user/:id", users.findOne);
+app.put("/user", users.update);
+app.delete("/user/:id", users.softDelete);
+app.post("/user/update-password", users.updatePassword);
+app.get("/user/me", users.me);
+
 // Options
 app.get("/option/get-printer", options.getPrinter);
 
 app.post("/option/set-printer", async (req, res) => {
-    await options.setPrinter(req, res)
+    await options.setPrinter(req, res);
 });
 
 app.post("/option/set-first-header", (req, res) => {
@@ -109,22 +132,19 @@ app.post("/option/set-open-drawer", (req, res) => {
 
 app.get("/option/get-open-drawer", options.getOpenDrawer);
 
-// Products
+// Products (management)
 app.post("/db/product", products.create);
-app.get("/db/products", products.findAll);
 app.put("/db/product", products.update);
 app.delete("/db/product/:id", products.softDelete);
 app.post("/db/product/reorder", products.updatePositions);
 
 // Invoices
-app.post("/invoice/add", invoices.create);
 app.post("/invoice/all", invoices.getAll);
 app.post("/invoice/revoke", invoices.revoke);
 app.post("/invoice/session", invoices.getFromSession);
 
 // Menus
 app.post("/menu/add", menus.create);
-app.get("/menus", menus.findAll);
 app.put("/menu/:id", menus.update);
 app.delete("/menu/:id", menus.deleteMenu);
 
@@ -133,22 +153,11 @@ app.post("/zone/add", zones.create);
 app.put("/zone/update", zones.update);
 app.delete("/zone/:id", zones.softDelete);
 app.post("/zone/reorder", zones.updatePositions);
-app.get("/zones", zones.findAll);
-
-// Users
-app.post("/user/add", users.create);
-app.get("/users", users.findAll);
-app.get("/user/:id", users.findOne);
-app.put("/user", users.update);
-app.delete("/user/:id", users.softDelete);
-app.post("/user/login", users.login);
-app.post("/user/update-password", users.updatePassword);
 
 // Sessions
 app.post("/session/start", sessions.open);
 app.post("/session/close/:id", sessions.closeSession);
 app.get("/sessions", sessions.findAll);
-app.get("/session/active", sessions.getLastActiveSession);
 
 // Cash Movements
 app.post("/cash-movement", cashMovements.create);

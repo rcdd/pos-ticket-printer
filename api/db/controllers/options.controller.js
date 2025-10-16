@@ -6,6 +6,22 @@ const optionFirstLine = 'firstLine';
 const optionSecondLine = 'secondLine';
 const optionPrintType = 'printOptionType';
 const optionOpenDrawer = 'openDrawer';
+const optionOnboarding = 'onboarding_completed';
+
+export const readOnboardingStatus = async () => {
+    const existing = await Option.findOne({where: {name: optionOnboarding}});
+    return String(existing?.value ?? 'false').toLowerCase() === 'true';
+};
+
+export const setOnboardingStatus = async (completed) => {
+    const value = completed ? 'true' : 'false';
+    const existing = await Option.findOne({where: {name: optionOnboarding}});
+    if (existing) {
+        await existing.update({value});
+    } else {
+        await Option.create({name: optionOnboarding, value});
+    }
+};
 
 export const getPrinter = (req, res) => {
     Option.findOne({
@@ -398,6 +414,18 @@ export const getHeadersVariable = async () => {
 
     return {firstLine: rowFirstLine?.value ?? null, secondLine: rowSecondLine?.value ?? null};
 }
+
+export const getOnboardingStatus = async (req, res) => {
+    try {
+        const completed = await readOnboardingStatus();
+        res.send({completed});
+    } catch (err) {
+        res.status(500).send({
+            message: "Error retrieving onboarding status.",
+            error: err?.message || err
+        });
+    }
+};
 
 export const getOpenDrawerVariable = async () => {
     const row = await Option.findOne({where: {name: optionOpenDrawer}});

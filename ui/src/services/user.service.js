@@ -12,6 +12,10 @@ class UserService {
         return http.get(this.BASE_URL + `/user/${id}`);
     }
 
+    getCurrent() {
+        return http.get(this.BASE_URL + "/user/me");
+    }
+
     create(data) {
         return http.post(this.BASE_URL + "/user/add", data);
     }
