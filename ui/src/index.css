@@ -120,3 +120,138 @@ code {
     overflow: hidden;
     margin: 0;
 }
+
+.about {
+    display: flex;
+    justify-content: center;
+    padding: 32px 16px;
+}
+
+.about__card {
+    width: 100%;
+    max-width: 960px;
+    background: var(--mui-palette-background-paper, #fff);
+    border-radius: 16px;
+    border: 1px solid var(--mui-palette-divider, #e0e0e0);
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+    padding: 40px 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+
+.about__header {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.about__tag {
+    align-self: flex-start;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: rgba(25, 118, 210, 0.1);
+    color: #1976d2;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.about__title {
+    margin: 0;
+    font-size: clamp(28px, 5vw, 40px);
+    font-weight: 700;
+    color: #101828;
+}
+
+.about__subtitle {
+    margin: 0;
+    font-size: 18px;
+    color: #475467;
+}
+
+.about__content {
+    display: grid;
+    gap: 20px;
+    color: #344054;
+    line-height: 1.65;
+    font-size: 16px;
+}
+
+.about__highlight {
+    border-radius: 12px;
+    border: 1px solid rgba(234, 179, 8, 0.3);
+    background: rgba(252, 211, 77, 0.12);
+    padding: 16px 20px;
+    color: #92400e;
+    display: grid;
+    gap: 8px;
+}
+
+.about__highlight strong {
+    font-size: 14px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.about__footer {
+    border-top: 1px solid var(--mui-palette-divider, #e5e7eb);
+    padding-top: 24px;
+    display: grid;
+    gap: 12px;
+    color: #1f2937;
+}
+
+.about__footer h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.about__contact-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 12px;
+}
+
+.about__contact-list li {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 15px;
+}
+
+.about__contact-list span {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.about__contact-list a {
+    color: #0f172a;
+    font-weight: 600;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.about__contact-list a:hover {
+    color: #2563eb;
+}
+
+@media (max-width: 768px) {
+    .about__card {
+        padding: 28px 24px;
+    }
+
+    .about__subtitle {
+        font-size: 16px;
+    }
+
+    .about__content {
+        font-size: 15px;
+    }
+}
