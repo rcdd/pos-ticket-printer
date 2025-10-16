@@ -28,7 +28,7 @@ import {
     Skeleton,
     TableContainer
 } from '@mui/material';
-import { DataGrid } from '@mui/x-data-grid';
+import {DataGrid} from '@mui/x-data-grid';
 import DownloadIcon from '@mui/icons-material/Download';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
@@ -42,12 +42,19 @@ import PaymentsIcon from '@mui/icons-material/Payments';
 import InvoiceService from '../../services/invoice.service';
 import SessionService from '../../services/session.service';
 import CashMovementService from '../../services/cashMovement.service';
-import { PaymentMethods } from '../../enums/PaymentMethodsEnum';
+import PrinterService from '../../services/printer.service';
+import UserService from '../../services/user.service';
+import {PaymentMethods} from '../../enums/PaymentMethodsEnum';
+import {useToast} from "../../components/Common/ToastProvider";
+import {computeSessionAggregates} from "../../utils/sessionAggregates";
 
 function ReportsPage() {
     // data
     const [sessions, setSessions] = React.useState([]);
     const [invoices, setInvoices] = React.useState([]);
+
+    const {pushNetworkError, pushMessage} = useToast();
+    const userNameCacheRef = React.useRef(new Map());
 
     // ui
     const [loading, setLoading] = React.useState(true);
@@ -59,6 +66,25 @@ function ReportsPage() {
     const [viewSession, setViewSession] = React.useState(null);
     const [sessionMovements, setSessionMovements] = React.useState(null); // { list, cashIn, cashOut, net, cashSales, finalCash }
     const [sessionDrawerLoading, setSessionDrawerLoading] = React.useState(false);
+    const [printingSession, setPrintingSession] = React.useState(false);
+
+    const resolveUserName = React.useCallback(async (id) => {
+        if (!id) return "Desconhecido";
+        if (userNameCacheRef.current.has(id)) {
+            return userNameCacheRef.current.get(id);
+        }
+        try {
+            const res = await UserService.get(id);
+            const data = res?.data ?? res;
+            const name = data?.name?.trim() || data?.username?.trim() || "Desconhecido";
+            userNameCacheRef.current.set(id, name);
+            return name;
+        } catch (error) {
+            console.error("Falha ao obter utilizador:", error?.response?.data || error);
+            userNameCacheRef.current.set(id, "Desconhecido");
+            return "Desconhecido";
+        }
+    }, []);
 
     // filters
     const [dateFrom, setDateFrom] = React.useState('');
@@ -91,7 +117,10 @@ function ReportsPage() {
     }, [fetchAll]);
 
     const eur = React.useMemo(
-        () => (cents) => (Number(cents || 0) / 100).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €',
+        () => (cents) => (Number(cents || 0) / 100).toLocaleString('pt-PT', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }) + ' €',
         []
     );
 
@@ -128,7 +157,7 @@ function ReportsPage() {
             }, {});
         const count = filteredInvoices.length;
         const revoked = filteredInvoices.filter(i => i.isDeleted).length;
-        return { total, byMethod, count, revoked };
+        return {total, byMethod, count, revoked};
     }, [filteredInvoices]);
 
     const productsAgg = React.useMemo(() => {
@@ -166,7 +195,7 @@ function ReportsPage() {
         for (const inv of invoices) {
             const sid = inv.sessionId;
             if (sid == null) continue;
-            const acc = bySession.get(sid) ?? { total: 0, cash: 0, card: 0, mbway: 0, count: 0, revoked: 0 };
+            const acc = bySession.get(sid) ?? {total: 0, cash: 0, card: 0, mbway: 0, count: 0, revoked: 0};
             // Considerar apenas faturas válidas para totais
             if (!inv.isDeleted) {
                 acc.total += inv.total || 0;
@@ -179,7 +208,7 @@ function ReportsPage() {
             bySession.set(sid, acc);
         }
         return (sessions ?? []).map((s) => {
-            const agg = bySession.get(s.id) ?? { total: 0, cash: 0, card: 0, mbway: 0, count: 0, revoked: 0 };
+            const agg = bySession.get(s.id) ?? {total: 0, cash: 0, card: 0, mbway: 0, count: 0, revoked: 0};
             return {
                 id: s.id,
                 openedAt: s.openedAt,
@@ -207,7 +236,7 @@ function ReportsPage() {
             return `"${s.replace(/"/g, '""')}"`;
         }).join(','));
         const csv = [headers.join(','), ...lines].join('\n');
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -217,7 +246,7 @@ function ReportsPage() {
     };
 
     const sessionsCols = [
-        { field: 'id', headerName: 'Sessão', width: 110 },
+        {field: 'id', headerName: 'Sessão', width: 110},
         {
             field: 'openedAt', headerName: 'Início', minWidth: 160, flex: 1,
             valueFormatter: (v) => v ? new Date(v).toLocaleString('pt-PT') : '—'
@@ -230,22 +259,22 @@ function ReportsPage() {
             field: 'status', headerName: 'Estado', width: 120,
             renderCell: (p) => (
                 <Chip size="small" color={p.value === 'opened' ? 'success' : 'default'}
-                      label={p.value === 'opened' ? 'Aberta' : 'Fechada'} />
+                      label={p.value === 'opened' ? 'Aberta' : 'Fechada'}/>
             )
         },
-        { field: 'initialAmount', headerName: 'Abertura', width: 120, valueFormatter: (v) => eur(v) },
-        { field: 'invoices', headerName: 'Faturas', width: 110 },
-        { field: 'revoked', headerName: 'Anuladas', width: 110 },
-        { field: 'total', headerName: 'Total', width: 140, valueFormatter: (v) => eur(v) },
-        { field: 'cash', headerName: 'Dinheiro', width: 120, valueFormatter: (v) => eur(v) },
-        { field: 'card', headerName: 'Multibanco', width: 130, valueFormatter: (v) => eur(v) },
-        { field: 'mbway', headerName: 'MB Way', width: 120, valueFormatter: (v) => eur(v) },
+        {field: 'initialAmount', headerName: 'Abertura', width: 120, valueFormatter: (v) => eur(v)},
+        {field: 'invoices', headerName: 'Faturas', width: 110},
+        {field: 'revoked', headerName: 'Anuladas', width: 110},
+        {field: 'total', headerName: 'Total', width: 140, valueFormatter: (v) => eur(v)},
+        {field: 'cash', headerName: 'Dinheiro', width: 120, valueFormatter: (v) => eur(v)},
+        {field: 'card', headerName: 'Multibanco', width: 130, valueFormatter: (v) => eur(v)},
+        {field: 'mbway', headerName: 'MB Way', width: 120, valueFormatter: (v) => eur(v)},
         {
             field: 'action', headerName: 'Ver', width: 90, sortable: false, filterable: false,
             renderCell: (params) => (
                 <Tooltip title="Ver sessão">
                     <IconButton size="small" onClick={() => openSessionDrawer(params.row.id)}>
-                        <VisibilityIcon fontSize="small" />
+                        <VisibilityIcon fontSize="small"/>
                     </IconButton>
                 </Tooltip>
             )
@@ -253,12 +282,12 @@ function ReportsPage() {
     ];
 
     const invoicesCols = [
-        { field: 'id', headerName: 'Fatura', width: 110 },
+        {field: 'id', headerName: 'Fatura', width: 110},
         {
             field: 'createdAt', headerName: 'Data', minWidth: 170, flex: 1,
             valueFormatter: (v) => new Date(v).toLocaleString('pt-PT')
         },
-        { field: 'sessionId', headerName: 'Sessão', width: 110 },
+        {field: 'sessionId', headerName: 'Sessão', width: 110},
         {
             field: 'paymentMethod', headerName: 'Método', width: 140,
             valueFormatter: (v) => PaymentMethods.find(m => m.id === v)?.name ?? v
@@ -266,16 +295,16 @@ function ReportsPage() {
         {
             field: 'isDeleted', headerName: 'Estado', width: 120,
             renderCell: (p) => (
-                <Chip size="small" color={p.value ? 'error' : 'success'} label={p.value ? 'Anulada' : 'Válida'} />
+                <Chip size="small" color={p.value ? 'error' : 'success'} label={p.value ? 'Anulada' : 'Válida'}/>
             )
         },
-        { field: 'total', headerName: 'Total', width: 140, valueFormatter: (v) => eur(v) },
+        {field: 'total', headerName: 'Total', width: 140, valueFormatter: (v) => eur(v)},
         {
             field: 'action', headerName: 'Ver', width: 90, sortable: false, filterable: false,
             renderCell: (params) => (
                 <Tooltip title="Ver fatura">
                     <IconButton size="small" onClick={() => setViewInvoice(params.row)}>
-                        <VisibilityIcon fontSize="small" />
+                        <VisibilityIcon fontSize="small"/>
                     </IconButton>
                 </Tooltip>
             )
@@ -283,13 +312,13 @@ function ReportsPage() {
     ];
 
     const productsCols = [
-        { field: 'name', headerName: 'Produto/Menu', flex: 1, minWidth: 220 },
-        { field: 'zone', headerName: 'Zona', width: 110 },
-        { field: 'kind', headerName: 'Tipo', width: 110 },
-        { field: 'discount', headerName: 'Desc. (%)', width: 110 },
-        { field: 'quantity', headerName: 'Qt.', width: 100 },
-        { field: 'unit', headerName: 'Preço (un)', width: 130, valueFormatter: (v) => eur(v) },
-        { field: 'total', headerName: 'Total', width: 140, valueFormatter: (v) => eur(v) },
+        {field: 'name', headerName: 'Produto/Menu', flex: 1, minWidth: 220},
+        {field: 'zone', headerName: 'Zona', width: 110},
+        {field: 'kind', headerName: 'Tipo', width: 110},
+        {field: 'discount', headerName: 'Desc. (%)', width: 110},
+        {field: 'quantity', headerName: 'Qt.', width: 100},
+        {field: 'unit', headerName: 'Preço (un)', width: 130, valueFormatter: (v) => eur(v)},
+        {field: 'total', headerName: 'Total', width: 140, valueFormatter: (v) => eur(v)},
     ];
 
     const resetFilters = () => {
@@ -303,7 +332,7 @@ function ReportsPage() {
     // ----- Session Drawer logic -----
     const openSessionDrawer = async (id) => {
         const s = sessions.find(x => String(x.id) === String(id));
-        setViewSession(s || { id });
+        setViewSession(s || {id});
     };
 
     React.useEffect(() => {
@@ -318,29 +347,31 @@ function ReportsPage() {
                 // faturas desta sessão (válidas)
                 const invOfSession = (invoices || []).filter(i => String(i.sessionId) === String(viewSession.id));
 
-                const cashSales = invOfSession
-                    .filter(i => !i.isDeleted && i.paymentMethod === 'cash')
-                    .reduce((acc, i) => acc + (i.total || 0), 0);
+                const aggregates = computeSessionAggregates(
+                    invOfSession,
+                    Number(viewSession.initialAmount || 0),
+                    movements
+                );
 
-                const byMethod = invOfSession
-                    .filter(i => !i.isDeleted)
-                    .reduce((m, v) => {
-                        const k = v.paymentMethod || 'unknown';
-                        m[k] = (m[k] || 0) + (v.total || 0);
-                        return m;
-                    }, {});
+                const byMethod = (aggregates.paymentsAgg || []).reduce((map, entry) => {
+                    const method = entry?.method || 'unknown';
+                    const amount = Number(entry?.amount || 0);
+                    map[method] = (map[method] || 0) + amount;
+                    return map;
+                }, {});
 
-                const cashIn = movements.filter(m => m.type === 'CASH_IN').reduce((a, b) => a + Number(b.amount || 0), 0);
-                const cashOut = movements.filter(m => m.type === 'CASH_OUT').reduce((a, b) => a + Number(b.amount || 0), 0);
-                const net = cashIn - cashOut;
+                const cashSales = byMethod['cash'] || 0;
 
-                const finalCash = (viewSession.initialAmount || 0) + cashSales + Math.round(net * 100); // em cêntimos
                 setSessionMovements({
                     list: movements,
-                    cashIn, cashOut, net,
+                    cashIn: aggregates.cashIn,
+                    cashOut: aggregates.cashOut,
+                    net: aggregates.netAdjustments,
                     cashSales,
-                    finalCash,
+                    finalCash: aggregates.finalCashValueCents,
                     byMethod,
+                    productsAgg: aggregates.productsAgg,
+                    discountedProductsAgg: aggregates.discountedProductsAgg,
                 });
             } catch (e) {
                 console.error('Failed to load session drawer data:', e?.response?.data || e);
@@ -352,20 +383,185 @@ function ReportsPage() {
         load();
     }, [viewSession?.id, invoices, viewSession?.initialAmount]);
 
+    const handleReprintSession = React.useCallback(async () => {
+        if (!viewSession?.id) return;
+        if (sessionDrawerLoading || printingSession) return;
+
+        const cashMovements = sessionMovements?.list ?? [];
+        const sessionInvoices = (invoices || []).filter(
+            (inv) => String(inv.sessionId) === String(viewSession.id)
+        );
+
+        setPrintingSession(true);
+        try {
+            const {
+                totalAmountCents,
+                paymentsAgg,
+                productsAgg,
+                discountedProductsAgg,
+                finalCashValueCents,
+            } = computeSessionAggregates(
+                sessionInvoices,
+                Number(viewSession.initialAmount || 0),
+                cashMovements
+            );
+
+            const [userOpenName, userCloseName] = await Promise.all([
+                resolveUserName(viewSession.userOpenId),
+                resolveUserName(viewSession.userCloseId),
+            ]);
+
+            const payload = {
+                userOpen: userOpenName,
+                userClose: userCloseName,
+                openedAt: viewSession.openedAt,
+                closedAt: viewSession.closedAt || new Date().toISOString(),
+                initialAmount: viewSession.initialAmount,
+                totalSales: sessionInvoices.length,
+                payments: paymentsAgg,
+                products: productsAgg,
+                discountedProducts: discountedProductsAgg.sort((a, b) => b.discount - a.discount),
+                closingAmount: totalAmountCents,
+                finalCashValue: finalCashValueCents,
+                notes: viewSession.notes ?? '',
+                cashMovements,
+            };
+
+            await PrinterService.printSessionSummary(payload);
+            pushMessage("success", "Resumo enviado para impressão.");
+        } catch (error) {
+            console.error("Erro ao imprimir resumo da sessão:", error?.response?.data || error);
+            pushNetworkError(error, {title: "Não foi possível imprimir o resumo da sessão"});
+        } finally {
+            setPrintingSession(false);
+        }
+    }, [
+        viewSession,
+        sessionMovements,
+        invoices,
+        sessionDrawerLoading,
+        printingSession,
+        resolveUserName,
+        pushMessage,
+        pushNetworkError
+    ]);
+
+    const renderProductsTable = React.useCallback(() => {
+        const products = sessionMovements?.productsAgg ?? [];
+        const discounted = sessionMovements?.discountedProductsAgg ?? [];
+
+        if (!products.length && !discounted.length) {
+            return <Typography variant="body2" color="text.disabled">Sem vendas registadas.</Typography>;
+        }
+
+        const grouped = products.reduce((acc, item) => {
+            const key = item.zone?.name || 'Sem Zona';
+            if (!acc[key]) {
+                acc[key] = {
+                    zone: key,
+                    items: [],
+                    total: 0,
+                    qty: 0,
+                };
+            }
+            acc[key].items.push(item);
+            acc[key].total += item.total || 0;
+            acc[key].qty += item.quantity || 0;
+            return acc;
+        }, {});
+
+        const discountedGroups = discounted.reduce((acc, item) => {
+            const key = item.zone?.name || 'Sem Zona';
+            if (!acc[key]) acc[key] = [];
+            acc[key].push(item);
+            return acc;
+        }, {});
+
+        for (const [zoneName, items] of Object.entries(discountedGroups)) {
+            if (!grouped[zoneName]) {
+                grouped[zoneName] = {
+                    zone: zoneName,
+                    items: [],
+                    total: 0,
+                    qty: 0,
+                };
+            }
+            for (const item of items) {
+                grouped[zoneName].total += item.total || 0;
+                grouped[zoneName].qty += item.quantity || 0;
+            }
+        }
+
+        const zones = Object.entries(grouped).sort((a, b) => a[0].localeCompare(b[0], 'pt-PT'));
+
+        return (
+            <TableContainer sx={{maxHeight: 260}}>
+                <Table size="small" stickyHeader>
+                    <TableHead>
+                        <TableRow>
+                            <TableCell width={160}>Zona</TableCell>
+                            <TableCell>Produto</TableCell>
+                            <TableCell align="right">Qt.</TableCell>
+                            <TableCell align="right">Total</TableCell>
+                        </TableRow>
+                    </TableHead>
+                    <TableBody>
+                        {zones.map(([zoneName, data]) => (
+                            <React.Fragment key={`zone-${zoneName}`}>
+                                <TableRow sx={{backgroundColor: 'action.hover'}}>
+                                    <TableCell colSpan={2} sx={{fontWeight: 700}}>{zoneName}</TableCell>
+                                    <TableCell align="right" sx={{fontWeight: 700}}>{data.qty}</TableCell>
+                                    <TableCell align="right" sx={{fontWeight: 700}}>{eur(data.total)}</TableCell>
+                                </TableRow>
+                                {data.items.map((item) => (
+                                    <TableRow key={`item-${zoneName}-${item.id}`}>
+                                        <TableCell/>
+                                        <TableCell>
+                                            {item.name}{item.isDeleted ? ' (Eliminado)' : ''}
+                                        </TableCell>
+                                        <TableCell align="right">{item.quantity}</TableCell>
+                                        <TableCell align="right">{eur(item.total)}</TableCell>
+                                    </TableRow>
+                                ))}
+                                {(discountedGroups[zoneName] || []).map((item) => (
+                                    <TableRow key={`disc-${zoneName}-${item.id}-${item.discount}`}>
+                                        <TableCell/>
+                                        <TableCell>
+                                            {item.name}{item.isDeleted ? ' (Eliminado)' : ''}{' '}
+                                            <Chip
+                                                size="small"
+                                                label={`Desconto ${item.discount}%`}
+                                                color="warning"
+                                                variant="outlined"
+                                                sx={{ml: 1}}
+                                            />
+                                        </TableCell>
+                                        <TableCell align="right">{item.quantity}</TableCell>
+                                        <TableCell align="right">{eur(item.total)}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </React.Fragment>
+                        ))}
+                    </TableBody>
+                </Table>
+            </TableContainer>
+        );
+    }, [sessionMovements, eur]);
+
     return (
         <Stack spacing={2}>
             <Typography variant="h4">Relatórios & Movimentos</Typography>
 
             {/* filtros */}
-            <Paper elevation={0} sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
-                <Toolbar disableGutters sx={{ gap: 2, flexWrap: 'wrap' }}>
+            <Paper elevation={0} sx={{p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2}}>
+                <Toolbar disableGutters sx={{gap: 2, flexWrap: 'wrap'}}>
                     <TextField
                         label="De"
                         type="date"
                         size="small"
                         value={dateFrom}
                         onChange={(e) => setDateFrom(e.target.value)}
-                        InputLabelProps={{ shrink: true }}
+                        InputLabelProps={{shrink: true}}
                     />
                     <TextField
                         label="Até"
@@ -373,13 +569,13 @@ function ReportsPage() {
                         size="small"
                         value={dateTo}
                         onChange={(e) => setDateTo(e.target.value)}
-                        InputLabelProps={{ shrink: true }}
+                        InputLabelProps={{shrink: true}}
                     />
                     <TextField
                         label="Sessão"
                         select
                         size="small"
-                        sx={{ minWidth: 160 }}
+                        sx={{minWidth: 160}}
                         value={sessionId}
                         onChange={(e) => setSessionId(e.target.value)}
                     >
@@ -394,7 +590,7 @@ function ReportsPage() {
                         label="Método"
                         select
                         size="small"
-                        sx={{ minWidth: 160 }}
+                        sx={{minWidth: 160}}
                         value={paymentFilter}
                         onChange={(e) => setPaymentFilter(e.target.value)}
                     >
@@ -407,7 +603,7 @@ function ReportsPage() {
                         label="Estado"
                         select
                         size="small"
-                        sx={{ minWidth: 150 }}
+                        sx={{minWidth: 150}}
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
                     >
@@ -416,29 +612,29 @@ function ReportsPage() {
                         <MenuItem value="revoked">Anuladas</MenuItem>
                     </TextField>
 
-                    <Box sx={{ flexGrow: 1 }} />
+                    <Box sx={{flexGrow: 1}}/>
                     <Tooltip title="Limpar filtros">
                         <IconButton onClick={resetFilters}>
-                            <RestartAltIcon />
+                            <RestartAltIcon/>
                         </IconButton>
                     </Tooltip>
                 </Toolbar>
 
-                <Stack direction="row" spacing={2} sx={{ mt: 1, flexWrap: 'wrap' }}>
-                    <Paper sx={{ p: 1.5, flex: '1 1 180px' }} variant="outlined">
+                <Stack direction="row" spacing={2} sx={{mt: 1, flexWrap: 'wrap'}}>
+                    <Paper sx={{p: 1.5, flex: '1 1 180px'}} variant="outlined">
                         <Typography variant="caption" color="text.secondary">Faturas</Typography>
                         <Typography variant="h6">{summary.count}</Typography>
                     </Paper>
-                    <Paper sx={{ p: 1.5, flex: '1 1 180px' }} variant="outlined">
+                    <Paper sx={{p: 1.5, flex: '1 1 180px'}} variant="outlined">
                         <Typography variant="caption" color="text.secondary">Total</Typography>
                         <Typography variant="h6">{eur(summary.total)}</Typography>
                     </Paper>
-                    <Paper sx={{ p: 1.5, flex: '1 1 180px' }} variant="outlined">
+                    <Paper sx={{p: 1.5, flex: '1 1 180px'}} variant="outlined">
                         <Typography variant="caption" color="text.secondary">Anuladas</Typography>
                         <Typography variant="h6">{summary.revoked}</Typography>
                     </Paper>
                     {['cash', 'card', 'mbway'].map(k => (
-                        <Paper key={k} sx={{ p: 1.5, flex: '1 1 180px' }} variant="outlined">
+                        <Paper key={k} sx={{p: 1.5, flex: '1 1 180px'}} variant="outlined">
                             <Typography variant="caption" color="text.secondary">
                                 {PaymentMethods.find(p => p.id === k)?.name ?? k}
                             </Typography>
@@ -448,8 +644,8 @@ function ReportsPage() {
                 </Stack>
             </Paper>
 
-            <Paper elevation={0} sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+            <Paper elevation={0} sx={{p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 2}}>
+                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{mb: 1}}>
                     <Stack direction="row" spacing={1}>
                         <Chip
                             label="Sessões"
@@ -472,7 +668,7 @@ function ReportsPage() {
                     </Stack>
 
                     <Button
-                        startIcon={<DownloadIcon />}
+                        startIcon={<DownloadIcon/>}
                         variant="outlined"
                         onClick={() => {
                             if (tab === 'sessions') downloadCSV('sessoes.csv', sessionsRows, sessionsCols);
@@ -492,7 +688,7 @@ function ReportsPage() {
                         disableRowSelectionOnClick
                         initialState={{
                             sorting: {
-                                sortModel: [{ field: 'openedAt', sort: 'desc' }],
+                                sortModel: [{field: 'openedAt', sort: 'desc'}],
                             },
                         }}
                         density="compact"
@@ -509,11 +705,11 @@ function ReportsPage() {
                         getRowClassName={(p) => p.row.isDeleted ? 'row--revoked' : ''}
                         initialState={{
                             sorting: {
-                                sortModel: [{ field: 'createdAt', sort: 'desc' }],
+                                sortModel: [{field: 'createdAt', sort: 'desc'}],
                             },
                         }}
                         sx={{
-                            '& .row--revoked': { opacity: 0.6, textDecoration: 'line-through' },
+                            '& .row--revoked': {opacity: 0.6, textDecoration: 'line-through'},
                         }}
                     />
                 )}
@@ -534,31 +730,32 @@ function ReportsPage() {
                 anchor="right"
                 open={!!viewInvoice}
                 onClose={() => setViewInvoice(null)}
-                PaperProps={{ sx: { width: 520, p: 2 } }}
+                PaperProps={{sx: {width: 520, p: 2}}}
             >
                 <Stack direction="row" alignItems="center" justifyContent="space-between">
-                    <Typography variant="h6"><ReceiptLongIcon sx={{ mr: 1 }} /> Fatura #{viewInvoice?.id}</Typography>
-                    <IconButton onClick={() => setViewInvoice(null)}><CloseIcon /></IconButton>
+                    <Typography variant="h6"><ReceiptLongIcon sx={{mr: 1}}/> Fatura #{viewInvoice?.id}</Typography>
+                    <IconButton onClick={() => setViewInvoice(null)}><CloseIcon/></IconButton>
                 </Stack>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                <Typography variant="body2" color="text.secondary" sx={{mt: 0.5}}>
                     {viewInvoice && new Date(viewInvoice.createdAt).toLocaleString('pt-PT')}
                 </Typography>
-                <Divider sx={{ my: 1.5 }} />
+                <Divider sx={{my: 1.5}}/>
 
                 {viewInvoice?.records?.length ? (
                     <Stack spacing={1}>
                         {viewInvoice.records.map((r, i) => {
                             const item = r.productItem || r.menuItem;
-                            if (!item) return <Typography key={i} variant="body2" color="text.disabled">Item removido</Typography>;
+                            if (!item) return <Typography key={i} variant="body2" color="text.disabled">Item
+                                removido</Typography>;
                             const unit = item.price || 0;
                             const disc = viewInvoice?.discountPercent || 0;
                             const unitDisc = disc > 0 ? Math.round(unit * (1 - disc / 100)) : unit;
                             return (
                                 <Stack key={i} direction="row" justifyContent="space-between">
-                                    <Typography variant="body2" sx={{ mr: 1, flex: 1 }}>
+                                    <Typography variant="body2" sx={{mr: 1, flex: 1}}>
                                         {item.name}{item.isDeleted ? ' (Eliminado)' : ''}{disc ? ` — Desconto ${disc}%` : ''}
                                     </Typography>
-                                    <Typography variant="body2" sx={{ width: 120, textAlign: 'right' }}>
+                                    <Typography variant="body2" sx={{width: 120, textAlign: 'right'}}>
                                         {r.quantity} × {eur(unitDisc)}
                                     </Typography>
                                 </Stack>
@@ -569,13 +766,13 @@ function ReportsPage() {
                     <Typography variant="body2" color="text.disabled">Sem linhas.</Typography>
                 )}
 
-                <Divider sx={{ my: 1.5 }} />
+                <Divider sx={{my: 1.5}}/>
                 <Stack direction="row" justifyContent="space-between">
                     <Typography variant="subtitle1">Total</Typography>
                     <Typography variant="subtitle1" fontWeight={700}>{eur(viewInvoice?.total || 0)}</Typography>
                 </Stack>
 
-                <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+                <Stack direction="row" spacing={1} sx={{mt: 2}}>
                     {!viewInvoice?.isDeleted && (
                         <Button
                             color="error"
@@ -593,91 +790,117 @@ function ReportsPage() {
             <Drawer
                 anchor="right"
                 open={!!viewSession}
-                onClose={() => { setViewSession(null); setSessionMovements(null); }}
-                PaperProps={{ sx: { width: 560, p: 2, display: 'flex', flexDirection: 'column' } }}
+                onClose={() => {
+                    setViewSession(null);
+                    setSessionMovements(null);
+                }}
+                PaperProps={{sx: {width: 560, p: 2, display: 'flex', flexDirection: 'column'}}}
             >
                 {!viewSession ? null : (
                     <>
                         <Stack direction="row" alignItems="center" justifyContent="space-between">
                             <Typography variant="h6">
-                                <PointOfSaleIcon sx={{ mr: 1 }} />
+                                <PointOfSaleIcon sx={{mr: 1}}/>
                                 Sessão #{viewSession.id}
                             </Typography>
-                            <IconButton onClick={() => { setViewSession(null); setSessionMovements(null); }}>
-                                <CloseIcon />
+                            <IconButton onClick={() => {
+                                setViewSession(null);
+                                setSessionMovements(null);
+                            }}>
+                                <CloseIcon/>
                             </IconButton>
                         </Stack>
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{mt: 0.5}}>
                             Início: {new Date(viewSession.openedAt).toLocaleString('pt-PT')}
                             {viewSession.closedAt ? ` — Fecho: ${new Date(viewSession.closedAt).toLocaleString('pt-PT')}` : ''}
                         </Typography>
-                        <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                        <Stack direction="row" spacing={1} sx={{mt: 1}}>
                             <Chip
                                 size="small"
                                 color={viewSession.status === 'open' ? 'success' : 'default'}
                                 label={viewSession.status === 'open' ? 'Aberta' : 'Fechada'}
                             />
                         </Stack>
-                        <Divider sx={{ my: 1.5 }} />
+                        <Divider sx={{my: 1.5}}/>
 
-                        <Box sx={{ flex: 1, overflowY: 'auto', pr: 1 }}>
+                        <Box sx={{flex: 1, overflowY: 'auto', pr: 1}}>
                             {sessionDrawerLoading ? (
-                                <Skeleton variant="rectangular" height={180} />
+                                <Skeleton variant="rectangular" height={180}/>
                             ) : (
                                 <>
                                     <Grid container spacing={1.5}>
                                         <Grid item xs={12} sm={6}>
-                                            <KpiCard icon={<AccountBalanceWalletIcon />} title="Abertura" value={eur(viewSession.initialAmount || 0)} />
+                                            <KpiCard icon={<AccountBalanceWalletIcon/>} title="Abertura"
+                                                     value={eur(viewSession.initialAmount || 0)}/>
                                         </Grid>
                                         <Grid item xs={12} sm={6}>
-                                            <KpiCard icon={<PaymentsIcon />} title="Vendas (Dinheiro)" value={eur(sessionMovements?.cashSales || 0)} />
+                                            <KpiCard icon={<PaymentsIcon/>} title="Vendas (Dinheiro)"
+                                                     value={eur(sessionMovements?.cashSales || 0)}/>
                                         </Grid>
                                         <Grid item xs={12} sm={6}>
                                             <KpiCard
-                                                icon={<AddCardIcon />}
+                                                icon={<AddCardIcon/>}
                                                 title="Ajustes (Reforços − Sangrias)"
                                                 value={eur(sessionMovements?.net || 0)}
                                                 variant={sessionMovements?.net >= 0 ? 'success' : 'error'}
                                             />
                                         </Grid>
                                         <Grid item xs={12} sm={6}>
-                                            <KpiCard icon={<PointOfSaleIcon />} title="Dinheiro em Caixa" value={eur(sessionMovements?.finalCash || 0)} />
+                                            <KpiCard icon={<PointOfSaleIcon/>} title="Dinheiro em Caixa"
+                                                     value={eur(sessionMovements?.finalCash || 0)}/>
                                         </Grid>
                                     </Grid>
 
-                                    <Card sx={{ mt: 2 }}>
+                                    <Card sx={{mt: 2}}>
                                         <CardContent>
-                                            <Typography variant="subtitle1" fontWeight={700}>Pagamentos por método</Typography>
-                                            <Divider sx={{ my: 1 }} />
+                                            <Typography variant="subtitle1" fontWeight={700}>Produtos
+                                                Vendidos</Typography>
+                                            <Divider sx={{my: 1}}/>
+                                            {renderProductsTable()}
+                                        </CardContent>
+                                    </Card>
+
+                                    <Card sx={{mt: 2}}>
+                                        <CardContent>
+                                            <Typography variant="subtitle1" fontWeight={700}>Pagamentos por
+                                                método</Typography>
+                                            <Divider sx={{my: 1}}/>
                                             <Stack spacing={0.5}>
                                                 {Object.keys(sessionMovements?.byMethod || {}).length === 0 && (
-                                                    <Typography variant="body2" color="text.disabled">Sem dados.</Typography>
+                                                    <Typography variant="body2" color="text.disabled">Sem
+                                                        dados.</Typography>
                                                 )}
                                                 {Object.entries(sessionMovements?.byMethod || {}).map(([k, v]) => (
                                                     <Stack key={k} direction="row" justifyContent="space-between">
-                                                        <Typography variant="body2">{PaymentMethods.find(p => p.id === k)?.name ?? k}</Typography>
-                                                        <Typography variant="body2" fontWeight={600}>{eur(v)}</Typography>
+                                                        <Typography
+                                                            variant="body2">{PaymentMethods.find(p => p.id === k)?.name ?? k}</Typography>
+                                                        <Typography variant="body2"
+                                                                    fontWeight={600}>{eur(v)}</Typography>
                                                     </Stack>
                                                 ))}
                                             </Stack>
                                         </CardContent>
                                     </Card>
 
-                                    <Card sx={{ mt: 2 }}>
+                                    <Card sx={{mt: 2}}>
                                         <CardContent>
                                             <Stack direction="row" alignItems="center" justifyContent="space-between">
-                                                <Typography variant="subtitle1" fontWeight={700}>Movimentos de Caixa</Typography>
+                                                <Typography variant="subtitle1" fontWeight={700}>Movimentos de
+                                                    Caixa</Typography>
                                                 <Stack direction="row" spacing={1}>
-                                                    <Chip label={`Reforços: ${eur(sessionMovements?.cashIn || 0)}`} color="success" variant="outlined" size="small" />
-                                                    <Chip label={`Sangrias: ${eur(sessionMovements?.cashOut || 0)}`} color="error" variant="outlined" size="small" />
+                                                    <Chip label={`Reforços: ${eur(sessionMovements?.cashIn || 0)}`}
+                                                          color="success" variant="outlined" size="small"/>
+                                                    <Chip label={`Sangrias: ${eur(sessionMovements?.cashOut || 0)}`}
+                                                          color="error" variant="outlined" size="small"/>
                                                 </Stack>
                                             </Stack>
-                                            <Divider sx={{ my: 1 }} />
+                                            <Divider sx={{my: 1}}/>
 
                                             {!((sessionMovements?.list || []).length) ? (
-                                                <Typography variant="body2" color="text.disabled">Sem movimentos.</Typography>
+                                                <Typography variant="body2" color="text.disabled">Sem
+                                                    movimentos.</Typography>
                                             ) : (
-                                                <TableContainer sx={{ maxHeight: 260, overflowY: 'auto' }}>
+                                                <TableContainer sx={{maxHeight: 260, overflowY: 'auto'}}>
                                                     <Table size="small" stickyHeader>
                                                         <TableHead>
                                                             <TableRow>
@@ -701,7 +924,8 @@ function ReportsPage() {
                                                                             />
                                                                         </TableCell>
                                                                         <TableCell>{m.reason || '—'}</TableCell>
-                                                                        <TableCell align="right">{eur(Number(m.amount || 0))}</TableCell>
+                                                                        <TableCell
+                                                                            align="right">{eur(Number(m.amount || 0))}</TableCell>
                                                                         <TableCell>{new Date(m.createdAt).toLocaleString('pt-PT')}</TableCell>
                                                                     </TableRow>
                                                                 );
@@ -716,8 +940,26 @@ function ReportsPage() {
                             )}
                         </Box>
 
-                        <Stack direction="row" justifyContent="flex-end" sx={{ pt: 1 }}>
-                            <Button onClick={() => { setViewSession(null); setSessionMovements(null); }}>Fechar</Button>
+                        <Stack
+                            direction={{xs: 'column', sm: 'row'}}
+                            spacing={1}
+                            justifyContent="flex-end"
+                            sx={{pt: 1}}
+                        >
+                            {String(viewSession.status || '').toLowerCase() === 'closed' && (
+                                <Button
+                                    variant="contained"
+                                    startIcon={<ReceiptLongIcon/>}
+                                    disabled={sessionDrawerLoading || printingSession || !sessionMovements}
+                                    onClick={handleReprintSession}
+                                >
+                                    Reimprimir resumo
+                                </Button>
+                            )}
+                            <Button onClick={() => {
+                                setViewSession(null);
+                                setSessionMovements(null);
+                            }}>Fechar</Button>
                         </Stack>
                     </>
                 )}
@@ -753,15 +995,16 @@ function ReportsPage() {
     );
 }
 
-function KpiCard({ icon, title, value, variant }) {
+function KpiCard({icon, title, value, variant}) {
     return (
         <Card>
             <CardContent>
                 <Stack direction="row" spacing={1} alignItems="center">
-                    <Box sx={{ display: 'grid', placeItems: 'center' }}>{icon}</Box>
-                    <Box sx={{ flex: 1 }}>
+                    <Box sx={{display: 'grid', placeItems: 'center'}}>{icon}</Box>
+                    <Box sx={{flex: 1}}>
                         <Typography variant="caption" color="text.secondary">{title}</Typography>
-                        <Typography variant="h6" fontWeight={700} color={variant === 'error' ? 'error.main' : variant === 'success' ? 'success.main' : 'text.primary'}>
+                        <Typography variant="h6" fontWeight={700}
+                                    color={variant === 'error' ? 'error.main' : variant === 'success' ? 'success.main' : 'text.primary'}>
                             {value}
                         </Typography>
                     </Box>
