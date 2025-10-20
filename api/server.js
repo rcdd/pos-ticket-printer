@@ -10,9 +10,11 @@ import * as zones from "./db/controllers/zones.controller.js";
 import * as users from "./db/controllers/users.controller.js";
 import * as sessions from "./db/controllers/sessions.controller.js";
 import * as cashMovements from "./db/controllers/cashMovement.controller.js";
+import * as license from "./db/controllers/license.controller.js";
 import cors from "cors";
 import db from "./db/index.js";
 import {authenticate, optionalAuthenticate} from "./middleware/auth.js";
+import {enforceLicense, initLicenseState} from "./services/license.service.js";
 
 const app = express();
 
@@ -35,6 +37,13 @@ async function startServer() {
             await db.sequelize.sync();
             console.log('Database synchronized (DB_SYNC_ON_BOOT=true).');
         }
+
+        const licenseState = await initLicenseState();
+        if (!licenseState.valid) {
+            console.warn(`[license] ${licenseState.message}`);
+        } else {
+            console.log(`[license] Active for tenant ${licenseState.tenant} until ${licenseState.expiresAtIso}`);
+        }
     } catch (err) {
         console.error('Unable to connect to the database:', err);
         process.exit(1);
@@ -50,6 +59,28 @@ startServer();
 // Health check
 app.get("/health", (req, res) => {
     res.send("OK");
+});
+
+// License endpoints (public)
+app.get("/license/status", license.status);
+app.post("/license/apply", license.activate);
+
+// Enforce license for all other requests (skip OPTIONS)
+const licenseBypassPaths = new Set([
+    "/health",
+    "/license/status",
+    "/license/apply",
+]);
+
+app.use(async (req, res, next) => {
+    if (req.method === 'OPTIONS' || licenseBypassPaths.has(req.path)) {
+        return next();
+    }
+    try {
+        await enforceLicense(req, res, next);
+    } catch (error) {
+        next(error);
+    }
 });
 
 // Public authentication routes
@@ -97,13 +128,17 @@ app.get("/option/onboarding-status", options.getOnboardingStatus);
 // Require authentication for everything else
 app.use(authenticate);
 
+// Authenticated license management
+app.get("/license/details", license.statusDetailed);
+app.delete("/license", license.remove);
+
 // Users
 app.get("/users", users.findAll);
-app.get("/user/:id", users.findOne);
+app.get("/user/me", users.me);
 app.put("/user", users.update);
 app.delete("/user/:id", users.softDelete);
 app.post("/user/update-password", users.updatePassword);
-app.get("/user/me", users.me);
+app.get("/user/:id", users.findOne);
 
 // Options
 app.get("/option/get-printer", options.getPrinter);

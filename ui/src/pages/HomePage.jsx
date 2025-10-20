@@ -50,9 +50,14 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
 import UsersPage from "./Admin/UsersPage";
 import InitialUserSetup from "../components/Admin/InitialUserSetup";
+import VpnKeyIcon from "@mui/icons-material/VpnKey";
+import Alert from "@mui/material/Alert";
 import AuthService from "../services/auth.service";
 import UserService from "../services/user.service";
 import OptionService from "../services/option.service";
+import LicenseModal from "../components/Admin/LicenseModal.jsx";
+import LicenseService from "../services/license.service.js";
+import LicensePage from "./Admin/LicensePage.jsx";
 
 const drawerWidth = 240;
 
@@ -100,25 +105,92 @@ function HomePage() {
     const [/*userMenuAnchor*/, setUserMenuAnchor] = React.useState(null);
     const closeUserMenu = () => setUserMenuAnchor(null);
 
+    const [checkingLicense, setCheckingLicense] = React.useState(true);
+    const [licenseInfo, setLicenseInfo] = React.useState(null);
+    const [licenseModalOpen, setLicenseModalOpen] = React.useState(false);
+
     const [checkingUsers, setCheckingUsers] = React.useState(true);
     const [requireUserSetup, setRequireUserSetup] = React.useState(false);
+    const licenseValid = Boolean(licenseInfo?.valid);
+    const [shouldAutoPromptLogin, setShouldAutoPromptLogin] = React.useState(false);
+
+    const loadLicenseStatus = React.useCallback(async () => {
+        setCheckingLicense(true);
+        try {
+            const {data} = await LicenseService.getStatus();
+            setLicenseInfo(data);
+            setLicenseModalOpen(!data?.valid);
+            setShouldAutoPromptLogin(false);
+        } catch (error) {
+            console.error("Erro ao verificar licença:", error?.response || error);
+            const fallback = {
+                valid: false,
+                status: 'error',
+                message: 'Não foi possível validar a licença. Volte a tentar.',
+            };
+            setLicenseInfo(fallback);
+            setLicenseModalOpen(true);
+            setShouldAutoPromptLogin(false);
+        } finally {
+            setCheckingLicense(false);
+        }
+    }, []);
 
     const checkOnboardingStatus = React.useCallback(async () => {
         setCheckingUsers(true);
         try {
             const {data} = await OptionService.getOnboardingStatus();
-            setRequireUserSetup(!(data?.completed));
+            const needsSetup = !(data?.completed);
+            setRequireUserSetup(needsSetup);
+            return needsSetup;
         } catch (error) {
             console.error("Erro ao verificar estado de onboarding:", error?.response || error);
             setRequireUserSetup(false);
+            return false;
         } finally {
             setCheckingUsers(false);
         }
     }, []);
 
     React.useEffect(() => {
+        loadLicenseStatus();
+    }, [loadLicenseStatus]);
+
+    React.useEffect(() => {
+        const onLicenseUpdate = (event) => {
+            const detail = event?.detail;
+            if (detail) {
+                setLicenseInfo(detail);
+                setLicenseModalOpen(!detail.valid);
+                setShouldAutoPromptLogin(false);
+            } else {
+                loadLicenseStatus();
+            }
+        };
+
+        window.addEventListener('license:updated', onLicenseUpdate);
+        return () => window.removeEventListener('license:updated', onLicenseUpdate);
+    }, [loadLicenseStatus]);
+
+    React.useEffect(() => {
+        if (licenseInfo == null) {
+            return;
+        }
+        if (!licenseValid) {
+            setCheckingUsers(false);
+            setRequireUserSetup(false);
+            setShouldAutoPromptLogin(false);
+            return;
+        }
         checkOnboardingStatus();
-    }, [checkOnboardingStatus]);
+    }, [licenseInfo, licenseValid, checkOnboardingStatus]);
+
+    React.useEffect(() => {
+        if (!shouldAutoPromptLogin) return;
+        if (!licenseValid || login || licenseModalOpen || requireUserSetup || checkingLicense) return;
+        setLoginModal(true);
+        setShouldAutoPromptLogin(false);
+    }, [shouldAutoPromptLogin, licenseValid, login, licenseModalOpen, requireUserSetup, checkingLicense]);
 
     const items = React.useMemo(() => ([
         {icon: <HomeIcon/>, name: "POS", path: "/pos", visible: true},
@@ -128,6 +200,7 @@ function HomePage() {
         {icon: <PointOfSaleIcon/>, name: "Tesouraria", path: "/session", visible: session !== null},
         {icon: <PeopleAltIcon/>, name: "Utilizadores", path: "/users", visible: adminMode},
         {icon: <SettingsIcon/>, name: "Configurações", path: "/setup", visible: adminMode},
+        {icon: <VpnKeyIcon/>, name: "Licença", path: "/license", visible: adminMode},
         {icon: <InfoIcon/>, name: "Sobre", path: "/about", visible: true},
     ]), [session, adminMode]);
 
@@ -175,34 +248,59 @@ function HomePage() {
     };
 
     React.useEffect(() => {
-        if (AuthService.isAuthenticated()) {
-            (async () => {
+        if (licenseInfo == null) {
+            return;
+        }
+        if (!licenseValid) {
+            AuthService.clearSession();
+            setLogin(false);
+            setAdminMode(false);
+            setSession(null);
+            return;
+        }
+
+        let canceled = false;
+
+        const restoreSession = async () => {
+            if (AuthService.isAuthenticated()) {
+                setLogin(true);
                 try {
                     const {data} = await UserService.getCurrent();
-                    setLogin(true);
+                    if (canceled) return;
                     const role = (data?.role || '').toString().toLowerCase();
                     setAdminMode(role.includes('admin'));
                 } catch (error) {
+                    if (canceled) return;
                     console.error("Falha ao validar sessão:", error?.response?.data || error);
                     AuthService.clearSession();
                     setLogin(false);
                     setAdminMode(false);
+                    setShouldAutoPromptLogin(true);
                 }
-            })();
-        } else {
-            AuthService.clearSession();
-        }
+            } else {
+                setLogin(false);
+                setAdminMode(false);
+            }
 
-        SessionService.getActiveSession()
-            .then((response) => setSession(response.data))
-            .catch((error) => {
-                if (error.response && error.response.status !== 404) {
-                    console.log(error.response);
+            try {
+                const response = await SessionService.getActiveSession();
+                if (!canceled) setSession(response.data);
+            } catch (error) {
+                if (!canceled) {
+                    if (error.response && error.response.status !== 404) {
+                        console.log(error.response);
+                    }
+                    setSession(null);
                 }
-                setSession(null);
-            });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+            }
+        };
+
+        restoreSession();
+
+        return () => {
+            canceled = true;
+        };
+    }, [licenseInfo, licenseValid]);
 
     React.useEffect(() => {
         const onKey = (e) => {
@@ -220,7 +318,8 @@ function HomePage() {
         return 'TicketPrint — Administração';
     }, [location.pathname]);
 
-    const appBarAlert = Boolean(login && adminMode);
+    const appBarAlert = (!licenseValid) || Boolean(login && adminMode);
+    const licenseAlertSeverity = licenseInfo?.status === 'expired' ? 'error' : 'warning';
 
     return (
         <Box sx={{display: 'flex'}}>
@@ -263,7 +362,7 @@ function HomePage() {
                     <Box sx={{flexGrow: 1}}/>
 
                     {!login ? (
-                        <IconButton color="inherit" onClick={() => {
+                        <IconButton color="inherit" disabled={!licenseValid || checkingLicense} onClick={() => {
                             if (!requireUserSetup) {
                                 setLoginModal(true);
                             }
@@ -361,6 +460,11 @@ function HomePage() {
 
             <Main>
                 <DrawerHeader/>
+                {!checkingLicense && licenseInfo && !licenseValid && (
+                    <Alert severity={licenseAlertSeverity} sx={{mb: 2}}>
+                        {licenseInfo.message || 'A licença não é válida. Introduza um novo código.'}
+                    </Alert>
+                )}
                 {/* Rotas reais — podes refrescar sem perder a página */}
                 <Routes>
                     <Route path="/" element={<Navigate to="/pos" replace/>}/>
@@ -371,6 +475,7 @@ function HomePage() {
                     <Route path="/about" element={<AboutPage/>}/>
                     <Route path="/migration" element={<ImportExportPage/>}/>
                     <Route path="/users" element={<UsersPage/>}/>
+                    <Route path="/license" element={adminMode ? <LicensePage/> : <Navigate to="/pos" replace/>}/>
                     <Route path="/session" element={<SessionPage session={session} setSession={setSession}
                                                                  onCloseSession={() => handleNav('/pos')}/>}/>
                     {/* rota fallback */}
@@ -385,6 +490,23 @@ function HomePage() {
                 onCompleted={async () => {
                     await checkOnboardingStatus();
                     setLoginModal(true);
+                }}
+            />
+
+            <LicenseModal
+                open={licenseModalOpen && !checkingLicense}
+                status={licenseInfo}
+                onApplied={async (data) => {
+                    setLicenseInfo(data);
+                    setLicenseModalOpen(!data?.valid);
+                    setShouldAutoPromptLogin(false);
+
+                    if (data?.valid) {
+                        const needsSetup = await checkOnboardingStatus();
+                        if (!needsSetup) {
+                            setShouldAutoPromptLogin(true);
+                        }
+                    }
                 }}
             />
 

@@ -221,9 +221,7 @@ function ProductModal({open, close, selectedZone, zones = [], product = null}) {
                                     ...CardThemes[themeName],
                                 }}
                             >
-                                <Typography sx={{fontSize: '14px'}} noWrap>
-                                    <b>Exemplo</b>
-                                </Typography>
+                                <Typography sx={{fontSize: '14px'}} noWrap><b>{themeName}</b></Typography>
                             </CardActionArea>
                         ))}
                     </Box>
