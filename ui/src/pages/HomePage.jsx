@@ -422,7 +422,7 @@ function HomePage() {
                                 }}>
                                     <Typography variant="h6" noWrap component="div"
                                                 sx={{display: 'flex', alignItems: 'center', gap: 0.5}}>
-                                        <StopCircleIcon fontSize="inherit"/> Fechar Turno
+                                        <PointOfSaleIcon fontSize="inherit"/> Sessão
                                     </Typography>
                                 </IconButton>
                             )}
@@ -454,7 +454,7 @@ function HomePage() {
                         <IconButton color="inherit" onClick={handleLogout}>
                             <Typography variant="h6" noWrap component="div"
                                         sx={{display: 'flex', alignItems: 'center', gap: 0.5}}>
-                                <LogoutIcon fontSize="inherit"/> Bloquear/Logout
+                                <LogoutIcon fontSize="inherit"/> Logout
                             </Typography>
                         </IconButton>
                     )}
