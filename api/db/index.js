@@ -51,6 +51,7 @@ db.products.belongsToMany(db.menus, { through: db.menuProducts });
 
 db.records.belongsTo(db.products, { foreignKey: 'product', as: 'productItem' });
 db.records.belongsTo(db.menus, { foreignKey: 'menu', as: 'menuItem' });
+db.products.hasMany(db.records, { foreignKey: 'product', as: 'records' });
 
 db.products.belongsTo(db.zones, { foreignKey: 'zoneId', as: 'zone' });
 db.zones.hasMany(db.products, { foreignKey: 'zoneId', as: 'products' });

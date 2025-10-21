@@ -102,6 +102,58 @@ export const getAll = (req, res) => {
         });
 }
 
+export const getTopProducts = async (req, res) => {
+    const limitRaw = req.query.limit;
+    const limit = Number.isFinite(Number(limitRaw)) && Number(limitRaw) > 0 ? Number(limitRaw) : 6;
+
+    try {
+        const rows = await db.sequelize.query(`
+            SELECT
+                p.id AS id,
+                p.name AS name,
+                p.price AS price,
+                p.zoneId AS zoneId,
+                p.theme AS theme,
+                COALESCE(SUM(r.quantity), 0) AS totalQuantity,
+                z.id AS zoneIdRef,
+                z.name AS zoneName,
+                z.position AS zonePosition
+            FROM products p
+            LEFT JOIN records r ON r.product = p.id
+            LEFT JOIN zones z ON z.id = p.zoneId AND z.isDeleted = false
+            WHERE p.isDeleted = false
+            GROUP BY p.id, p.name, p.price, p.zoneId, p.theme, z.id, z.name, z.position
+            ORDER BY totalQuantity DESC
+            LIMIT :limit
+        `, {
+            replacements: {limit},
+            type: db.Sequelize.QueryTypes.SELECT,
+        });
+
+        const payload = (rows || []).map((row) => ({
+            id: row.id,
+            name: row.name,
+            price: row.price,
+            zoneId: row.zoneId,
+            theme: row.theme,
+            zone: row.zoneIdRef ? {
+                id: row.zoneIdRef,
+                name: row.zoneName,
+                position: row.zonePosition,
+            } : null,
+            totalQuantity: Number(row.totalQuantity) || 0,
+        }));
+
+        res.send(payload);
+    } catch (error) {
+        console.error("[invoices.getTopProducts] error:", error);
+        res.status(500).send({
+            message: "Não foi possível obter os produtos favoritos.",
+            error: error?.message || error,
+        });
+    }
+};
+
 export const revoke = (req, res) => {
     const id = req.body.id;
     if (!id) {

@@ -168,6 +168,8 @@ app.post("/option/set-open-drawer", (req, res) => {
 });
 
 app.get("/option/get-open-drawer", options.getOpenDrawer);
+app.get("/option/favorites", options.getFavoritesSettings);
+app.post("/option/favorites", options.setFavoritesSettings);
 
 // Products (management)
 app.post("/db/product", products.create);
@@ -181,6 +183,7 @@ app.delete("/db/products", products.softDeleteAllProducts);
 app.post("/invoice/all", invoices.getAll);
 app.post("/invoice/revoke", invoices.revoke);
 app.post("/invoice/session", invoices.getFromSession);
+app.get("/reports/top-products", invoices.getTopProducts);
 
 // Menus
 app.post("/menu/add", menus.create);

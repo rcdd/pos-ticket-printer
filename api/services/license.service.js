@@ -74,8 +74,25 @@ const readOption = async (name) => {
     return row?.value ?? null;
 };
 
+const readSingleOption = async (name) => {
+    const rows = await Option.findAll({where: {name}});
+    if (rows.length <= 1) {
+        return rows[0] || null;
+    }
+    const [primary, ...duplicates] = rows;
+    await Option.destroy({where: {id: duplicates.map((row) => row.id)}});
+    return primary;
+};
+
 const writeOption = async (name, value) => {
-    await Option.create({name, value: value ?? ''});
+    const existing = await readSingleOption(name);
+    if (existing) {
+        if (existing.value !== (value ?? '')) {
+            await existing.update({value: value ?? ''});
+        }
+        return existing;
+    }
+    return Option.create({name, value: value ?? ''});
 };
 
 const deleteOption = async (name) => {

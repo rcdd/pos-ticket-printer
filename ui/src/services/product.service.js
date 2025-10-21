@@ -30,6 +30,10 @@ class ProductService {
     reorder(data) {
         return http.post(this.BASE_URL + "/db/product/reorder", {products: data});
     }
+
+    getTopSelling(limit = 6) {
+        return http.get(this.BASE_URL + `/reports/top-products?limit=${limit}`);
+    }
 }
 
 export default new ProductService();

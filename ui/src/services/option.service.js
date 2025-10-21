@@ -42,6 +42,14 @@ class OptionService {
     getOnboardingStatus() {
         return http.get(this.BASE_URL + "/option/onboarding-status");
     }
+
+    getFavoritesSettings() {
+        return http.get(this.BASE_URL + "/option/favorites");
+    }
+
+    saveFavoritesSettings(payload) {
+        return http.post(this.BASE_URL + "/option/favorites", payload);
+    }
 }
 
 export default new OptionService();

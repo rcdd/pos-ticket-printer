@@ -15,6 +15,7 @@ import NumericTextFieldWithKeypad from "../components/Common/NumericTextFieldKey
 import LoadingButton from '@mui/lab/LoadingButton';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import {useSession} from "../context/SessionContext.jsx";
+import OptionService from "../services/option.service";
 
 function POSPage({user}) {
     const {session, setSession} = useSession();
@@ -29,6 +30,9 @@ function POSPage({user}) {
     const [isPrinting, setIsPrinting] = React.useState(false);
     const [isPrinted, setIsPrinted] = React.useState(false);
     const [initialCashValue, setInitialCashValue] = React.useState(0);
+    const [favoritesConfig, setFavoritesConfig] = React.useState({enabled: false, count: 6});
+    const [favorites, setFavorites] = React.useState([]);
+    const [loadingFavorites, setLoadingFavorites] = React.useState(false);
 
     const handleInitSession = async () => {
         const num = parseFloat(String(initialCashValue).replace(',', '.'));
@@ -181,6 +185,59 @@ function POSPage({user}) {
         };
     }, [pushNetworkError, user?.id]);
 
+    useEffect(() => {
+        let mounted = true;
+        OptionService.getFavoritesSettings()
+            .then(({data}) => {
+                if (!mounted) return;
+                setFavoritesConfig({
+                    enabled: Boolean(data?.enabled),
+                    count: Number(data?.count) || 6,
+                });
+            })
+            .catch(() => {
+                if (!mounted) return;
+                setFavoritesConfig({enabled: false, count: 6});
+            });
+        return () => {
+            mounted = false;
+        };
+    }, []);
+
+    useEffect(() => {
+        let canceled = false;
+        const {enabled, count} = favoritesConfig;
+        if (!enabled) {
+            setFavorites([]);
+            return () => {
+                canceled = true;
+            };
+        }
+
+        const fetchFavorites = async () => {
+            setLoadingFavorites(true);
+            try {
+                const {data} = await ProductService.getTopSelling(count || 6);
+                if (!canceled) {
+                    setFavorites(Array.isArray(data) ? data : []);
+                }
+            } catch (error) {
+                if (!canceled) {
+                    console.error("Falha ao obter favoritos:", error?.response?.data || error);
+                    setFavorites([]);
+                }
+            } finally {
+                if (!canceled) setLoadingFavorites(false);
+            }
+        };
+
+        fetchFavorites();
+
+        return () => {
+            canceled = true;
+        };
+    }, [favoritesConfig]);
+
 
     const totalAmount = React.useMemo(
         () => cart.reduce((acc, it) => acc + (it.totalAmount || 0), 0),
@@ -196,6 +253,8 @@ function POSPage({user}) {
                         zones={zones}
                         products={products}
                         menus={menus}
+                        favorites={favorites}
+                        favoritesEnabled={favoritesConfig.enabled && !loadingFavorites}
                         addProductToCart={addProductToCart}/>
                 </div>
                 <div className='col-xl-4 col-lg-4 col-md-6 cart-wrapper'>

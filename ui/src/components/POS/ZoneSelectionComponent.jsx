@@ -6,11 +6,15 @@ import TabPanel from "@mui/lab/TabPanel";
 import TabContext from "@mui/lab/TabContext";
 import TabList from "@mui/lab/TabList";
 
+import FavoriteIcon from '@mui/icons-material/Favorite';
+
 export function ZoneSelectionComponent({
                                            isLoading,
                                            zones,
                                            products,
                                            menus,
+                                           favorites,
+                                           favoritesEnabled,
                                            addProductToCart
                                        }) {
 
@@ -28,14 +32,24 @@ export function ZoneSelectionComponent({
         setValue(newValue);
     };
 
+    const hasMenus = menus.length > 0;
+    const favoritesAvailable = favoritesEnabled && Array.isArray(favorites) && favorites.length > 0;
+
     React.useEffect(() => {
-        setValue(zones.length ? zones[0].name : menus.length ? "menu" : null);
-    }, [products, zones, menus]);
+        const nextValue = favoritesAvailable
+            ? 'favorites'
+            : zones.length
+                ? zones[0].name
+                : hasMenus
+                    ? "menu"
+                    : null;
+        setValue(nextValue);
+    }, [products, zones, menus, favorites, favoritesAvailable, hasMenus]);
 
     return (
         <div>
             {isLoading ? 'Loading...' :
-                products.length === 0 && menus.length === 0 ?
+                !favoritesAvailable && products.length === 0 && menus.length === 0 ?
                     <h3>Sem produtos definidos!</h3> :
                     value && <TabContext value={value}>
                         <Box sx={{borderBottom: 1, borderColor: 'divider'}}>
@@ -43,13 +57,30 @@ export function ZoneSelectionComponent({
                                 value={value}
                                 onChange={handleTabChange}
                             >
+                                {favoritesAvailable && (
+                                    <Tab
+                                        icon={<FavoriteIcon color="error"/>}
+                                        iconPosition="start"
+                                        style={{fontSize: windowsWidth < 1200 ? 14 : 18}}
+                                        key="favorites"
+                                        label=""
+                                        value="favorites"
+                                    />
+                                )}
                                 {zones && zones.map((zone) => (
                                     <Tab style={{fontSize: windowsWidth < 1200 ? 14 : 18}} key={zone.id} label={zone.name} value={zone.name}/>
                                 ))}
 
-                                {menus.length && <Tab style={{fontSize: 16 + "px"}} value="menu" label="Menus"/>}
+                                {hasMenus && <Tab style={{fontSize: 16 + "px"}} value="menu" label="Menus"/>}
                             </TabList>
                         </Box>
+
+                        {favoritesAvailable && (
+                            <TabPanel style={{padding: 1}} key="favorites" value="favorites">
+                                <ListProductsComponent products={favorites}
+                                                       addToCart={addProductToCart}/>
+                            </TabPanel>
+                        )}
 
                         {zones && zones.map((zone) => (
                             <TabPanel style={{padding: 1}} key={zone.id} value={zone.name}>
@@ -58,9 +89,11 @@ export function ZoneSelectionComponent({
                             </TabPanel>
                         ))}
 
-                        <TabPanel style={{padding: 1}} value="menu">
-                            <ListProductsComponent products={menus} addToCart={addProductToCart}/>
-                        </TabPanel>
+                        {hasMenus && (
+                            <TabPanel style={{padding: 1}} value="menu">
+                                <ListProductsComponent products={menus} addToCart={addProductToCart}/>
+                            </TabPanel>
+                        )}
                     </TabContext>
             }
         </div>

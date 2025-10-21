@@ -7,6 +7,8 @@ const optionSecondLine = 'secondLine';
 const optionPrintType = 'printOptionType';
 const optionOpenDrawer = 'openDrawer';
 const optionOnboarding = 'onboarding_completed';
+const optionFavorites = 'pos_favorites_enabled';
+const optionFavoritesCount = 'pos_favorites_count';
 
 export const readOnboardingStatus = async () => {
     const existing = await Option.findOne({where: {name: optionOnboarding}});
@@ -432,3 +434,66 @@ export const getOpenDrawerVariable = async () => {
     if (!row) return false;
     return row.value === 'true' || row.value === true || row.value === 1 || row.value === '1';
 }
+
+export const getFavoritesSettings = async (req, res) => {
+    try {
+        const enabledRows = await Option.findAll({where: {name: optionFavorites}});
+        const countRows = await Option.findAll({where: {name: optionFavoritesCount}});
+
+        if (enabledRows.length > 1) {
+            const [primary, ...duplicates] = enabledRows;
+            if (duplicates.length > 0) {
+                await Option.destroy({where: {id: duplicates.map((row) => row.id)}});
+            }
+        }
+        if (countRows.length > 1) {
+            const [primary, ...duplicates] = countRows;
+            if (duplicates.length > 0) {
+                await Option.destroy({where: {id: duplicates.map((row) => row.id)}});
+            }
+        }
+
+        const enabledRow = enabledRows[0] || null;
+        const countRow = countRows[0] || null;
+        res.send({
+            enabled: enabledRow ? enabledRow.value === 'true' : false,
+            count: countRow ? Number(countRow.value) || 6 : 6,
+        });
+    } catch (error) {
+        res.status(500).send({
+            message: "Error retrieving favorites settings.",
+            error: error?.message || error,
+        });
+    }
+};
+
+export const setFavoritesSettings = async (req, res) => {
+    try {
+        const {enabled, count} = req.body;
+        const normalizedEnabled = !!enabled;
+        const normalizedCount = Number.isFinite(Number(count)) && Number(count) > 0 ? Number(count) : 6;
+
+        const [favoritesOption] = await Option.findOrCreate({
+            where: {name: optionFavorites},
+            defaults: {value: String(normalizedEnabled)},
+        });
+        if (favoritesOption.value !== String(normalizedEnabled)) {
+            await favoritesOption.update({value: String(normalizedEnabled)});
+        }
+
+        const [countOption] = await Option.findOrCreate({
+            where: {name: optionFavoritesCount},
+            defaults: {value: String(normalizedCount)},
+        });
+        if (countOption.value !== String(normalizedCount)) {
+            await countOption.update({value: String(normalizedCount)});
+        }
+
+        res.send({enabled: normalizedEnabled, count: normalizedCount});
+    } catch (error) {
+        res.status(500).send({
+            message: "Error saving favorites settings.",
+            error: error?.message || error,
+        });
+    }
+};
