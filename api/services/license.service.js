@@ -65,12 +65,17 @@ const encodeSignature = (payload, secret) => {
 };
 
 const readOption = async (name) => {
-    const row = await Option.findOne({where: {name}});
+    const rows = await Option.findAll({where: {name}});
+    const row = rows.reduce((latest, current) => {
+        if (!latest) return current;
+        return current.updatedAt > latest.updatedAt ? current : latest;
+    }, null);
+
     return row?.value ?? null;
 };
 
 const writeOption = async (name, value) => {
-    await Option.upsert({name, value: value ?? ''});
+    await Option.create({name, value: value ?? ''});
 };
 
 const deleteOption = async (name) => {

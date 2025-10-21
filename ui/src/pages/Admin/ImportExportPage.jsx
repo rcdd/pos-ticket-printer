@@ -130,7 +130,7 @@ export default function ImportExportPage() {
                 issues.push({
                     row: i + 1,
                     level: "warning",
-                    msg: "produto: 'name' demasiado longo, máximo 40 caracteres"
+                    msg: "produto: '" + name + "' demasiado longo, máximo 40 caracteres"
                 });
             }
 
@@ -146,7 +146,7 @@ export default function ImportExportPage() {
             // theme
             let theme = (raw.theme || "default").toLowerCase();
             if (!Object.keys(CardThemes).includes(theme)) {
-                issues.push({row: i + 1, level: "warning", msg: `theme desconhecido '${raw.theme}', a usar 'default'`});
+                issues.push({row: i + 1, level: "warning", msg: `tema desconhecido '${raw.theme}', a usar 'default'`});
                 theme = "default";
             }
 

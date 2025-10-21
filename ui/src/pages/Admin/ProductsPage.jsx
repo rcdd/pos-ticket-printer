@@ -2,14 +2,29 @@ import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import Button from '@mui/material/Button';
 import ListProductComponent from '../../components/Admin/ListProductComponent';
 import ProductService from '../../services/product.service';
-import {Box, Tab, IconButton} from '@mui/material';
+import InventoryService from '../../services/inventory.service';
+import {
+    Box,
+    Tab,
+    IconButton,
+    Stack,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogContentText,
+    DialogActions,
+    Typography
+} from '@mui/material';
 import TabContext from '@mui/lab/TabContext';
 import TabList from '@mui/lab/TabList';
 import TabPanel from '@mui/lab/TabPanel';
 import ZoneService from '../../services/zone.service';
 import AddIcon from '@mui/icons-material/Add';
+import CleaningServicesIcon from '@mui/icons-material/CleaningServices';
+import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import ProductModal from '../../components/Admin/ProductModal';
 import ZoneModal from '../../components/Admin/ZoneModal';
+import LoadingButton from '@mui/lab/LoadingButton';
 import {useToast} from "../../components/Common/ToastProvider";
 
 function ProductsPage() {
@@ -17,7 +32,7 @@ function ProductsPage() {
     const [openAddEditZoneModal, setOpenAddEditZoneModal] = useState(false);
     const [openAddEditProductModal, setOpenAddEditProductModal] = useState(false);
 
-    const {pushNetworkError} = useToast();
+    const {pushNetworkError, pushMessage} = useToast();
 
     const [products, setProducts] = useState([]);
     const [productEdit, setProductEdit] = useState(null);
@@ -26,6 +41,7 @@ function ProductsPage() {
     const [zones, setZones] = useState([]);
 
     const [isLoading, setIsLoading] = useState(true);
+    const [confirmState, setConfirmState] = useState({open: false, scope: null, zone: null, loading: false});
 
     const sortZones = useCallback(
         (arr) => [...arr].sort((a, b) => (a.position > b.position ? 1 : -1)),
@@ -122,6 +138,50 @@ function ProductsPage() {
         setOpenAddEditZoneModal(true);
     }, []);
 
+    const confirmRemoveZoneProducts = useCallback((zone) => {
+        setConfirmState({open: true, scope: 'zone', zone, loading: false});
+    }, []);
+
+    const confirmRemoveAll = useCallback(() => {
+        setConfirmState({open: true, scope: 'all', zone: null, loading: false});
+    }, []);
+
+    const closeConfirmDialog = useCallback(() => {
+        setConfirmState({open: false, scope: null, zone: null, loading: false});
+    }, []);
+
+    const handleConfirmRemoval = useCallback(async () => {
+        if (!confirmState.scope) {
+            closeConfirmDialog();
+            return;
+        }
+
+        setConfirmState((prev) => ({...prev, loading: true}));
+        setIsLoading(true);
+
+        try {
+            if (confirmState.scope === 'zone' && confirmState.zone) {
+                await ProductService.deleteByZone(confirmState.zone.id);
+                await fetchProducts();
+                pushMessage("success", `Produtos da zona "${confirmState.zone.name}" removidos.`);
+            } else if (confirmState.scope === 'all') {
+                await InventoryService.resetAll();
+                await fetchZones();
+                await fetchProducts();
+                setTabProductsPosition('no-zone');
+                pushMessage("success", "Todos os produtos e zonas foram removidos.");
+            }
+        } catch (error) {
+            const title = confirmState.scope === 'all'
+                ? 'Não foi possível remover produtos e zonas'
+                : 'Não foi possível remover os produtos da zona';
+            pushNetworkError(error, {title});
+        } finally {
+            setIsLoading(false);
+            setConfirmState({open: false, scope: null, zone: null, loading: false});
+        }
+    }, [confirmState, fetchProducts, fetchZones, pushMessage, pushNetworkError]);
+
     const onProductModalClose = useCallback(
         async (isOk = false) => {
             setOpenAddEditProductModal(false);
@@ -160,6 +220,14 @@ function ProductsPage() {
         setTabProductsPosition(newValue);
     }, []);
 
+    const isZoneScope = confirmState.scope === 'zone';
+    const confirmDialogTitle = isZoneScope
+        ? `Remover produtos da zona "${confirmState.zone?.name ?? ''}"?`
+        : "Remover todas as zonas e produtos?";
+    const confirmDialogDescription = isZoneScope
+        ? "Todos os produtos associados a esta zona serão removidos. Esta operação não pode ser anulada."
+        : "Todos os produtos e zonas serão removidos. Esta operação não pode ser anulada.";
+
     return (
         <div>
             {isLoading && <p>Loading...</p>}
@@ -167,9 +235,25 @@ function ProductsPage() {
                 <div>
                     <h2>Produtos</h2>
                     <p>Adicione, edite ou remova produtos</p>
-                    <Button variant="contained" size="large" onClick={handleAddProduct}>
-                        Adicionar Produto
-                    </Button>
+                    <Stack
+                        direction={{xs: 'column', sm: 'row'}}
+                        spacing={1}
+                        alignItems={{xs: 'stretch', sm: 'center'}}
+                        sx={{mb: 2}}
+                    >
+                        <Button variant="contained" size="large" onClick={handleAddProduct}>
+                            Adicionar Produto
+                        </Button>
+                        <Button
+                            variant="outlined"
+                            color="error"
+                            startIcon={<DeleteSweepIcon/>}
+                            onClick={confirmRemoveAll}
+                            disabled={confirmState.loading || isLoading || (zones.length === 0 && products.length === 0)}
+                        >
+                            Remover tudo (zonas e produtos)
+                        </Button>
+                    </Stack>
 
                     <TabContext value={tabProductsPosition}>
                         <Box
@@ -205,14 +289,29 @@ function ProductsPage() {
 
                         {zones.map((zone) => (
                             <TabPanel key={zone.id} value={String(zone.id)}>
-                                <Button
-                                    variant="contained"
-                                    size="medium"
-                                    onClick={() => handleEditZone(zone)}
+                                <Stack
+                                    direction={{xs: 'column', sm: 'row'}}
+                                    spacing={1}
                                     sx={{mb: 2}}
+                                    alignItems={{xs: 'stretch', sm: 'center'}}
                                 >
-                                    Editar Zona
-                                </Button>
+                                    <Button
+                                        variant="contained"
+                                        size="medium"
+                                        onClick={() => handleEditZone(zone)}
+                                    >
+                                        Editar Zona
+                                    </Button>
+                                    <Button
+                                        variant="outlined"
+                                        color="error"
+                                        startIcon={<CleaningServicesIcon/>}
+                                        onClick={() => confirmRemoveZoneProducts(zone)}
+                                        disabled={confirmState.loading || isLoading}
+                                    >
+                                        Remover produtos da zona
+                                    </Button>
+                                </Stack>
                                 <ListProductComponent
                                     products={productsByZone(zone.id)}
                                     editProduct={handleEditProduct}
@@ -221,6 +320,38 @@ function ProductsPage() {
                             </TabPanel>
                         ))}
                     </TabContext>
+
+                    <Dialog
+                        open={confirmState.open}
+                        onClose={() => {
+                            if (!confirmState.loading) closeConfirmDialog();
+                        }}
+                    >
+                        <DialogTitle>{confirmDialogTitle}</DialogTitle>
+                        <DialogContent>
+                            <DialogContentText>
+                                {confirmDialogDescription}
+                            </DialogContentText>
+                            {isZoneScope && (
+                                <Typography variant="body2" color="text.secondary">
+                                    Zona: {confirmState.zone?.name}
+                                </Typography>
+                            )}
+                        </DialogContent>
+                        <DialogActions>
+                            <Button onClick={closeConfirmDialog} disabled={confirmState.loading}>
+                                Cancelar
+                            </Button>
+                            <LoadingButton
+                                color="error"
+                                onClick={handleConfirmRemoval}
+                                loading={confirmState.loading}
+                                variant="contained"
+                            >
+                                Remover
+                            </LoadingButton>
+                        </DialogActions>
+                    </Dialog>
 
                     <ProductModal
                         open={openAddEditProductModal}

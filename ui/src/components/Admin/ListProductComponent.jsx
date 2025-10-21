@@ -16,6 +16,19 @@ function ListProductComponent({products, editProduct, updateOrder}) {
         return () => window.removeEventListener("resize", handleResize);
     }, []);
 
+    useEffect(() => {
+        if(products.length === 0) return;
+
+        const initialSortedProducts = [...products].sort((a, b) => a.position - b.position);
+        const sortedProducts = initialSortedProducts.map((item, index) => ({
+            ...item,
+            position: index,
+        }));
+        setProductsDraggable(sortedProducts);
+
+        reorderProducts(sortedProducts);
+    }, []);
+
     const handleDragStart = () => {
         timeoutRef.current = setTimeout(() => {
             timeoutRef.current = null;
@@ -44,7 +57,11 @@ function ListProductComponent({products, editProduct, updateOrder}) {
 
         setProductsDraggable(newOrder);
 
-        ProductService.reorder(newOrder).then(() => {
+        reorderProducts(newOrder);
+    };
+
+    const reorderProducts = (sortedProducts) => {
+        ProductService.reorder(sortedProducts).then(() => {
             updateOrder();
         }).catch(
             (error) => {
@@ -52,7 +69,7 @@ function ListProductComponent({products, editProduct, updateOrder}) {
                 throw Error(error.response.data.message)
             }
         )
-    };
+    }
 
     const sensors = useSensors(
         useSensor(PointerSensor),

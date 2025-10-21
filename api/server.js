@@ -4,6 +4,7 @@ import 'dotenv/config';
 import * as printer  from "./db/controllers/printer/printer.controller.js";
 import * as options from "./db/controllers/options.controller.js";
 import * as products from "./db/controllers/products.controller.js";
+import * as inventory from "./db/controllers/inventory.controller.js";
 import * as invoices from "./db/controllers/invoices.controller.js";
 import * as menus from "./db/controllers/menus.controller.js";
 import * as zones from "./db/controllers/zones.controller.js";
@@ -173,6 +174,8 @@ app.post("/db/product", products.create);
 app.put("/db/product", products.update);
 app.delete("/db/product/:id", products.softDelete);
 app.post("/db/product/reorder", products.updatePositions);
+app.delete("/db/product/zone/:zoneId", products.softDeleteByZone);
+app.delete("/db/products", products.softDeleteAllProducts);
 
 // Invoices
 app.post("/invoice/all", invoices.getAll);
@@ -189,6 +192,7 @@ app.post("/zone/add", zones.create);
 app.put("/zone/update", zones.update);
 app.delete("/zone/:id", zones.softDelete);
 app.post("/zone/reorder", zones.updatePositions);
+app.delete("/inventory/reset", inventory.resetAll);
 
 // Sessions
 app.post("/session/start", sessions.open);

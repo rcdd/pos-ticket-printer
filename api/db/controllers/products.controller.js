@@ -1,4 +1,5 @@
 import db from "../index.js";
+
 const Product = db.products;
 const Op = db.Sequelize.Op;
 
@@ -24,6 +25,33 @@ export const create = (req, res) => {
         });
         return;
     }
+
+    // Check if product already exists in the same zone but was deleted
+    Product.findOne({
+        where: {
+            name: req.body.name,
+            zoneId: req.body.zoneId,
+            isDeleted: true
+        }
+    }).then(existingProduct => {
+        if (existingProduct) {
+            existingProduct.isDeleted = false;
+            existingProduct.price = req.body.price;
+            existingProduct.position = req.body.position ? req.body.position : existingProduct.position;
+            existingProduct.theme = req.body.theme ? req.body.theme : existingProduct.theme;
+
+            existingProduct.save()
+                .then(data => {
+                    res.send(data);
+                })
+                .catch(err => {
+                    res.status(500).send({
+                        message:
+                            err.message || "Some error occurred while restoring the Product."
+                    });
+                });
+        }
+    })
 
     // Create Product
     const product = {
@@ -90,8 +118,10 @@ export const findOne = (req, res) => {
 // Update a Product by the id in the request
 export const update = (req, res) => {
     const id = req.body.id;
+    const payload = req.body;
+    payload.isDeleted = false;
 
-    Product.update(req.body, {
+    Product.update(payload, {
         where: {id: id}
     })
         .then(num => {
@@ -179,6 +209,54 @@ export const deleteAll = (req, res) => {
         });
 };
 
+export const softDeleteByZone = async (req, res) => {
+    const zoneId = req.params.zoneId;
+
+    if (!zoneId) {
+        return res.status(400).send({message: "Zone id is required."});
+    }
+
+    try {
+        const [updated] = await Product.update({isDeleted: true}, {
+            where: {zoneId, isDeleted: false}
+        });
+
+        res.send({
+            message: updated > 0
+                ? "Produtos da zona removidos com sucesso."
+                : "Não existem produtos ativos nesta zona.",
+            affected: updated,
+        });
+    } catch (error) {
+        console.error("[products.softDeleteByZone] error:", error);
+        res.status(500).send({
+            message: "Erro ao remover produtos da zona.",
+            error: error?.message || error,
+        });
+    }
+};
+
+export const softDeleteAllProducts = async (req, res) => {
+    try {
+        const [updated] = await Product.update({isDeleted: true}, {
+            where: {isDeleted: false}
+        });
+
+        res.send({
+            message: updated > 0
+                ? "Todos os produtos foram removidos com sucesso."
+                : "Não existem produtos ativos para remover.",
+            affected: updated,
+        });
+    } catch (error) {
+        console.error("[products.softDeleteAllProducts] error:", error);
+        res.status(500).send({
+            message: "Erro ao remover todos os produtos.",
+            error: error?.message || error,
+        });
+    }
+};
+
 // Update the position of products
 export const updatePositions = (req, res) => {
     const products = req.body.products;
@@ -206,4 +284,3 @@ export const updatePositions = (req, res) => {
             });
         });
 };
-

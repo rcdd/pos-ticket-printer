@@ -19,6 +19,14 @@ class ProductService {
         return http.delete(this.BASE_URL + `/db/product/${id}`);
     }
 
+    deleteByZone(zoneId) {
+        return http.delete(this.BASE_URL + `/db/product/zone/${zoneId}`);
+    }
+
+    deleteAll() {
+        return http.delete(this.BASE_URL + "/db/products");
+    }
+
     reorder(data) {
         return http.post(this.BASE_URL + "/db/product/reorder", {products: data});
     }
