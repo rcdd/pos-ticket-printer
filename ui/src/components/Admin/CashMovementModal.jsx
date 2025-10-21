@@ -8,6 +8,7 @@ import TextFieldKeyboard from "../Common/TextFieldKeyboard";
 import CashMovementService from "../../services/cashMovement.service";
 import NumericTextFieldWithKeypad from "../Common/NumericTextFieldKeypad";
 import {useToast} from "../Common/ToastProvider";
+import AuthService from "../../services/auth.service";
 
 export default function CashMovementModal({open, onClose, modalType, session, onSaved}) {
     const {pushNetworkError} = useToast();
@@ -44,8 +45,7 @@ export default function CashMovementModal({open, onClose, modalType, session, on
                 }
             }
 
-            const userRaw = localStorage.getItem("user");
-            const user = userRaw ? JSON.parse(userRaw) : null;
+            const user = AuthService.getUser();
 
             const payload = {
                 sessionId: session.id,

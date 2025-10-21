@@ -87,7 +87,12 @@ app.use(async (req, res, next) => {
 app.post("/user/login", users.login);
 app.post("/user/add", optionalAuthenticate, users.create);
 
-// Public POS/runtime endpoints
+app.get("/option/onboarding-status", options.getOnboardingStatus);
+
+// Require authentication for everything else
+app.use(authenticate);
+
+// POS/runtime endpoints (authenticated)
 app.get('/printer/list', printer.getPrinterList);
 
 app.post('/printer/print-ticket', async (req, res) => {
@@ -123,10 +128,6 @@ app.get("/menus", menus.findAll);
 app.get("/zones", zones.findAll);
 app.get("/session/active", sessions.getLastActiveSession);
 app.post("/invoice/add", invoices.create);
-app.get("/option/onboarding-status", options.getOnboardingStatus);
-
-// Require authentication for everything else
-app.use(authenticate);
 
 // Authenticated license management
 app.get("/license/details", license.statusDetailed);

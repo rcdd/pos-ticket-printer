@@ -16,7 +16,7 @@ export const open = (req, res) => {
         .then(data => {
             if (data) {
                 res.status(400).send({
-                    message: "There's already an opened session. Please close it before opening a new one."
+                    message: "Já existe uma sessão aberta. Por favor, feche-a antes de abrir uma nova."
                 });
             } else {
                 const session = {

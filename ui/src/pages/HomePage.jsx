@@ -46,6 +46,8 @@ import Chip from '@mui/material/Chip';
 import Tooltip from '@mui/material/Tooltip';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
+import Backdrop from "@mui/material/Backdrop";
+import Paper from "@mui/material/Paper";
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
 import UsersPage from "./Admin/UsersPage";
@@ -58,6 +60,10 @@ import OptionService from "../services/option.service";
 import LicenseModal from "../components/Admin/LicenseModal.jsx";
 import LicenseService from "../services/license.service.js";
 import LicensePage from "./Admin/LicensePage.jsx";
+import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
+import PlayArrowIcon from "@mui/icons-material/PlayArrow";
+import StopCircleIcon from "@mui/icons-material/StopCircle";
+import {SessionProvider} from "../context/SessionContext.jsx";
 
 const drawerWidth = 240;
 
@@ -96,14 +102,13 @@ function HomePage() {
     const [login, setLogin] = React.useState(false);
     const [openCloseModal, setOpenCloseModal] = React.useState(false);
     const [session, setSession] = React.useState(null);
+    const [sessionLoading, setSessionLoading] = React.useState(false);
+    const [currentUser, setCurrentUser] = React.useState(() => AuthService.getUser());
     const [adminMode, setAdminMode] = React.useState(false);
     const [moreAnchor, setMoreAnchor] = React.useState(null);
     const moreOpen = Boolean(moreAnchor);
     const openMore = (e) => setMoreAnchor(e.currentTarget);
     const closeMore = () => setMoreAnchor(null);
-
-    const [/*userMenuAnchor*/, setUserMenuAnchor] = React.useState(null);
-    const closeUserMenu = () => setUserMenuAnchor(null);
 
     const [checkingLicense, setCheckingLicense] = React.useState(true);
     const [licenseInfo, setLicenseInfo] = React.useState(null);
@@ -113,6 +118,28 @@ function HomePage() {
     const [requireUserSetup, setRequireUserSetup] = React.useState(false);
     const licenseValid = Boolean(licenseInfo?.valid);
     const [shouldAutoPromptLogin, setShouldAutoPromptLogin] = React.useState(false);
+    const showLockScreen = !login && !requireUserSetup && !checkingUsers && !checkingLicense;
+
+    const refreshSession = React.useCallback(async () => {
+        if (!licenseValid || !login || !AuthService.isAuthenticated()) {
+            setSession(null);
+            setSessionLoading(false);
+            return;
+        }
+
+        setSessionLoading(true);
+        try {
+            const response = await SessionService.getActiveSession();
+            setSession(response.data);
+        } catch (error) {
+            if (error?.response && error.response.status !== 404) {
+                console.log(error.response);
+            }
+            setSession(null);
+        } finally {
+            setSessionLoading(false);
+        }
+    }, [licenseValid, login]);
 
     const loadLicenseStatus = React.useCallback(async () => {
         setCheckingLicense(true);
@@ -157,6 +184,10 @@ function HomePage() {
     }, [loadLicenseStatus]);
 
     React.useEffect(() => {
+        refreshSession();
+    }, [refreshSession]);
+
+    React.useEffect(() => {
         const onLicenseUpdate = (event) => {
             const detail = event?.detail;
             if (detail) {
@@ -192,12 +223,12 @@ function HomePage() {
         setShouldAutoPromptLogin(false);
     }, [shouldAutoPromptLogin, licenseValid, login, licenseModalOpen, requireUserSetup, checkingLicense]);
 
-    const items = React.useMemo(() => ([
+    const navItems = React.useMemo(() => ([
         {icon: <HomeIcon/>, name: "POS", path: "/pos", visible: true},
-        {icon: <CategoryIcon/>, name: "Produtos", path: "/products", visible: true},
+        {icon: <CategoryIcon/>, name: "Produtos", path: "/products", visible: adminMode},
         {icon: <AssessmentIcon/>, name: "Relatórios", path: "/reports", visible: adminMode},
-        {icon: <ImportExportIcon/>, name: "Importar/Exportar", path: "/migration", visible: true},
-        {icon: <PointOfSaleIcon/>, name: "Tesouraria", path: "/session", visible: session !== null},
+        {icon: <ImportExportIcon/>, name: "Importar/Exportar", path: "/migration", visible: adminMode},
+        {icon: <PointOfSaleIcon/>, name: "Tesouraria", path: "/session", visible: adminMode && session !== null},
         {icon: <PeopleAltIcon/>, name: "Utilizadores", path: "/users", visible: adminMode},
         {icon: <SettingsIcon/>, name: "Configurações", path: "/setup", visible: adminMode},
         {icon: <VpnKeyIcon/>, name: "Licença", path: "/license", visible: adminMode},
@@ -225,15 +256,24 @@ function HomePage() {
                     const {data} = await UserService.getCurrent();
                     resolvedUser = data;
                 }
+                AuthService.setUser(resolvedUser || null);
+                setCurrentUser(resolvedUser || null);
                 const role = (resolvedUser?.role || '').toString().toLowerCase();
-                setAdminMode(role.includes('admin'));
+                const isAdmin = role.includes('admin');
+                setAdminMode(isAdmin);
+                setOpen(isAdmin);
             } catch (error) {
                 console.error("Falha ao obter utilizador atual:", error?.response?.data || error);
+                AuthService.setUser(null);
+                setCurrentUser(null);
                 setAdminMode(false);
+                setOpen(false);
             }
-            setOpen(true);
         } else {
+            AuthService.setUser(null);
+            setCurrentUser(null);
             setAdminMode(false);
+            setOpen(false);
         }
     }, []);
 
@@ -242,8 +282,9 @@ function HomePage() {
         setAdminMode(false);
         setOpen(false);
         setLoginModal(false);
+        setCurrentUser(null);
+        setSession(null);
         AuthService.clearSession();
-        closeUserMenu();
         navigate('/pos');
     };
 
@@ -255,6 +296,8 @@ function HomePage() {
             AuthService.clearSession();
             setLogin(false);
             setAdminMode(false);
+            setCurrentUser(null);
+            setOpen(false);
             setSession(null);
             return;
         }
@@ -267,31 +310,33 @@ function HomePage() {
                 try {
                     const {data} = await UserService.getCurrent();
                     if (canceled) return;
+                    AuthService.setUser(data || null);
+                    setCurrentUser(data || null);
                     const role = (data?.role || '').toString().toLowerCase();
-                    setAdminMode(role.includes('admin'));
+                    const isAdmin = role.includes('admin');
+                    setAdminMode(isAdmin);
+                    setOpen(isAdmin);
                 } catch (error) {
                     if (canceled) return;
                     console.error("Falha ao validar sessão:", error?.response?.data || error);
                     AuthService.clearSession();
                     setLogin(false);
                     setAdminMode(false);
+                    setCurrentUser(null);
+                    setOpen(false);
                     setShouldAutoPromptLogin(true);
                 }
             } else {
                 setLogin(false);
                 setAdminMode(false);
+                AuthService.setUser(null);
+                setCurrentUser(null);
+                setOpen(false);
+                setShouldAutoPromptLogin(true);
             }
 
-            try {
-                const response = await SessionService.getActiveSession();
-                if (!canceled) setSession(response.data);
-            } catch (error) {
-                if (!canceled) {
-                    if (error.response && error.response.status !== 404) {
-                        console.log(error.response);
-                    }
-                    setSession(null);
-                }
+            if (!AuthService.isAuthenticated()) {
+                setSession(null);
             }
         };
 
@@ -313,21 +358,29 @@ function HomePage() {
     }, []);
 
     const title = React.useMemo(() => {
-        if (location.pathname.startsWith('/about')) return 'TicketPrint — Sobre';
-        if (location.pathname === '/pos') return 'TicketPrint';
-        return 'TicketPrint — Administração';
+        const navItem = navItems.find((item) => item.path === location.pathname);
+        if (navItem) return `TicketPrint — ${navItem.name}`;
+        return 'TicketPrint';
     }, [location.pathname]);
 
     const appBarAlert = (!licenseValid) || Boolean(login && adminMode);
     const licenseAlertSeverity = licenseInfo?.status === 'expired' ? 'error' : 'warning';
 
+    const sessionContextValue = React.useMemo(() => ({
+        session,
+        setSession,
+        refreshSession,
+        loading: sessionLoading,
+    }), [session, setSession, refreshSession, sessionLoading]);
+
     return (
-        <Box sx={{display: 'flex'}}>
+        <SessionProvider value={sessionContextValue}>
+            <Box sx={{display: 'flex'}}>
             <CssBaseline/>
 
             <AppBar position="fixed" alert={appBarAlert}>
                 <Toolbar sx={{gap: 1}}>
-                    {login && (
+                    {login && adminMode && (
                         <IconButton
                             color="inherit"
                             aria-label="open drawer"
@@ -361,6 +414,31 @@ function HomePage() {
 
                     <Box sx={{flexGrow: 1}}/>
 
+                    {login && (
+                        <>
+                            {location.pathname === '/pos' && session && (
+                                <IconButton color="inherit" disabled={!licenseValid || checkingLicense} onClick={() => {
+                                    handleNav('/session')
+                                }}>
+                                    <Typography variant="h6" noWrap component="div"
+                                                sx={{display: 'flex', alignItems: 'center', gap: 0.5}}>
+                                        <StopCircleIcon fontSize="inherit"/> Fechar Turno
+                                    </Typography>
+                                </IconButton>
+                            )}
+                            {(location.pathname === '/session' || location.pathname === '/about') && (
+                                <IconButton color="inherit" disabled={!licenseValid || checkingLicense} onClick={() => {
+                                    handleNav('/pos')
+                                }}>
+                                    <Typography variant="h6" noWrap component="div"
+                                                sx={{display: 'flex', alignItems: 'center', gap: 0.5}}>
+                                        <PlayArrowIcon fontSize="inherit"/> POS
+                                    </Typography>
+                                </IconButton>
+                            )}
+                        </>
+                    )}
+
                     {!login ? (
                         <IconButton color="inherit" disabled={!licenseValid || checkingLicense} onClick={() => {
                             if (!requireUserSetup) {
@@ -369,19 +447,18 @@ function HomePage() {
                         }}>
                             <Typography variant="h6" noWrap component="div"
                                         sx={{display: 'flex', alignItems: 'center', gap: 0.5}}>
-                                <LoginIcon fontSize="inherit"/> Login
+                                <LoginIcon fontSize="inherit"/> Iniciar Sessão
                             </Typography>
                         </IconButton>
                     ) : (
                         <IconButton color="inherit" onClick={handleLogout}>
                             <Typography variant="h6" noWrap component="div"
                                         sx={{display: 'flex', alignItems: 'center', gap: 0.5}}>
-                                <LogoutIcon fontSize="inherit"/> Terminar Sessão
+                                <LogoutIcon fontSize="inherit"/> Bloquear/Logout
                             </Typography>
                         </IconButton>
                     )}
 
-                    {/* Kebab sempre visível (mesmo sem login) */}
                     <Tooltip title="Mais opções">
                         <IconButton color="inherit" onClick={openMore}>
                             <MoreVertIcon/>
@@ -417,46 +494,48 @@ function HomePage() {
                 </Toolbar>
             </AppBar>
 
-            <Drawer
-                sx={{
-                    width: drawerWidth,
-                    flexShrink: 0,
-                    '& .MuiDrawer-paper': {width: drawerWidth, boxSizing: 'border-box'},
-                }}
-                variant="temporary"
-                anchor="left"
-                open={open}
-                onClose={() => setOpen(false)}
-                ModalProps={{keepMounted: true}}
-            >
-                <DrawerHeader>
-                    <IconButton onClick={() => setOpen(false)}>
-                        {theme.direction === 'ltr' ? <ChevronLeftIcon/> : <ChevronRightIcon/>}
-                    </IconButton>
-                </DrawerHeader>
-                <Divider/>
-                {items.map((item) => (
-                    item.visible && (
-                        <ListItem key={item.name} disablePadding onClick={() => handleNav(item.path)}>
-                            <ListItemButton selected={location.pathname === item.path}>
-                                <ListItemIcon>{item.icon}</ListItemIcon>
-                                <ListItemText primary={item.name}/>
-                            </ListItemButton>
-                        </ListItem>
-                    )
-                ))}
-                <Divider/>
-                {login && (
-                    <List>
-                        <ListItem disablePadding onClick={handleLogout}>
-                            <ListItemButton>
-                                <ListItemIcon><LogoutIcon/></ListItemIcon>
-                                <ListItemText primary={"Terminar Sessão"}/>
-                            </ListItemButton>
-                        </ListItem>
-                    </List>
-                )}
-            </Drawer>
+            {login && adminMode && (
+                <Drawer
+                    sx={{
+                        width: drawerWidth,
+                        flexShrink: 0,
+                        '& .MuiDrawer-paper': {width: drawerWidth, boxSizing: 'border-box'},
+                    }}
+                    variant="temporary"
+                    anchor="left"
+                    open={open}
+                    onClose={() => setOpen(false)}
+                    ModalProps={{keepMounted: true}}
+                >
+                    <DrawerHeader>
+                        <IconButton onClick={() => setOpen(false)}>
+                            {theme.direction === 'ltr' ? <ChevronLeftIcon/> : <ChevronRightIcon/>}
+                        </IconButton>
+                    </DrawerHeader>
+                    <Divider/>
+                    {navItems.map((item) => (
+                        item.visible && (
+                            <ListItem key={item.name} disablePadding onClick={() => handleNav(item.path)}>
+                                <ListItemButton selected={location.pathname === item.path}>
+                                    <ListItemIcon>{item.icon}</ListItemIcon>
+                                    <ListItemText primary={item.name}/>
+                                </ListItemButton>
+                            </ListItem>
+                        )
+                    ))}
+                    <Divider/>
+                    {login && (
+                        <List>
+                            <ListItem disablePadding onClick={handleLogout}>
+                                <ListItemButton>
+                                    <ListItemIcon><LogoutIcon/></ListItemIcon>
+                                    <ListItemText primary={"Terminar Sessão"}/>
+                                </ListItemButton>
+                            </ListItem>
+                        </List>
+                    )}
+                </Drawer>
+            )}
 
             <Main>
                 <DrawerHeader/>
@@ -465,23 +544,90 @@ function HomePage() {
                         {licenseInfo.message || 'A licença não é válida. Introduza um novo código.'}
                     </Alert>
                 )}
-                {/* Rotas reais — podes refrescar sem perder a página */}
                 <Routes>
                     <Route path="/" element={<Navigate to="/pos" replace/>}/>
-                    <Route path="/pos" element={<POSPage session={session} setSession={setSession}/>}/>
-                    <Route path="/products" element={<ProductsPage/>}/>
-                    <Route path="/setup" element={<SetupPage/>}/>
-                    <Route path="/reports" element={<ReportsPage/>}/>
+                    <Route
+                        path="/pos"
+                        element={<POSPage user={currentUser}/>}
+                    />
+                    <Route
+                        path="/products"
+                        element={login && adminMode ? <ProductsPage/> : <Navigate to="/pos" replace/>}
+                    />
+                    <Route
+                        path="/setup"
+                        element={login && adminMode ? <SetupPage/> : <Navigate to="/pos" replace/>}
+                    />
+                    <Route
+                        path="/reports"
+                        element={login && adminMode ? <ReportsPage/> : <Navigate to="/pos" replace/>}
+                    />
                     <Route path="/about" element={<AboutPage/>}/>
-                    <Route path="/migration" element={<ImportExportPage/>}/>
-                    <Route path="/users" element={<UsersPage/>}/>
-                    <Route path="/license" element={adminMode ? <LicensePage/> : <Navigate to="/pos" replace/>}/>
-                    <Route path="/session" element={<SessionPage session={session} setSession={setSession}
-                                                                 onCloseSession={() => handleNav('/pos')}/>}/>
+                    <Route
+                        path="/migration"
+                        element={login && adminMode ? <ImportExportPage/> : <Navigate to="/pos" replace/>}
+                    />
+                    <Route
+                        path="/users"
+                        element={login && adminMode ? <UsersPage/> : <Navigate to="/pos" replace/>}
+                    />
+                    <Route
+                        path="/license"
+                        element={login && adminMode ? <LicensePage/> : <Navigate to="/pos" replace/>}
+                    />
+                    <Route
+                        path="/session"
+                        element={login ? (
+                            <SessionPage
+                                onCloseSession={() => handleNav('/pos')}
+                            />
+                        ) : <Navigate to="/pos" replace/>}
+                    />
                     {/* rota fallback */}
                     <Route path="*" element={<Navigate to="/pos" replace/>}/>
                 </Routes>
             </Main>
+
+            <Backdrop
+                open={showLockScreen}
+                sx={(theme) => ({
+                    zIndex: theme.zIndex.modal - 1,
+                    color: '#fff',
+                    backdropFilter: 'blur(16px)',
+                    p: 2,
+                })}
+            >
+                <Paper
+                    elevation={8}
+                    sx={{
+                        p: 4,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 2,
+                        alignItems: 'center',
+                        width: 'min(420px, 90vw)',
+                        textAlign: 'center',
+                    }}
+                >
+                    <LockOutlinedIcon color="primary" sx={{fontSize: 48}}/>
+                    <Typography variant="h5" component="h2">
+                        Terminal bloqueado
+                    </Typography>
+                    <Typography variant="subtitle2">
+                        Data e hora: {new Date().toLocaleString()}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                        Inicie sessão com o seu perfil para continuar a utilizar o sistema.
+                    </Typography>
+                    <Button
+                        variant="contained"
+                        size="large"
+                        onClick={() => setLoginModal(true)}
+                    >
+                        Desbloquear
+                    </Button>
+                </Paper>
+            </Backdrop>
 
             <LoginModal open={loginModal} close={(state) => setLoginModal(state)} setLogin={handleLogin}/>
 
@@ -529,7 +675,8 @@ function HomePage() {
                     <Button onClick={doCloseWindow} autoFocus>Fechar</Button>
                 </DialogActions>
             </Dialog>
-        </Box>
+            </Box>
+        </SessionProvider>
     );
 }
 

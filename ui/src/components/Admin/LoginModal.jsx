@@ -10,7 +10,7 @@ import TextFieldKeyboard from "../Common/TextFieldKeyboard";
 
 export default function LoginModal({open, close, setLogin}) {
     const [openModal, setOpenModal] = React.useState(open);
-    const [username, setUsername] = React.useState("admin");
+    const [username, setUsername] = React.useState("");
     const [password, setPassword] = React.useState("");
     const [errorText, setErrorText] = React.useState("");
 
@@ -28,6 +28,7 @@ export default function LoginModal({open, close, setLogin}) {
                     token: data?.token || null,
                     expiresAt: data?.expiresAt || null,
                 });
+                AuthService.setUser(data?.user || null);
                 setErrorText("");
                 setOpenModal(false);
                 close(true);
@@ -83,6 +84,7 @@ export default function LoginModal({open, close, setLogin}) {
                             label: "Utilizador",
                             fullWidth: true,
                             autoComplete: "username",
+                            autoFocus: true,
                         }}
                         maxLength={64}
                         showSymbols={false}
@@ -97,7 +99,6 @@ export default function LoginModal({open, close, setLogin}) {
                             type: "password",
                             fullWidth: true,
                             autoComplete: "current-password",
-                            autoFocus: true,
                             onKeyDown: (e) => {
                                 if (e.key === 'Enter') {
                                     e.preventDefault();

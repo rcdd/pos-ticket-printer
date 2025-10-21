@@ -108,7 +108,7 @@ const evaluateToken = (token, secret) => {
     const payload = `${tenant}.${expirySegment}`;
     const expectedSignature = encodeSignature(payload, secret);
     if (signature !== expectedSignature) {
-        throw new LicenseError('A assinatura da licença é inválida.', 'invalid_signature');
+        throw new LicenseError('A assinatura da licença é inválida ou não é compativel com esta máquina.', 'invalid_signature');
     }
 
     const daysSinceEpoch = decodeBase32(expirySegment);

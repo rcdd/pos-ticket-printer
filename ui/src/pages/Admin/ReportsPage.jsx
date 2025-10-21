@@ -67,6 +67,7 @@ function ReportsPage() {
     const [sessionMovements, setSessionMovements] = React.useState(null); // { list, cashIn, cashOut, net, cashSales, finalCash }
     const [sessionDrawerLoading, setSessionDrawerLoading] = React.useState(false);
     const [printingSession, setPrintingSession] = React.useState(false);
+    const [sessionUserNames, setSessionUserNames] = React.useState({open: "Desconhecido", close: "Desconhecido"});
 
     const resolveUserName = React.useCallback(async (id) => {
         if (!id) return "Desconhecido";
@@ -446,6 +447,40 @@ function ReportsPage() {
         pushNetworkError
     ]);
 
+    React.useEffect(() => {
+        let canceled = false;
+
+        if (!viewSession?.id) {
+            setSessionUserNames({open: "Desconhecido", close: "Desconhecido"});
+            return () => {
+                canceled = true;
+            };
+        }
+
+        (async () => {
+            try {
+                const [openName, closeName] = await Promise.all([
+                    resolveUserName(viewSession.userOpenId),
+                    resolveUserName(viewSession.userCloseId),
+                ]);
+                if (!canceled) {
+                    setSessionUserNames({
+                        open: openName,
+                        close: closeName,
+                    });
+                }
+            } catch (error) {
+                if (!canceled) {
+                    setSessionUserNames({open: "Desconhecido", close: "Desconhecido"});
+                }
+            }
+        })();
+
+        return () => {
+            canceled = true;
+        };
+    }, [viewSession?.id, viewSession?.userOpenId, viewSession?.userCloseId, resolveUserName]);
+
     const renderProductsTable = React.useCallback(() => {
         const products = sessionMovements?.productsAgg ?? [];
         const discounted = sessionMovements?.discountedProductsAgg ?? [];
@@ -793,6 +828,7 @@ function ReportsPage() {
                 onClose={() => {
                     setViewSession(null);
                     setSessionMovements(null);
+                    setSessionUserNames({open: "Desconhecido", close: "Desconhecido"});
                 }}
                 PaperProps={{sx: {width: 560, p: 2, display: 'flex', flexDirection: 'column'}}}
             >
@@ -806,19 +842,20 @@ function ReportsPage() {
                             <IconButton onClick={() => {
                                 setViewSession(null);
                                 setSessionMovements(null);
+                                setSessionUserNames({open: "Desconhecido", close: "Desconhecido"});
                             }}>
                                 <CloseIcon/>
                             </IconButton>
                         </Stack>
                         <Typography variant="body2" color="text.secondary" sx={{mt: 0.5}}>
-                            Início: {new Date(viewSession.openedAt).toLocaleString('pt-PT')}
-                            {viewSession.closedAt ? ` — Fecho: ${new Date(viewSession.closedAt).toLocaleString('pt-PT')}` : ''}
+                            Início: {new Date(viewSession.openedAt).toLocaleString('pt-PT')} por {sessionUserNames.open}
+                            {viewSession.closedAt ? ` — Fecho: ${new Date(viewSession.closedAt).toLocaleString('pt-PT')} por ${sessionUserNames.close}` : ''}
                         </Typography>
                         <Stack direction="row" spacing={1} sx={{mt: 1}}>
                             <Chip
                                 size="small"
-                                color={viewSession.status === 'open' ? 'success' : 'default'}
-                                label={viewSession.status === 'open' ? 'Aberta' : 'Fechada'}
+                                color={viewSession.status === 'opened' ? 'success' : 'default'}
+                                label={viewSession.status === 'opened' ? 'Aberta' : 'Fechada'}
                             />
                         </Stack>
                         <Divider sx={{my: 1.5}}/>

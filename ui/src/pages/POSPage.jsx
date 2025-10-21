@@ -14,8 +14,10 @@ import SessionService from "../services/session.service";
 import NumericTextFieldWithKeypad from "../components/Common/NumericTextFieldKeypad";
 import LoadingButton from '@mui/lab/LoadingButton';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
+import {useSession} from "../context/SessionContext.jsx";
 
-function POSPage({session, setSession}) {
+function POSPage({user}) {
+    const {session, setSession} = useSession();
     const {pushNetworkError} = useToast();
     const [products, setProducts] = useState([]);
     const [zones, setZones] = useState([]);
@@ -26,20 +28,26 @@ function POSPage({session, setSession}) {
     const [openModal, setOpenModal] = React.useState(false);
     const [isPrinting, setIsPrinting] = React.useState(false);
     const [isPrinted, setIsPrinted] = React.useState(false);
-    const [openBackdrop, setOpenBackdrop] = React.useState(session === null);
     const [initialCashValue, setInitialCashValue] = React.useState(0);
-    const [user, /*setUser*/] = React.useState({id: 1});
 
     const handleInitSession = async () => {
         const num = parseFloat(String(initialCashValue).replace(',', '.'));
         const value = Number.isFinite(num) && num >= 0 ? Math.round(num * 100) : 0;
 
+        if (!user?.id) {
+            pushNetworkError(null, {
+                title: 'Utilizador não autenticado',
+                message: 'Efetue login para iniciar a sessão de caixa.',
+            });
+            return;
+        }
+
+        const sessionData = {userId: user.id, initialAmount: value, notes: null};
+
         setIsLoading(true);
         try {
-            const sessionData = {userId: user.id, initialAmount: value, notes: null};
             const res = await SessionService.start(sessionData);
             setSession(res.data);
-            setOpenBackdrop(false);
         } catch (error) {
             pushNetworkError(error, {title: 'Não foi possível iniciar a sessão'});
             console.error(error?.response?.data || error);
@@ -69,12 +77,21 @@ function POSPage({session, setSession}) {
     };
 
     const handlePayment = () => {
-        if (cart.length === 0) return;
+        if (cart.length === 0 || !user?.id || !session?.id) return;
         setOpenModal(true);
     };
 
     const handlePrint = async (status = false, finalAmount = totalAmount, discount = 0, paymentMethod, openDrawer) => {
         if (!status) {
+            setOpenModal(false);
+            return;
+        }
+
+        if (!session?.id) {
+            pushNetworkError(null, {
+                title: 'Sessão indisponível',
+                message: 'Inicie ou recupere a sessão de caixa antes de finalizar o pagamento.',
+            });
             setOpenModal(false);
             return;
         }
@@ -92,7 +109,7 @@ function POSPage({session, setSession}) {
 
             const invoiceId = await InvoiceService.addInvoice(
                 session.id,
-                user.id,
+                user?.id,
                 cart,
                 finalAmount,
                 discount,
@@ -122,6 +139,17 @@ function POSPage({session, setSession}) {
 
     useEffect(() => {
         let mounted = true;
+
+        if (!user?.id) {
+            setProducts([]);
+            setZones([]);
+            setMenus([]);
+            setIsLoading(false);
+            return () => {
+                mounted = false;
+            };
+        }
+
         (async () => {
             setIsLoading(true);
             try {
@@ -141,6 +169,7 @@ function POSPage({session, setSession}) {
                 const menus = (menusRes.data || []).map(m => ({...m, type: 'Menu'}));
                 setMenus(menus);
             } catch (error) {
+                if (!mounted) return;
                 pushNetworkError(error, {title: 'Não foi possível carregar dados'});
                 console.error(error?.response?.data || error);
             } finally {
@@ -150,12 +179,8 @@ function POSPage({session, setSession}) {
         return () => {
             mounted = false;
         };
-    }, [pushNetworkError]);
+    }, [pushNetworkError, user?.id]);
 
-
-    useEffect(() => {
-        setOpenBackdrop(session === null);
-    }, [session]);
 
     const totalAmount = React.useMemo(
         () => cart.reduce((acc, it) => acc + (it.totalAmount || 0), 0),
@@ -194,7 +219,7 @@ function POSPage({session, setSession}) {
             />
 
             <Backdrop
-                open={openBackdrop}
+                open={Boolean(user?.id) && !session}
                 sx={(theme) => ({
                     zIndex: theme.zIndex.appBar - 1,
                     bgcolor: 'rgba(0,0,0,0.35)',

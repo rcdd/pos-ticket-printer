@@ -8,13 +8,16 @@ import { PaymentMethods } from "../../enums/PaymentMethodsEnum";
 import CloseSessionModal from "../../components/Admin/CloseSessionModal";
 import PrinterService from "../../services/printer.service";
 import SessionService from "../../services/session.service";
+import AuthService from "../../services/auth.service";
 import { useToast } from "../../components/Common/ToastProvider";
 import UserService from "../../services/user.service";
 import CashMovementService from "../../services/cashMovement.service";
 import CashMovementModal from "../../components/Admin/CashMovementModal";
 import {computeSessionAggregates} from "../../utils/sessionAggregates";
+import {useSession} from "../../context/SessionContext.jsx";
 
-export default function SessionPage({ session, setSession, onCloseSession }) {
+export default function SessionPage({ onCloseSession }) {
+    const {session, setSession, refreshSession} = useSession();
     const { pushNetworkError } = useToast();
     const [isLoading, setIsLoading] = useState(true);
     const [openModalEndSession, setOpenModalEndSession] = useState(false);
@@ -76,8 +79,15 @@ export default function SessionPage({ session, setSession, onCloseSession }) {
 
     useEffect(() => {
         let mounted = true;
+
+        if (!session?.id) {
+            setIsLoading(false);
+            setInvoices([]);
+            setCashMovements([]);
+            return () => { mounted = false; };
+        }
+
         (async () => {
-            if (!session?.id) return;
             setIsLoading(true);
             await Promise.all([fetchInvoices(), fetchCashMovements(), fetchUsers()]);
             if (mounted) setIsLoading(false);
@@ -86,7 +96,12 @@ export default function SessionPage({ session, setSession, onCloseSession }) {
     }, [session?.id, fetchInvoices, fetchCashMovements, fetchUsers]);
 
     const handleCloseSession = async (notes) => {
-        const user = JSON.parse(localStorage.getItem("user") || "null");
+        if (!session?.id) {
+            pushNetworkError(null, { title: "Sessão não encontrada", message: "Não existe sessão ativa para fechar." });
+            return;
+        }
+
+        const user = AuthService.getUser();
         if (!user) {
             pushNetworkError(null, { title: "Utilizador não autenticado", message: "Por favor, inicie sessão novamente." });
             return;
@@ -139,6 +154,9 @@ export default function SessionPage({ session, setSession, onCloseSession }) {
         SessionService.close(session.id, payload).then(() => {
             setSession(null);
             setOpenModalEndSession(false);
+            if (typeof refreshSession === 'function') {
+                refreshSession();
+            }
             onCloseSession(true);
         }).catch((error) => {
             pushNetworkError(error, { title: "Não foi possível fechar a sessão" });
@@ -176,6 +194,18 @@ export default function SessionPage({ session, setSession, onCloseSession }) {
     const handleMovementSaved = () => {
         fetchCashMovements();
     };
+
+    if (!session) {
+        return (
+            <Box>
+                <Typography variant="h5" sx={{mb: 2}}>Nenhuma sessão ativa</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{mb: 3}}>
+                    Inicie uma sessão no POS para acompanhar vendas e movimentos de caixa.
+                </Typography>
+                <Button variant="contained" onClick={() => onCloseSession(false)}>Voltar ao POS</Button>
+            </Box>
+        );
+    }
 
     return (
         <Box>
@@ -293,10 +323,6 @@ export default function SessionPage({ session, setSession, onCloseSession }) {
                 open={openModalEndSession}
                 setModal={setOpenModalEndSession}
                 onCloseSession={handleCloseSession}
-                session={session}
-                setSession={setSession}
-                moviments={cashMovements}
-                closingAmount={finalCashValueCents}
             />
 
             <CashMovementModal
