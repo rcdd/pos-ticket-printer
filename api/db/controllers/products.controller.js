@@ -77,27 +77,53 @@ export const create = (req, res) => {
 };
 
 // Retrieve all Products from the database.
-export const findAll = (req, res) => {
+export const findAll = async (req, res) => {
     const nameFilter = req.query.name;
     const condition = nameFilter ? {name: {[Op.like]: `%${nameFilter}%`}, isDeleted: false} : {isDeleted: false};
 
-    Product.findAll({
-        where: condition,
-        attributes: {exclude: ['isDeleted']},
-        include: [{
-            model: db.zones,
-            as: 'zone'
-        }]
-    })
-        .then(data => {
-            res.send(data);
-        })
-        .catch(err => {
-            res.status(500).send({
-                message:
-                    err.message || "Some error occurred while retrieving tutorials."
-            });
+    try {
+        const products = await Product.findAll({
+            where: condition,
+            attributes: {exclude: ['isDeleted']},
+            include: [{
+                model: db.zones,
+                as: 'zone'
+            }]
         });
+
+        const activeZoneIds = new Set(
+            (await db.zones.findAll({where: {isDeleted: false}, attributes: ['id']})).map((z) => z.id)
+        );
+
+        const orphanProducts = products.filter((product) => {
+            const zoneId = product.zoneId;
+            if (zoneId == null) return false;
+            return !activeZoneIds.has(zoneId);
+        });
+
+        if (orphanProducts.length > 0) {
+            await Product.update({zoneId: null}, {
+                where: {id: orphanProducts.map((p) => p.id)}
+            });
+
+            const refreshed = await Product.findAll({
+                where: condition,
+                attributes: {exclude: ['isDeleted']},
+                include: [{
+                    model: db.zones,
+                    as: 'zone'
+                }]
+            });
+            res.send(refreshed);
+            return;
+        }
+
+        res.send(products);
+    } catch (err) {
+        res.status(500).send({
+            message: err.message || "Some error occurred while retrieving products."
+        });
+    }
 };
 
 // Find a single Product with an id
