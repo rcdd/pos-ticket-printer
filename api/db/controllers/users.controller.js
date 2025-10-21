@@ -1,6 +1,6 @@
 import db from "../index.js";
 import bcrypt from 'bcrypt';
-import {Op} from "sequelize";
+import {Op, where} from "sequelize";
 import jwt from "jsonwebtoken";
 import {readOnboardingStatus, setOnboardingStatus} from "./options.controller.js";
 
@@ -80,6 +80,7 @@ export const create = async (req, res) => {
         const existingActive = await Users.findOne({
             where: {username, isDeleted: false}
         });
+
         if (existingActive) {
             res.status(409).send({message: USERNAME_CONFLICT_MESSAGE});
             return;
@@ -344,8 +345,9 @@ export const me = async (req, res) => {
             return res.status(401).send({message: "Token inválido"});
         }
 
-        const user = await Users.findByPk(userId, {
-            attributes: {exclude: ['password', 'isDeleted']}
+        const user = await Users.findOne({
+            where: {id: userId, isDeleted: false},
+            attributes: {exclude: ['password', 'isDeleted']},
         });
 
         if (!user) {

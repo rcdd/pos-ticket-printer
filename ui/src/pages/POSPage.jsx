@@ -187,6 +187,15 @@ function POSPage({user}) {
 
     useEffect(() => {
         let mounted = true;
+        if (!user?.id) {
+            setFavoritesConfig({enabled: false, count: 6});
+            setFavorites([]);
+            setIsLoading(false);
+            return () => {
+                mounted = false;
+            };
+        }
+
         OptionService.getFavoritesSettings()
             .then(({data}) => {
                 if (!mounted) return;

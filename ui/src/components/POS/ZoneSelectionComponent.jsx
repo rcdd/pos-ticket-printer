@@ -5,8 +5,7 @@ import Tab from '@mui/material/Tab';
 import TabPanel from "@mui/lab/TabPanel";
 import TabContext from "@mui/lab/TabContext";
 import TabList from "@mui/lab/TabList";
-
-import FavoriteIcon from '@mui/icons-material/Favorite';
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 
 export function ZoneSelectionComponent({
                                            isLoading,
@@ -59,7 +58,7 @@ export function ZoneSelectionComponent({
                             >
                                 {favoritesAvailable && (
                                     <Tab
-                                        icon={<FavoriteIcon color="error"/>}
+                                        icon={<EmojiEventsIcon color="primary"/>}
                                         iconPosition="start"
                                         style={{fontSize: windowsWidth < 1200 ? 14 : 18}}
                                         key="favorites"

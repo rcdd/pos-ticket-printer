@@ -31,6 +31,7 @@ import {useToast} from "../../components/Common/ToastProvider";
 export default function UsersPage() {
     const {pushNetworkError, pushMessage} = useToast();
     const [users, setUsers] = useState([]);
+    const [currentUser, setCurrentUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [modalOpen, setModalOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState(null);
@@ -49,9 +50,19 @@ export default function UsersPage() {
         }
     }, [pushNetworkError]);
 
+    const fetchCurrentUser = useCallback(async () => {
+        try {
+            const {data} = await UserService.getCurrent();
+            setCurrentUser(data);
+        } catch {
+            setCurrentUser(null);
+        }
+    }, []);
+
     useEffect(() => {
         loadUsers();
-    }, [loadUsers]);
+        fetchCurrentUser();
+    }, [loadUsers, fetchCurrentUser]);
 
     const handleAdd = () => {
         setSelectedUser(null);
@@ -155,6 +166,7 @@ export default function UsersPage() {
                                                         size="small"
                                                         color="error"
                                                         onClick={() => confirmDelete(user)}
+                                                        disabled={currentUser && currentUser.id === user.id}
                                                     >
                                                         <DeleteIcon fontSize="small"/>
                                                     </IconButton>

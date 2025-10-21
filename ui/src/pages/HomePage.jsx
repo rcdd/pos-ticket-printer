@@ -62,7 +62,6 @@ import LicenseService from "../services/license.service.js";
 import LicensePage from "./Admin/LicensePage.jsx";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
-import StopCircleIcon from "@mui/icons-material/StopCircle";
 import {SessionProvider} from "../context/SessionContext.jsx";
 
 const drawerWidth = 240;
@@ -76,8 +75,8 @@ const AppBar = styled(MuiAppBar, {
     shouldForwardProp: (prop) => prop !== 'open' && prop !== 'alert',
 })(({theme, alert}) => ({
     borderBottom: `1px solid ${theme.palette.divider}`,
-    backgroundColor: alert ? theme.palette.error.main : undefined,
-    color: alert ? theme.palette.getContrastText(theme.palette.error.main) : undefined,
+    backgroundColor: alert ? theme.palette.error.dark : undefined,
+    color: alert ? theme.palette.getContrastText(theme.palette.error.dark) : undefined,
     transition: theme.transitions.create(['background-color'], {
         easing: theme.transitions.easing.sharp,
         duration: theme.transitions.duration.shortest,
@@ -361,7 +360,7 @@ function HomePage() {
         const navItem = navItems.find((item) => item.path === location.pathname);
         if (navItem) return `TicketPrint — ${navItem.name}`;
         return 'TicketPrint';
-    }, [location.pathname]);
+    }, [location.pathname, navItems]);
 
     const appBarAlert = (!licenseValid) || Boolean(login && adminMode);
     const licenseAlertSeverity = licenseInfo?.status === 'expired' ? 'error' : 'warning';
