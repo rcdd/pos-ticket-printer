@@ -5,9 +5,12 @@ const Option = db.options;
 
 const OPTION_LICENSE_TOKEN = 'license_token';
 const OPTION_LICENSE_LAST_CHECK = 'license_last_check';
+const OPTION_LICENSE_INSTALLATION_CODE = 'license_installation_code';
 const CROCKFORD_BASE32 = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 const SIGNATURE_LENGTH = 6;
 const MILLIS_IN_DAY = 24 * 60 * 60 * 1000;
+const INSTALLATION_CODE_PREFIX = 'PTP';
+const INSTALLATION_CODE_SEGMENT_LENGTH = 3;
 
 const defaultState = {
     valid: false,
@@ -18,6 +21,7 @@ const defaultState = {
     expiresAtIso: null,
     token: null,
     lastCheckedAt: null,
+    installationCode: null,
 };
 
 let cachedState = {...defaultState};
@@ -64,6 +68,17 @@ const encodeSignature = (payload, secret) => {
     return output;
 };
 
+const randomInstallationSegment = () => {
+    let output = '';
+    for (let i = 0; i < INSTALLATION_CODE_SEGMENT_LENGTH; i += 1) {
+        const index = Math.floor(Math.random() * CROCKFORD_BASE32.length);
+        output += CROCKFORD_BASE32[index];
+    }
+    return output;
+};
+
+const generateInstallationCode = () => `${INSTALLATION_CODE_PREFIX}-${randomInstallationSegment()}-${randomInstallationSegment()}`;
+
 const readOption = async (name) => {
     const rows = await Option.findAll({where: {name}});
     const row = rows.reduce((latest, current) => {
@@ -99,6 +114,22 @@ const deleteOption = async (name) => {
     await Option.destroy({where: {name}});
 };
 
+const ensureInstallationCode = async () => {
+    const existing = await readSingleOption(OPTION_LICENSE_INSTALLATION_CODE);
+    const fromDb = existing?.value?.toString().trim() ?? '';
+    if (fromDb) {
+        if (existing && existing.value !== fromDb) {
+            await existing.update({value: fromDb});
+        }
+        return fromDb;
+    }
+
+    const fallback = process.env.LICENSE_SECRET?.toString().trim() ?? '';
+    const code = fallback || generateInstallationCode();
+    await writeOption(OPTION_LICENSE_INSTALLATION_CODE, code);
+    return code;
+};
+
 const formatExpiryIso = (expiresAt) => {
     if (!expiresAt) return null;
     const date = new Date(expiresAt);
@@ -107,7 +138,7 @@ const formatExpiryIso = (expiresAt) => {
 
 const evaluateToken = (token, secret) => {
     if (!secret) {
-        throw new LicenseError('A variável de ambiente LICENSE_SECRET não está configurada.', 'misconfigured');
+        throw new LicenseError('O código de instalação não está configurado.', 'misconfigured');
     }
 
     const cleanToken = upper(token).replace(/[^0-9A-Z\-]/g, '');
@@ -155,30 +186,20 @@ const updateCachedState = (nextState) => {
 export const getLicenseState = () => cachedState;
 
 const evaluateStoredLicense = async () => {
-    const secret = process.env.LICENSE_SECRET;
+    const installationCode = await ensureInstallationCode();
     const token = await readOption(OPTION_LICENSE_TOKEN);
     const lastCheckRaw = await readOption(OPTION_LICENSE_LAST_CHECK);
 
-    if (!secret) {
-        return {
-            valid: false,
-            status: 'misconfigured',
-            message: 'A variável de ambiente LICENSE_SECRET não está configurada.',
-            tenant: null,
-            expiresAt: null,
-            expiresAtIso: null,
-            token: null,
-            lastCheckedAt: null,
-        };
-    }
-
     if (!token) {
-        return {...defaultState};
+        return updateCachedState({
+            ...defaultState,
+            installationCode,
+        });
     }
 
     let baseState;
     try {
-        baseState = evaluateToken(token, secret);
+        baseState = evaluateToken(token, installationCode);
     } catch (error) {
         if (error instanceof LicenseError) {
             return updateCachedState({
@@ -190,6 +211,7 @@ const evaluateStoredLicense = async () => {
                 expiresAtIso: null,
                 token,
                 lastCheckedAt: null,
+                installationCode,
             });
         }
         throw error;
@@ -210,6 +232,7 @@ const evaluateStoredLicense = async () => {
                 expiresAtIso: baseState.expiresAtIso,
                 token: baseState.token,
                 lastCheckedAt: null,
+                installationCode,
             });
         }
         lastCheckedAt = parsed;
@@ -224,6 +247,7 @@ const evaluateStoredLicense = async () => {
                 expiresAtIso: baseState.expiresAtIso,
                 token: baseState.token,
                 lastCheckedAt: parsed,
+                installationCode,
             });
         }
     }
@@ -238,6 +262,7 @@ const evaluateStoredLicense = async () => {
             expiresAtIso: baseState.expiresAtIso,
             token: baseState.token,
             lastCheckedAt,
+            installationCode,
         });
     }
 
@@ -249,13 +274,12 @@ const evaluateStoredLicense = async () => {
         status: 'valid',
         message: baseState.message,
         lastCheckedAt: now,
+        installationCode,
     });
 };
 
 export const initLicenseState = async () => {
-    const state = await evaluateStoredLicense();
-    updateCachedState(state);
-    return state;
+    return evaluateStoredLicense();
 };
 
 const needsRefresh = (state) => {
@@ -291,8 +315,8 @@ export const applyLicense = async (token) => {
         throw new LicenseError('É obrigatório indicar o código de licença.', 'invalid_format');
     }
 
-    const secret = process.env.LICENSE_SECRET;
-    const evaluation = evaluateToken(token, secret);
+    const installationCode = await ensureInstallationCode();
+    const evaluation = evaluateToken(token, installationCode);
     const now = Date.now();
 
     if (evaluation.expiresAt < now) {
@@ -311,16 +335,17 @@ export const applyLicense = async (token) => {
         status: 'valid',
         message: evaluation.message,
         lastCheckedAt: now,
+        installationCode,
     };
 
-    updateCachedState(nextState);
-    return nextState;
+    return updateCachedState(nextState);
 };
 
 export const clearLicense = async () => {
     await deleteOption(OPTION_LICENSE_TOKEN);
     await deleteOption(OPTION_LICENSE_LAST_CHECK);
-    return updateCachedState({...defaultState});
+    const installationCode = await ensureInstallationCode();
+    return updateCachedState({...defaultState, installationCode});
 };
 
 export const enforceLicense = async (req, res, next) => {
@@ -337,5 +362,6 @@ export const enforceLicense = async (req, res, next) => {
         expiresAt: state.expiresAt,
         expiresAtIso: state.expiresAtIso,
         lastCheckedAt: state.lastCheckedAt,
+        installationCode: state.installationCode,
     });
 };

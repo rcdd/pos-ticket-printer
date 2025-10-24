@@ -34,8 +34,8 @@ const exitWithUsage = (message) => {
         console.error(message);
         console.error();
     }
-    console.error("Utilização: node scripts/generate-license.js --tenant CODIGO_CLIENTE [--days 365] [--secret SEGREDO] [--expires YYYY-MM-DD]");
-    console.error("Por omissão é usada a variável de ambiente LICENSE_SECRET.");
+    console.error("Utilização: node scripts/generate-license.js --tenant CODIGO_CLIENTE [--days 365] [--secret CODIGO_INSTALACAO] [--expires YYYY-MM-DD]");
+    console.error("Por omissão é usada a variável de ambiente LICENSE_INSTALLATION_CODE (ou LICENSE_SECRET).");
     process.exit(1);
 };
 
@@ -78,10 +78,10 @@ const encodeSignature = (payload, secret) => {
 };
 
 const tenant = sanitizeTenant(options.tenant ?? options.t);
-const secret = options.secret || process.env.LICENSE_SECRET || "ptp-license-code";
+const secret = options.secret || process.env.LICENSE_INSTALLATION_CODE || process.env.LICENSE_SECRET;
 
 if (!secret) {
-    exitWithUsage("É necessário definir a variável LICENSE_SECRET (ou usar --secret) para assinar a licença.");
+    exitWithUsage("É necessário indicar o código de instalação (defina LICENSE_INSTALLATION_CODE ou utilize --secret).");
 }
 
 const daysOption = options.days ?? options.d;
@@ -106,7 +106,7 @@ if (options.expires) {
 const daysSinceEpoch = Math.floor(expiresAt.getTime() / MILLIS_IN_DAY);
 const expirySegment = toBase32(daysSinceEpoch);
 const payload = `${tenant}.${expirySegment}`;
-const signature = encodeSignature(payload, secret);
+const signature = encodeSignature(payload, secret.toUpperCase());
 const token = `${tenant}-${expirySegment}-${signature}`;
 
 console.log("Licença gerada com sucesso:");

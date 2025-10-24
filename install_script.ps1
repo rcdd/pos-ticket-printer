@@ -1040,7 +1040,7 @@ FLUSH PRIVILEGES;
     }
     Write-Ok "DB/user prontos."
     $apiEnv = Join-Path $ScriptRoot "api/.env"
-    $lines = @("DB_HOST=127.0.0.1", "DB_PORT=3306", "DB_USER=$DbUser", "DB_PASSWORD=$DbPass", "DB_NAME=$DbName", "JWT_SECRET=r@nd0mJw7Secr3t", "LICENSE_SECRET=ptp-license-code")
+    $lines = @("DB_HOST=127.0.0.1", "DB_PORT=3306", "DB_USER=$DbUser", "DB_PASSWORD=$DbPass", "DB_NAME=$DbName", "JWT_SECRET=r@nd0mJw7Secr3t")
     Set-Content -Path $apiEnv -Value $lines -Encoding ascii
     Write-Ok "API .env: $apiEnv"
     $rootFile = Join-Path $ScriptRoot ".secrets.root.txt"

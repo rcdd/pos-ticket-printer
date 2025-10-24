@@ -63,6 +63,19 @@ export default function LicenseModal({open, status, onApplied, onClose}) {
                         Para continuar a utilizar o sistema introduza o código de licença fornecido.
                     </Typography>
 
+                    {status?.installationCode && (
+                        <Alert severity="info">
+                            Código de instalação:{" "}
+                            <Typography
+                                component="span"
+                                variant="body1"
+                                sx={{fontFamily: "monospace", fontWeight: 600, letterSpacing: 1, ml: 0.5}}
+                            >
+                                {status.installationCode}
+                            </Typography>
+                        </Alert>
+                    )}
+
                     {status?.message && (
                         <Alert severity={status.valid ? "success" : "warning"}>{status.message}</Alert>
                     )}

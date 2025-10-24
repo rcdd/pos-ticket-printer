@@ -138,6 +138,12 @@ export default function LicensePage() {
                             </Alert>
 
                             <Grid container spacing={2}>
+                                <Grid item xs={12}>
+                                    <Typography variant="subtitle2" color="text.secondary">Código de instalação</Typography>
+                                    <Typography variant="body1" sx={{fontFamily: "monospace", letterSpacing: 1}}>
+                                        {details?.installationCode || "—"}
+                                    </Typography>
+                                </Grid>
                                 <Grid item xs={12} md={6}>
                                     <Typography variant="subtitle2" color="text.secondary">Cliente</Typography>
                                     <Typography variant="body1">{details?.tenant || "—"}</Typography>
@@ -154,12 +160,12 @@ export default function LicensePage() {
                                     <Typography variant="subtitle2" color="text.secondary">Última verificação</Typography>
                                     <Typography variant="body1">{formatDate(details?.lastCheckedAt)}</Typography>
                                 </Grid>
-                                <Grid item xs={12}>
-                                    <Typography variant="subtitle2" color="text.secondary">Código atual</Typography>
-                                    <Typography variant="body1" sx={{fontFamily: "monospace", letterSpacing: 1}}>
-                                        {details?.token || "—"}
-                                    </Typography>
-                                </Grid>
+                                {/*<Grid item xs={12}>*/}
+                                {/*    <Typography variant="subtitle2" color="text.secondary">Código atual</Typography>*/}
+                                {/*    <Typography variant="body1" sx={{fontFamily: "monospace", letterSpacing: 1}}>*/}
+                                {/*        {details?.token || "—"}*/}
+                                {/*    </Typography>*/}
+                                {/*</Grid>*/}
                             </Grid>
                         </Stack>
                     )}
