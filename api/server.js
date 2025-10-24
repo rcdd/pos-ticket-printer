@@ -184,6 +184,8 @@ const licenseBypassPaths = new Set([
     "/health",
     "/license/status",
     "/license/apply",
+    "/option/virtual-keyboard",
+    "/option/onboarding-status",
 ]);
 
 app.use(async (req, res, next) => {
@@ -202,6 +204,7 @@ app.post("/user/login", users.login);
 app.post("/user/add", optionalAuthenticate, users.create);
 
 app.get("/option/onboarding-status", options.getOnboardingStatus);
+app.get("/option/virtual-keyboard", options.getVirtualKeyboard);
 
 // Require authentication for everything else
 app.use(authenticate);
@@ -281,7 +284,6 @@ app.post("/option/set-open-drawer", (req, res) => {
 });
 
 app.get("/option/get-open-drawer", options.getOpenDrawer);
-app.get("/option/virtual-keyboard", options.getVirtualKeyboard);
 app.post("/option/virtual-keyboard", options.setVirtualKeyboard);
 app.get("/option/favorites", options.getFavoritesSettings);
 app.post("/option/favorites", options.setFavoritesSettings);
