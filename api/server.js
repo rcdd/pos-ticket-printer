@@ -19,8 +19,124 @@ import {enforceLicense, initLicenseState} from "./services/license.service.js";
 
 const app = express();
 
+function extractTableName(model) {
+    if (!model) {
+        return null;
+    }
+    if (typeof model.getTableName === "function") {
+        const table = model.getTableName();
+        if (typeof table === "string") {
+            return table;
+        }
+        if (table && typeof table === "object" && "tableName" in table) {
+            return table.tableName;
+        }
+    }
+    if (typeof model.tableName === "string") {
+        return model.tableName;
+    }
+    return null;
+}
+
+function normalizeTableName(name) {
+    if (name === null || name === undefined) {
+        return null;
+    }
+    return name.toString().toLowerCase();
+}
+
+function collectExistingTableNames(rows) {
+    if (!Array.isArray(rows)) {
+        return new Set();
+    }
+
+    const preferredKeys = ["tableName", "table_name", "name"];
+
+    const names = rows.flatMap((row) => {
+        if (!row) {
+            return [];
+        }
+        if (typeof row === "string") {
+            return [row];
+        }
+        if (Array.isArray(row)) {
+            return row;
+        }
+        if (typeof row === "object") {
+            const matches = preferredKeys
+                .map((key) => row[key])
+                .filter((value) => typeof value === "string" && value.length > 0);
+
+            if (matches.length > 0) {
+                return matches;
+            }
+
+            return Object.values(row).filter((value) => typeof value === "string" && value.length > 0);
+        }
+        return [];
+    }).map((value) => normalizeTableName(value))
+        .filter(Boolean);
+
+    return new Set(names);
+}
+
+async function ensureDatabaseSchema() {
+    const syncMode = (process.env.DB_SYNC_ON_BOOT ?? "missing").toLowerCase();
+    const skipModes = new Set(["false", "0", "off", "skip"]);
+
+    if (skipModes.has(syncMode)) {
+        console.log("[db] Skipping schema sync (DB_SYNC_ON_BOOT=false).");
+        return;
+    }
+
+    const syncOptions = {};
+    if (syncMode === "force") {
+        syncOptions.force = true;
+    }
+    if (syncMode === "alter") {
+        syncOptions.alter = true;
+    }
+
+    if (["true", "always", "force", "alter"].includes(syncMode)) {
+        await db.sequelize.sync(syncOptions);
+        console.log(`[db] Schema synchronized (mode=${syncMode}).`);
+        return;
+    }
+
+    try {
+        const queryInterface = db.sequelize.getQueryInterface();
+        const tableRows = await queryInterface.showAllTables();
+        const existingTables = collectExistingTableNames(tableRows);
+
+        const definedTableMap = new Map();
+        Object.values(db.sequelize.models).forEach((model) => {
+            const originalName = extractTableName(model);
+            const normalizedName = normalizeTableName(originalName);
+            if (normalizedName) {
+                definedTableMap.set(normalizedName, originalName);
+            }
+        });
+
+        const missingTables = Array.from(definedTableMap.keys())
+            .filter((table) => !existingTables.has(table));
+
+        if (missingTables.length === 0) {
+            console.log("[db] Schema check: all tables present.");
+            return;
+        }
+
+        await db.sequelize.sync();
+        const createdTables = missingTables.map((name) => definedTableMap.get(name) ?? name);
+        console.log(`[db] Schema synchronized; created tables: ${createdTables.join(", ")}`);
+    } catch (schemaError) {
+        console.warn("[db] Schema check failed, running sync as fallback.", schemaError);
+        await db.sequelize.sync();
+        console.log("[db] Schema synchronized (fallback run).");
+    }
+}
+
 const corsOptions = {
-    origin: process.env.CLIENT_ORIGIN?.split(',') || ["http://localhost:8888", "http://localhost:3000"],
+    origin: process.env.CLIENT_ORIGIN?.split(',') || ["http://localhost:8888", "http://127.0.0.1:8888"],
 };
 
 app.use(cors(corsOptions));
@@ -34,10 +150,7 @@ async function startServer() {
         await db.sequelize.authenticate();
         console.log('Database connection established.');
 
-        if (process.env.DB_SYNC_ON_BOOT === 'true') {
-            await db.sequelize.sync();
-            console.log('Database synchronized (DB_SYNC_ON_BOOT=true).');
-        }
+        await ensureDatabaseSchema();
 
         const licenseState = await initLicenseState();
         if (!licenseState.valid) {
