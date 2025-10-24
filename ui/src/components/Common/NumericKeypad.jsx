@@ -1,5 +1,5 @@
 import React from 'react';
-import {Button, Paper, Popper, Stack, Typography} from '@mui/material';
+import {Button, Paper, Popper, Stack, Typography, Box} from '@mui/material';
 import BackspaceIcon from '@mui/icons-material/Backspace';
 
 export const NumericKeypad = React.forwardRef(function NumericKeypad(
@@ -8,7 +8,8 @@ export const NumericKeypad = React.forwardRef(function NumericKeypad(
         anchorEl,
         onKeyPress,
         placement = 'bottom-start',
-        decimal
+        decimal,
+        onDragHandlePointerDown,
     },
     paperRef
 ) {
@@ -22,8 +23,26 @@ export const NumericKeypad = React.forwardRef(function NumericKeypad(
     const press = (k) => () => onKeyPress?.(k);
 
     return (
-        <Popper open={open} anchorEl={anchorEl} placement={placement} style={{zIndex: 1300}}>
+        <Popper
+            open={open}
+            anchorEl={anchorEl}
+            placement={placement}
+            style={{zIndex: 1300}}
+            modifiers={[{name: "offset", options: {offset: [0, 8]}}]}
+        >
             <Paper ref={paperRef} elevation={6} sx={{p: 1.5, borderRadius: 2, minWidth: 220}}>
+                <Box
+                    onPointerDown={onDragHandlePointerDown}
+                    sx={{
+                        cursor: 'grab',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        mb: 1,
+                        userSelect: 'none',
+                    }}
+                >
+                    <Box sx={{width: 48, height: 6, borderRadius: 3, bgcolor: 'text.disabled', opacity: 0.5}}/>
+                </Box>
                 <Stack spacing={1}>
                     {keys.map((row, i) => (
                         <Stack key={i} direction="row" spacing={1}>

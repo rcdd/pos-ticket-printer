@@ -80,7 +80,6 @@ export default function TextFieldKeyboard({
                                               textFieldProps = {},
                                               showPasswordToggle,
                                           }) {
-    const [anchorEl, setAnchorEl] = React.useState(null);
     const [open, setOpen] = React.useState(false);
     const [shift, setShift] = React.useState(false);
     const [showPwd, setShowPwd] = React.useState(false);
@@ -91,18 +90,123 @@ export default function TextFieldKeyboard({
         acquireKeyboard,
         releaseKeyboard,
     } = useVirtualKeyboard();
+    const [anchorRect, setAnchorRect] = React.useState(null);
+    const [dragOffset, setDragOffset] = React.useState({x: 0, y: 0});
+    const dragStateRef = React.useRef(null);
+
+    const toVirtualRect = React.useCallback(
+        (rect) => {
+            if (!rect) return null;
+            const {width, height, top, left, contextElement} = rect;
+            const adjustedLeft = left + dragOffset.x;
+            const adjustedTop = top + dragOffset.y;
+            return {
+                contextElement,
+                getBoundingClientRect: () => ({
+                    width,
+                    height,
+                    top: adjustedTop,
+                    bottom: adjustedTop + height,
+                    left: adjustedLeft,
+                    right: adjustedLeft + width,
+                    x: adjustedLeft,
+                    y: adjustedTop,
+                    toJSON: () => ({
+                        width,
+                        height,
+                        top: adjustedTop,
+                        left: adjustedLeft,
+                    }),
+                }),
+            };
+        },
+        [dragOffset],
+    );
+
+    const virtualAnchor = React.useMemo(() => toVirtualRect(anchorRect), [anchorRect, toVirtualRect]);
+
+    const stopDrag = React.useCallback(() => {
+        const active = dragStateRef.current;
+        if (!active) return;
+        window.removeEventListener('pointermove', active.onPointerMove);
+        window.removeEventListener('pointerup', active.onPointerUp);
+        window.removeEventListener('pointercancel', active.onPointerUp);
+        if (active.previousUserSelect !== undefined) {
+            document.body.style.userSelect = active.previousUserSelect;
+        }
+        if (active.previousCursor !== undefined) {
+            document.body.style.cursor = active.previousCursor;
+        }
+        dragStateRef.current = null;
+    }, []);
 
     const close = React.useCallback(() => {
+        stopDrag();
         setOpen(false);
+        setAnchorRect(null);
+        setDragOffset({x: 0, y: 0});
         releaseKeyboard(instanceId);
-    }, [releaseKeyboard, instanceId]);
+    }, [releaseKeyboard, instanceId, stopDrag]);
 
     const handleFocus = React.useCallback((e) => {
-        setAnchorEl(e.currentTarget);
+        const rect = e.currentTarget?.getBoundingClientRect?.();
+        if (rect) {
+            setAnchorRect({
+                width: rect.width,
+                height: rect.height,
+                top: rect.top,
+                left: rect.left,
+                contextElement: e.currentTarget,
+            });
+            setDragOffset({x: 0, y: 0});
+        }
         if (!openOnFocus || !virtualKeyboardEnabled) return;
         acquireKeyboard(instanceId, close);
         setOpen(true);
     }, [openOnFocus, virtualKeyboardEnabled, acquireKeyboard, instanceId, close]);
+
+    const handleDragStart = React.useCallback((event) => {
+        if (!open || !virtualKeyboardEnabled) return;
+        if (event.button !== 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+
+        stopDrag();
+
+        const pointerId = event.pointerId ?? 1;
+        const startX = event.clientX;
+        const startY = event.clientY;
+        const origin = {x: dragOffset.x, y: dragOffset.y};
+
+        const previousUserSelect = document.body.style.userSelect;
+        const previousCursor = document.body.style.cursor;
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'grabbing';
+
+        const onPointerMove = (moveEvent) => {
+            if ((moveEvent.pointerId ?? 1) !== pointerId) return;
+            moveEvent.preventDefault();
+            const dx = moveEvent.clientX - startX;
+            const dy = moveEvent.clientY - startY;
+            setDragOffset({x: origin.x + dx, y: origin.y + dy});
+        };
+
+        const onPointerUp = (upEvent) => {
+            if ((upEvent.pointerId ?? 1) !== pointerId) return;
+            stopDrag();
+        };
+
+        dragStateRef.current = {
+            onPointerMove,
+            onPointerUp,
+            previousUserSelect,
+            previousCursor,
+        };
+
+        window.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointerup', onPointerUp);
+        window.addEventListener('pointercancel', onPointerUp);
+    }, [open, virtualKeyboardEnabled, dragOffset.x, dragOffset.y, stopDrag]);
 
     const typeChar = (ch) => {
         if (maxLength && String(value ?? "").length >= maxLength) return;
@@ -134,8 +238,9 @@ export default function TextFieldKeyboard({
     }, [virtualKeyboardEnabled, close]);
 
     React.useEffect(() => () => {
+        stopDrag();
         releaseKeyboard(instanceId);
-    }, [instanceId, releaseKeyboard]);
+    }, [instanceId, releaseKeyboard, stopDrag]);
 
     const isPassword =
         textFieldProps?.type === "password" || Boolean(showPasswordToggle);
@@ -174,8 +279,8 @@ export default function TextFieldKeyboard({
             />
 
             <Popper
-                open={virtualKeyboardEnabled && open}
-                anchorEl={anchorEl}
+                open={virtualKeyboardEnabled && open && Boolean(virtualAnchor)}
+                anchorEl={virtualAnchor}
                 placement="bottom-start"
                 modifiers={[{name: "offset", options: {offset: [0, 8]}}]}
                 sx={{zIndex: (t) => t.zIndex.modal + 1}}
@@ -191,6 +296,19 @@ export default function TextFieldKeyboard({
                         bgcolor: "background.paper",
                     }}
                 >
+                    <Box
+                        onPointerDown={handleDragStart}
+                        sx={{
+                            cursor: 'grab',
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            mb: 1,
+                            userSelect: 'none',
+                        }}
+                    >
+                        <Box sx={{width: 72, height: 6, borderRadius: 3, bgcolor: 'text.disabled', opacity: 0.5}}/>
+                    </Box>
                     <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{mb: 1}}>
                         <Stack direction="row" spacing={0.5}>
                             <Key onClick={() => setShift(s => !s)} sx={{px: 1.5}}>
