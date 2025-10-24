@@ -136,7 +136,7 @@ async function ensureDatabaseSchema() {
 }
 
 const corsOptions = {
-    origin: process.env.CLIENT_ORIGIN?.split(',') || ["http://localhost:8888", "http://127.0.0.1:8888"],
+    origin: process.env.CLIENT_ORIGIN?.split(',') || ["http://localhost:8888", "http://127.0.0.1:8888", "http://localhost:3000"],
 };
 
 app.use(cors(corsOptions));
