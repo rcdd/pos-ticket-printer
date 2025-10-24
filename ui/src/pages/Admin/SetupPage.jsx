@@ -74,7 +74,8 @@ function SetupPage() {
         setVirtualKeyboardEnabled(nextValue);
         setKeyboardSaving(true);
         try {
-            await OptionService.setVirtualKeyboard(nextValue);
+            const {data} = await OptionService.setVirtualKeyboard(nextValue);
+            setVirtualKeyboardEnabled(Boolean(data?.enabled ?? nextValue));
         } catch (error) {
             console.error("Failed to save virtual keyboard setting", error?.response?.data || error);
             setVirtualKeyboardEnabled(previous);

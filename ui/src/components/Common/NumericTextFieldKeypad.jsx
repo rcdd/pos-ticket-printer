@@ -16,21 +16,31 @@ export default function NumericTextFieldWithKeypad({
     const inputRef = React.useRef(null);
     const keypadRef = React.useRef(null);
     const [open, setOpen] = React.useState(false);
-    const {enabled: virtualKeyboardEnabled} = useVirtualKeyboard();
+    const instanceId = React.useId();
+    const {
+        enabled: virtualKeyboardEnabled,
+        acquireKeyboard,
+        releaseKeyboard,
+    } = useVirtualKeyboard();
 
     const normalize = (s) => String(s ?? '').replace(',', '.');
 
-    const handleFocus = () => {
-        if (virtualKeyboardEnabled) {
-            setOpen(true);
-        }
-    };
+    const close = React.useCallback(() => {
+        setOpen(false);
+        releaseKeyboard(instanceId);
+    }, [releaseKeyboard, instanceId]);
+
+    const handleFocus = React.useCallback(() => {
+        if (!virtualKeyboardEnabled) return;
+        acquireKeyboard(instanceId, close);
+        setOpen(true);
+    }, [virtualKeyboardEnabled, acquireKeyboard, instanceId, close]);
 
     React.useEffect(() => {
         if (!virtualKeyboardEnabled) {
-            setOpen(false);
+            close();
         }
-    }, [virtualKeyboardEnabled]);
+    }, [virtualKeyboardEnabled, close]);
 
     React.useEffect(() => {
         if (!open || !virtualKeyboardEnabled) return;
@@ -43,12 +53,12 @@ export default function NumericTextFieldWithKeypad({
 
         const onPointer = (e) => {
             const target = e.target;
-            if (!isInside(target)) setOpen(false);
+            if (!isInside(target)) close();
         };
 
         const onFocusIn = (e) => {
             const target = e.target;
-            if (!isInside(target)) setOpen(false);
+            if (!isInside(target)) close();
         };
 
         document.addEventListener('mousedown', onPointer, true);
@@ -60,11 +70,15 @@ export default function NumericTextFieldWithKeypad({
             document.removeEventListener('touchstart', onPointer, true);
             document.removeEventListener('focusin', onFocusIn, true);
         };
-    }, [open, virtualKeyboardEnabled]);
+    }, [open, virtualKeyboardEnabled, close]);
+
+    React.useEffect(() => () => {
+        releaseKeyboard(instanceId);
+    }, [instanceId, releaseKeyboard]);
 
     const applyKey = (k) => {
         if (k === 'OK') {
-            setOpen(false);
+            close();
             onEnter?.(value);
             return;
         }
@@ -108,11 +122,11 @@ export default function NumericTextFieldWithKeypad({
     const handleKeyDown = (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
-            setOpen(false);
+            close();
             onEnter?.(value);
         } else if (e.key === 'Escape') {
             e.preventDefault();
-            setOpen(false);
+            close();
         }
     };
 

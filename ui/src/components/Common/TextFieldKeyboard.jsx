@@ -85,14 +85,24 @@ export default function TextFieldKeyboard({
     const [shift, setShift] = React.useState(false);
     const [showPwd, setShowPwd] = React.useState(false);
     const inputRef = React.useRef(null);
-    const {enabled: virtualKeyboardEnabled} = useVirtualKeyboard();
+    const instanceId = React.useId();
+    const {
+        enabled: virtualKeyboardEnabled,
+        acquireKeyboard,
+        releaseKeyboard,
+    } = useVirtualKeyboard();
 
-    const handleFocus = (e) => {
+    const close = React.useCallback(() => {
+        setOpen(false);
+        releaseKeyboard(instanceId);
+    }, [releaseKeyboard, instanceId]);
+
+    const handleFocus = React.useCallback((e) => {
         setAnchorEl(e.currentTarget);
-        if (openOnFocus && virtualKeyboardEnabled) setOpen(true);
-    };
-
-    const close = () => setOpen(false);
+        if (!openOnFocus || !virtualKeyboardEnabled) return;
+        acquireKeyboard(instanceId, close);
+        setOpen(true);
+    }, [openOnFocus, virtualKeyboardEnabled, acquireKeyboard, instanceId, close]);
 
     const typeChar = (ch) => {
         if (maxLength && String(value ?? "").length >= maxLength) return;
@@ -119,9 +129,13 @@ export default function TextFieldKeyboard({
 
     React.useEffect(() => {
         if (!virtualKeyboardEnabled) {
-            setOpen(false);
+            close();
         }
-    }, [virtualKeyboardEnabled]);
+    }, [virtualKeyboardEnabled, close]);
+
+    React.useEffect(() => () => {
+        releaseKeyboard(instanceId);
+    }, [instanceId, releaseKeyboard]);
 
     const isPassword =
         textFieldProps?.type === "password" || Boolean(showPasswordToggle);

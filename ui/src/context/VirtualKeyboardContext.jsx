@@ -6,11 +6,14 @@ const VirtualKeyboardContext = React.createContext({
     loading: true,
     setEnabled: () => {},
     refresh: async () => {},
+    acquireKeyboard: () => {},
+    releaseKeyboard: () => {},
 });
 
 export function VirtualKeyboardProvider({children}) {
     const [enabled, setEnabledState] = React.useState(true);
     const [loading, setLoading] = React.useState(true);
+    const instancesRef = React.useRef(new Map());
 
     const load = React.useCallback(async () => {
         setLoading(true);
@@ -34,12 +37,34 @@ export function VirtualKeyboardProvider({children}) {
         setEnabledState(Boolean(value));
     }, []);
 
+    const releaseKeyboard = React.useCallback((id) => {
+        if (!id) return;
+        instancesRef.current.delete(id);
+    }, []);
+
+    const acquireKeyboard = React.useCallback((id, closeHandler) => {
+        if (!id) return;
+        const entries = Array.from(instancesRef.current.entries());
+        for (const [key, handler] of entries) {
+            if (key === id) continue;
+            instancesRef.current.delete(key);
+            try {
+                handler?.();
+            } catch (error) {
+                console.error("Falha ao fechar teclado virtual ativo:", error);
+            }
+        }
+        instancesRef.current.set(id, closeHandler);
+    }, []);
+
     const contextValue = React.useMemo(() => ({
         enabled,
         loading,
         setEnabled,
         refresh: load,
-    }), [enabled, loading, setEnabled, load]);
+        acquireKeyboard,
+        releaseKeyboard,
+    }), [enabled, loading, setEnabled, load, acquireKeyboard, releaseKeyboard]);
 
     return (
         <VirtualKeyboardContext.Provider value={contextValue}>
