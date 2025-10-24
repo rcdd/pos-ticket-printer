@@ -1,6 +1,7 @@
 import React from 'react';
 import {TextField} from '@mui/material';
 import {NumericKeypad} from './NumericKeypad';
+import {useVirtualKeyboard} from "../../context/VirtualKeyboardContext.jsx";
 
 export default function NumericTextFieldWithKeypad({
                                                        value,
@@ -15,18 +16,24 @@ export default function NumericTextFieldWithKeypad({
     const inputRef = React.useRef(null);
     const keypadRef = React.useRef(null);
     const [open, setOpen] = React.useState(false);
-    const [showKeyboard, setShowKeyboard] = React.useState(true);
+    const {enabled: virtualKeyboardEnabled} = useVirtualKeyboard();
 
     const normalize = (s) => String(s ?? '').replace(',', '.');
 
-    const handleFocus = () => setOpen(true);
+    const handleFocus = () => {
+        if (virtualKeyboardEnabled) {
+            setOpen(true);
+        }
+    };
 
     React.useEffect(() => {
-        if (!open) return;
+        if (!virtualKeyboardEnabled) {
+            setOpen(false);
+        }
+    }, [virtualKeyboardEnabled]);
 
-        const v = localStorage.getItem("virtualKeyboard");
-        if (v === "false") setShowKeyboard(false);
-        else setShowKeyboard(true);
+    React.useEffect(() => {
+        if (!open || !virtualKeyboardEnabled) return;
 
         const isInside = (el) => {
             const a = inputRef.current;
@@ -53,7 +60,7 @@ export default function NumericTextFieldWithKeypad({
             document.removeEventListener('touchstart', onPointer, true);
             document.removeEventListener('focusin', onFocusIn, true);
         };
-    }, [open]);
+    }, [open, virtualKeyboardEnabled]);
 
     const applyKey = (k) => {
         if (k === 'OK') {
@@ -124,7 +131,7 @@ export default function NumericTextFieldWithKeypad({
 
             <NumericKeypad
                 ref={keypadRef}
-                open={showKeyboard && open}
+                open={virtualKeyboardEnabled && open}
                 anchorEl={inputRef.current}
                 onKeyPress={applyKey}
                 placement={placement}

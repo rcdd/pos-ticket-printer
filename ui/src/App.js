@@ -2,6 +2,7 @@ import {BrowserRouter} from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import {ToastProvider, useToast} from "./components/Common/ToastProvider";
 import {useEffect} from "react";
+import {VirtualKeyboardProvider} from "./context/VirtualKeyboardContext.jsx";
 
 function AppEventsBridge() {
     const {pushError} = useToast();
@@ -28,9 +29,11 @@ function AppEventsBridge() {
     }, [pushError]);
 
     return (
-        <BrowserRouter>
-            <HomePage/>
-        </BrowserRouter>
+        <VirtualKeyboardProvider>
+            <BrowserRouter>
+                <HomePage/>
+            </BrowserRouter>
+        </VirtualKeyboardProvider>
     );
 }
 

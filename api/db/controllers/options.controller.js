@@ -7,6 +7,7 @@ const optionSecondLine = 'secondLine';
 const optionPrintType = 'printOptionType';
 const optionOpenDrawer = 'openDrawer';
 const optionOnboarding = 'onboarding_completed';
+const optionVirtualKeyboard = 'virtual_keyboard_enabled';
 const optionFavorites = 'pos_favorites_enabled';
 const optionFavoritesCount = 'pos_favorites_count';
 
@@ -22,6 +23,76 @@ export const setOnboardingStatus = async (completed) => {
         await existing.update({value});
     } else {
         await Option.create({name: optionOnboarding, value});
+    }
+};
+
+const parseBoolean = (value, fallback = true) => {
+    if (typeof value === 'boolean') return value;
+    if (value === null || value === undefined) return fallback;
+    const normalized = String(value).trim().toLowerCase();
+    if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+    if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+    return fallback;
+};
+
+export const readVirtualKeyboardSetting = async () => {
+    const rows = await Option.findAll({where: {name: optionVirtualKeyboard}});
+    if (rows.length > 1) {
+        const [primary, ...duplicates] = rows;
+        if (duplicates.length > 0) {
+            await Option.destroy({where: {id: duplicates.map((row) => row.id)}});
+        }
+        return parseBoolean(primary?.value, true);
+    }
+    const row = rows[0] || null;
+    return parseBoolean(row?.value, true);
+};
+
+export const writeVirtualKeyboardSetting = async (enabled) => {
+    const value = enabled ? 'true' : 'false';
+    const rows = await Option.findAll({where: {name: optionVirtualKeyboard}});
+    if (rows.length > 0) {
+        const [primary, ...duplicates] = rows;
+        await primary.update({value});
+        if (duplicates.length > 0) {
+            await Option.destroy({where: {id: duplicates.map((row) => row.id)}});
+        }
+        return enabled;
+    }
+    await Option.create({name: optionVirtualKeyboard, value});
+    return enabled;
+};
+
+export const getVirtualKeyboard = async (req, res) => {
+    try {
+        const enabled = await readVirtualKeyboardSetting();
+        res.send({enabled});
+    } catch (error) {
+        console.error('Error reading virtual keyboard setting:', error);
+        res.status(500).send({
+            message: "Não foi possível obter a configuração do teclado virtual.",
+            error: error?.message || error,
+        });
+    }
+};
+
+export const setVirtualKeyboard = async (req, res) => {
+    try {
+        const {enabled} = req.body ?? {};
+        const parsed = parseBoolean(enabled, null);
+        if (parsed === null) {
+            return res.status(400).send({
+                message: "O campo 'enabled' é obrigatório e deve ser verdadeiro ou falso.",
+            });
+        }
+        const updated = await writeVirtualKeyboardSetting(parsed);
+        res.send({enabled: updated});
+    } catch (error) {
+        console.error('Error saving virtual keyboard setting:', error);
+        res.status(500).send({
+            message: "Não foi possível guardar a configuração do teclado virtual.",
+            error: error?.message || error,
+        });
     }
 };
 

@@ -281,6 +281,8 @@ app.post("/option/set-open-drawer", (req, res) => {
 });
 
 app.get("/option/get-open-drawer", options.getOpenDrawer);
+app.get("/option/virtual-keyboard", options.getVirtualKeyboard);
+app.post("/option/virtual-keyboard", options.setVirtualKeyboard);
 app.get("/option/favorites", options.getFavoritesSettings);
 app.post("/option/favorites", options.setFavoritesSettings);
 

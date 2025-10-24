@@ -15,6 +15,7 @@ import BackspaceIcon from "@mui/icons-material/Backspace";
 import KeyboardCapslockIcon from "@mui/icons-material/KeyboardCapslock";
 import CloseIcon from "@mui/icons-material/Close";
 import KeyboardReturnIcon from "@mui/icons-material/KeyboardReturn";
+import {useVirtualKeyboard} from "../../context/VirtualKeyboardContext.jsx";
 
 
 const COLS = 10;
@@ -83,13 +84,12 @@ export default function TextFieldKeyboard({
     const [open, setOpen] = React.useState(false);
     const [shift, setShift] = React.useState(false);
     const [showPwd, setShowPwd] = React.useState(false);
-    const [showKeyboard, setShowKeyboard] = React.useState(true);
-
     const inputRef = React.useRef(null);
+    const {enabled: virtualKeyboardEnabled} = useVirtualKeyboard();
 
     const handleFocus = (e) => {
         setAnchorEl(e.currentTarget);
-        if (openOnFocus) setOpen(true);
+        if (openOnFocus && virtualKeyboardEnabled) setOpen(true);
     };
 
     const close = () => setOpen(false);
@@ -118,10 +118,10 @@ export default function TextFieldKeyboard({
     };
 
     React.useEffect(() => {
-        const v = localStorage.getItem("virtualKeyboard");
-        if (v === "false") setShowKeyboard(false);
-        else setShowKeyboard(true);
-    }, [open]);
+        if (!virtualKeyboardEnabled) {
+            setOpen(false);
+        }
+    }, [virtualKeyboardEnabled]);
 
     const isPassword =
         textFieldProps?.type === "password" || Boolean(showPasswordToggle);
@@ -160,7 +160,7 @@ export default function TextFieldKeyboard({
             />
 
             <Popper
-                open={showKeyboard && open}
+                open={virtualKeyboardEnabled && open}
                 anchorEl={anchorEl}
                 placement="bottom-start"
                 modifiers={[{name: "offset", options: {offset: [0, 8]}}]}

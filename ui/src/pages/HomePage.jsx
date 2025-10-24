@@ -63,6 +63,7 @@ import LicensePage from "./Admin/LicensePage.jsx";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import {SessionProvider} from "../context/SessionContext.jsx";
+import {useVirtualKeyboard} from "../context/VirtualKeyboardContext.jsx";
 
 const drawerWidth = 240;
 
@@ -118,6 +119,7 @@ function HomePage() {
     const licenseValid = Boolean(licenseInfo?.valid);
     const [shouldAutoPromptLogin, setShouldAutoPromptLogin] = React.useState(false);
     const showLockScreen = !login && !requireUserSetup && !checkingUsers && !checkingLicense;
+    const {refresh: refreshVirtualKeyboard} = useVirtualKeyboard();
 
     const refreshSession = React.useCallback(async () => {
         if (!licenseValid || !login || !AuthService.isAuthenticated()) {
@@ -261,6 +263,7 @@ function HomePage() {
                 const isAdmin = role.includes('admin');
                 setAdminMode(isAdmin);
                 setOpen(isAdmin);
+                refreshVirtualKeyboard();
             } catch (error) {
                 console.error("Falha ao obter utilizador atual:", error?.response?.data || error);
                 AuthService.setUser(null);
@@ -274,7 +277,7 @@ function HomePage() {
             setAdminMode(false);
             setOpen(false);
         }
-    }, []);
+    }, [refreshVirtualKeyboard]);
 
     const handleLogout = () => {
         setLogin(false);
@@ -315,6 +318,7 @@ function HomePage() {
                     const isAdmin = role.includes('admin');
                     setAdminMode(isAdmin);
                     setOpen(isAdmin);
+                    refreshVirtualKeyboard();
                 } catch (error) {
                     if (canceled) return;
                     console.error("Falha ao validar sessão:", error?.response?.data || error);
@@ -344,7 +348,7 @@ function HomePage() {
         return () => {
             canceled = true;
         };
-    }, [licenseInfo, licenseValid]);
+    }, [licenseInfo, licenseValid, refreshVirtualKeyboard]);
 
     React.useEffect(() => {
         const onKey = (e) => {

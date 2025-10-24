@@ -43,6 +43,14 @@ class OptionService {
         return http.get(this.BASE_URL + "/option/onboarding-status");
     }
 
+    getVirtualKeyboard() {
+        return http.get(this.BASE_URL + "/option/virtual-keyboard");
+    }
+
+    setVirtualKeyboard(enabled) {
+        return http.post(this.BASE_URL + "/option/virtual-keyboard", {enabled});
+    }
+
     getFavoritesSettings() {
         return http.get(this.BASE_URL + "/option/favorites");
     }

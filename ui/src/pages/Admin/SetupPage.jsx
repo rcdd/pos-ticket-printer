@@ -15,6 +15,7 @@ import PrinterPage from "./PrinterPage";
 import OptionService from "../../services/option.service";
 import LoadingButton from "@mui/lab/LoadingButton";
 import Switch from "@mui/material/Switch";
+import {useVirtualKeyboard} from "../../context/VirtualKeyboardContext.jsx";
 
 function SetupPage() {
     const [tabPosition, setTabPosition] = React.useState("1");
@@ -22,16 +23,12 @@ function SetupPage() {
     const [favoritesCount, setFavoritesCount] = React.useState(6);
     const [favoritesSaving, setFavoritesSaving] = React.useState(false);
     const [favoritesLoaded, setFavoritesLoaded] = React.useState(false);
+    const {enabled: virtualKeyboardEnabled, setEnabled: setVirtualKeyboardEnabled, loading: virtualKeyboardLoading} = useVirtualKeyboard();
+    const [keyboardSaving, setKeyboardSaving] = React.useState(false);
 
     const handleTabChange = (event, newValue) => {
         setTabPosition(newValue);
     };
-
-    useEffect(() => {
-        if (localStorage.getItem("virtualKeyboard") === null) {
-            localStorage.setItem("virtualKeyboard", "true");
-        }
-    }, []);
 
     useEffect(() => {
         let mounted = true;
@@ -71,6 +68,21 @@ function SetupPage() {
         }
     };
 
+    const handleToggleVirtualKeyboard = async (event) => {
+        const nextValue = event.target.checked;
+        const previous = virtualKeyboardEnabled;
+        setVirtualKeyboardEnabled(nextValue);
+        setKeyboardSaving(true);
+        try {
+            await OptionService.setVirtualKeyboard(nextValue);
+        } catch (error) {
+            console.error("Failed to save virtual keyboard setting", error?.response?.data || error);
+            setVirtualKeyboardEnabled(previous);
+        } finally {
+            setKeyboardSaving(false);
+        }
+    };
+
     return (
         <div>
             <h1 className={"mb-4"}>Configurações</h1>
@@ -94,23 +106,22 @@ function SetupPage() {
                                     Teclado Virtual
                                 </Typography>
                                 <Typography variant="body2" color="text.secondary" sx={{mb: 2}}>
-                                    Ativa ou desativa o teclado virtual para os campos numéricos e de texto. Esta
-                                    configuração é guardada no navegador.
+                                    Ativa ou desativa o teclado virtual para os campos numéricos e de texto. A
+                                    configuração é partilhada entre todos os utilizadores deste terminal.
                                 </Typography>
-                                <div className="form-check form-switch">
-                                    <input
-                                        className="form-check-input"
-                                        type="checkbox"
-                                        id="virtualKeyboard"
-                                        defaultChecked={localStorage.getItem("virtualKeyboard") === "true"}
-                                        onChange={(e) => {
-                                            localStorage.setItem("virtualKeyboard", String(e.target.checked));
-                                        }}
+                                <Stack direction="row" spacing={2} alignItems="center">
+                                    <Switch
+                                        checked={virtualKeyboardEnabled}
+                                        onChange={handleToggleVirtualKeyboard}
+                                        disabled={virtualKeyboardLoading || keyboardSaving}
                                     />
-                                    <label className="form-check-label" htmlFor="virtualKeyboard">
-                                        Teclado Virtual
-                                    </label>
-                                </div>
+                                    <Typography variant="body2">
+                                        {virtualKeyboardEnabled ? 'Teclado virtual ativado' : 'Teclado virtual desativado'}
+                                    </Typography>
+                                    {(virtualKeyboardLoading || keyboardSaving) && (
+                                        <CircularProgress size={18}/>
+                                    )}
+                                </Stack>
                             </Paper>
 
                             <Paper elevation={0} sx={{p: 3, border: theme => `1px solid ${theme.palette.divider}`}}>
