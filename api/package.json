@@ -1,9 +1,13 @@
 {
   "name": "pos-ticket-print-api",
-  "version": "0.3.0",
+  "version": "1.0.0",
   "private": true,
   "main": "server.js",
   "type": "module",
+  "author": {
+    "name": "Ruben Domingues",
+    "email": "geral@rubendomingues.pt"
+  },
   "dependencies": {
     "@printers/printers": "^0.7.4",
     "bcrypt": "^6.0.0",
