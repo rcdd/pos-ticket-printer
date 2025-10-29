@@ -213,7 +213,6 @@ app.use(authenticate);
 // POS/runtime endpoints (authenticated)
 app.get('/printer/list', printer.getPrinterList);
 app.get('/printer/usb-devices', printer.getUSBDeviceList);
-app.get('/printer/details', printer.getPrinterDetails);
 app.post('/printer/test-direct-connection', printer.testDirectConnection);
 
 app.post('/printer/print-ticket', async (req, res) => {
