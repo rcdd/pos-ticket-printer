@@ -162,7 +162,7 @@ function HomePage() {
         } finally {
             setCheckingLicense(false);
         }
-    }, []);
+    }, [setOpenCloseModal]);
 
     const checkOnboardingStatus = React.useCallback(async () => {
         setCheckingUsers(true);
@@ -241,11 +241,12 @@ function HomePage() {
         setOpen(false);
     };
 
-    const doCloseWindow = () => {
+    const doCloseWindow = React.useCallback(() => {
+        setOpenCloseModal(false);
         window.opener = null;
         window.open("", "_self");
         window.close();
-    };
+    }, [setOpenCloseModal]);
 
     const handleLogin = React.useCallback(async (value, userInfo = null) => {
         setLogin(value);
