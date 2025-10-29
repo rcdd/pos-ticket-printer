@@ -33,7 +33,7 @@ function Show-Console
 $global:__SPLASH = $null
 function New-Splash
 {
-    param([string]$Title = "POS Ticket", [string]$Subtitle = "Starting services...", [string]$ImagePath = "")
+    param([string]$Title = "POS Ticket", [string]$Subtitle = "Starting POS-Ticket...", [string]$ImagePath = "")
     $form = New-Object System.Windows.Forms.Form
     $form.FormBorderStyle = 'None'
     $form.StartPosition = 'CenterScreen'
@@ -83,7 +83,7 @@ function New-Splash
     $panel.Controls.Add($bar)
 
     $lblFoot = New-Object System.Windows.Forms.Label
-    $lblFoot.Text = "Please wait..."
+    $lblFoot.Text = "Por favor, aguarde..."
     $lblFoot.Font = New-Object System.Drawing.Font('Segoe UI', 9)
     $lblFoot.AutoSize = $true
     $lblFoot.ForeColor = [System.Drawing.Color]::FromArgb(130, 138, 148)
@@ -232,6 +232,11 @@ try
     Write-Host "[INFO] PM2_HOME: $pm2Home"
     Write-Host "[INFO] PM2_RPC_PORT: $( $env:PM2_RPC_PORT )  PM2_PUB_PORT: $( $env:PM2_PUB_PORT )"
 
+    if ($useSplash)
+    {
+        Set-SplashText "Checking instalation..."
+    }
+
     # Locate node/pm2 only (serve not required)
     $NodeExe = (Get-Command 'node.exe' -ErrorAction SilentlyContinue | Select-Object -First 1).Source
     $Pm2Cmd = (Get-Command 'pm2.cmd'  -ErrorAction SilentlyContinue | Select-Object -First 1).Source
@@ -342,7 +347,7 @@ try
     # --- phpMyAdmin (PHP built-in server via PM2) ---
     if ($useSplash)
     {
-        Set-SplashText "Starting phpMyAdmin..."
+        Set-SplashText "Starting 3rd party applications..."
     }
     Write-Host "[INFO] Starting phpMyAdmin via PM2..." -ForegroundColor Cyan
     try

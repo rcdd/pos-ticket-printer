@@ -267,6 +267,40 @@ function Sync-Into
     }
 }
 
+function Reset-NpmArtifacts
+{
+    param([string]$projPath)
+
+    $lockFile = Join-Path $projPath 'package-lock.json'
+    $nodeModules = Join-Path $projPath 'node_modules'
+
+    if (Test-Path $nodeModules)
+    {
+        Write-Host "A remover node_modules ($projPath)"
+        try
+        {
+            Remove-Item -Path $nodeModules -Recurse -Force -ErrorAction Stop
+        }
+        catch
+        {
+            throw "Falha ao remover node_modules em $projPath: $($_.Exception.Message)"
+        }
+    }
+
+    if (Test-Path $lockFile)
+    {
+        Write-Host "A remover package-lock.json ($projPath)"
+        try
+        {
+            Remove-Item -Path $lockFile -Force -ErrorAction Stop
+        }
+        catch
+        {
+            throw "Falha ao remover package-lock.json em $projPath: $($_.Exception.Message)"
+        }
+    }
+}
+
 function Npm-Install-And-Build
 {
     param([string]$projPath, [switch]$DoRebuild)
@@ -373,6 +407,7 @@ try
             $apiPath = Join-Path $Target 'api'
             if ((Test-Path $apiPath) -and (Test-Command npm))
             {
+                Reset-NpmArtifacts -projPath $apiPath
                 Npm-Install-And-Build -projPath $apiPath -DoRebuild
             }
         }
@@ -382,6 +417,7 @@ try
             $uiPath = Join-Path $Target 'ui'
             if ((Test-Path $uiPath) -and (Test-Command npm))
             {
+                Reset-NpmArtifacts -projPath $uiPath
                 Npm-Install-And-Build -projPath $uiPath
             }
         }

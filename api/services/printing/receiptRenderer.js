@@ -84,9 +84,8 @@ export function renderSessionRaw(sessionData) {
     const parts = [];
     parts.push(align(1)); // center
     parts.push(bold(1));
-    parts.push(textPrintLine('Resumo da Sessão'));
+    parts.push(textPrintLine(`Resumo da Sessão # ${sessionData.sessionId || 'n/a'})`));
     parts.push(bold(0));
-    parts.push(newLine());
     parts.push(horizontalLine());
     parts.push(newLine());
     parts.push(align(0)); // left
@@ -196,12 +195,12 @@ export function renderSessionRaw(sessionData) {
         parts.push(bold(1));
         parts.push(textPrintLine(`${toEuros((m.amount || 0) / 100)}`));
         parts.push(bold(0));
-        parts.push(textPrint(`   ->`));
-        const date = new Date(m.createdAt).toLocaleString('pt-PT', {timeZone: 'Europe/Lisbon'});
-        parts.push(textPrint(`Em ${date} por `));
+        parts.push(textPrint(`  Por `));
         parts.push(bold(1));
         parts.push(textPrintLine(`${m.user?.name || 'n/a'}`));
         parts.push(bold(0));
+        const date = new Date(m.createdAt).toLocaleString('pt-PT', {timeZone: 'Europe/Lisbon'});
+        parts.push(textPrint(` em ${date}`));
     }
 
     parts.push(textPrint(`Fecho: `));

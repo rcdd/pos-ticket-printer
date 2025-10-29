@@ -58,7 +58,7 @@ function ReportsPage() {
 
     // ui
     const [loading, setLoading] = React.useState(true);
-    const [tab, setTab] = React.useState('invoices'); // 'sessions' | 'invoices' | 'products'
+    const [tab, setTab] = React.useState('sessions'); // 'sessions' | 'invoices' | 'products'
     const [viewInvoice, setViewInvoice] = React.useState(null);
     const [revokeDialog, setRevokeDialog] = React.useState(null);
 
@@ -247,13 +247,13 @@ function ReportsPage() {
     };
 
     const sessionsCols = [
-        {field: 'id', headerName: 'Sessão', width: 110},
+        {field: 'id', headerName: '#', width: 60},
         {
-            field: 'openedAt', headerName: 'Início', minWidth: 160, flex: 1,
+            field: 'openedAt', headerName: 'Início', minWidth: 100, flex: 1,
             valueFormatter: (v) => v ? new Date(v).toLocaleString('pt-PT') : '—'
         },
         {
-            field: 'closedAt', headerName: 'Fecho', minWidth: 160, flex: 1,
+            field: 'closedAt', headerName: 'Fecho', minWidth: 100, flex: 1,
             valueFormatter: (v) => v ? new Date(v).toLocaleString('pt-PT') : '—'
         },
         {
@@ -263,15 +263,15 @@ function ReportsPage() {
                       label={p.value === 'opened' ? 'Aberta' : 'Fechada'}/>
             )
         },
-        {field: 'initialAmount', headerName: 'Abertura', width: 120, valueFormatter: (v) => eur(v)},
-        {field: 'invoices', headerName: 'Faturas', width: 110},
+        // {field: 'initialAmount', headerName: 'Abertura', width: 120, valueFormatter: (v) => eur(v)},
+        {field: 'invoices', headerName: 'Faturas', width: 100},
         {field: 'revoked', headerName: 'Anuladas', width: 110},
-        {field: 'total', headerName: 'Total', width: 140, valueFormatter: (v) => eur(v)},
-        {field: 'cash', headerName: 'Dinheiro', width: 120, valueFormatter: (v) => eur(v)},
-        {field: 'card', headerName: 'Multibanco', width: 130, valueFormatter: (v) => eur(v)},
-        {field: 'mbway', headerName: 'MB Way', width: 120, valueFormatter: (v) => eur(v)},
+        {field: 'total', headerName: 'Total', width: 110, valueFormatter: (v) => eur(v)},
+        // {field: 'cash', headerName: 'Dinheiro', width: 120, valueFormatter: (v) => eur(v)},
+        // {field: 'card', headerName: 'Multibanco', width: 130, valueFormatter: (v) => eur(v)},
+        // {field: 'mbway', headerName: 'MB Way', width: 120, valueFormatter: (v) => eur(v)},
         {
-            field: 'action', headerName: 'Ver', width: 90, sortable: false, filterable: false,
+            field: 'action', headerName: 'Ver', width: 70, sortable: false, filterable: false,
             renderCell: (params) => (
                 <Tooltip title="Ver sessão">
                     <IconButton size="small" onClick={() => openSessionDrawer(params.row.id)}>
@@ -283,12 +283,12 @@ function ReportsPage() {
     ];
 
     const invoicesCols = [
-        {field: 'id', headerName: 'Fatura', width: 110},
+        {field: 'id', headerName: '#', width: 60},
         {
-            field: 'createdAt', headerName: 'Data', minWidth: 170, flex: 1,
+            field: 'createdAt', headerName: 'Data', minWidth: 100, flex: 1,
             valueFormatter: (v) => new Date(v).toLocaleString('pt-PT')
         },
-        {field: 'sessionId', headerName: 'Sessão', width: 110},
+        {field: 'sessionId', headerName: 'Sessão', width: 100},
         {
             field: 'paymentMethod', headerName: 'Método', width: 140,
             valueFormatter: (v) => PaymentMethods.find(m => m.id === v)?.name ?? v
@@ -413,6 +413,7 @@ function ReportsPage() {
             ]);
 
             const payload = {
+                sessionId : viewSession.id,
                 userOpen: userOpenName,
                 userClose: userCloseName,
                 openedAt: viewSession.openedAt,

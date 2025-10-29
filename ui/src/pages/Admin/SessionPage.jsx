@@ -125,6 +125,7 @@ export default function SessionPage({ onCloseSession }) {
         } = computeSessionAggregates(invoices, session?.initialAmount ?? 0, cashMovements);
 
         const sessionPayload = {
+            sessionId : session.id,
             userOpen: userOpen?.name || "Desconhecido",
             userClose: user.name || "Desconhecido",
             openedAt: session.openedAt,
