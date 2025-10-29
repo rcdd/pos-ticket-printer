@@ -35,6 +35,7 @@ export function renderHeaderRaw(headers) {
 export function renderItemTicketRaw(productName) {
     const parts = [];
     parts.push(sizeWide());
+    parts.push(Buffer.from([0x1D, 0x21, 26]));
     parts.push(textPrintLine(`1 ${productName ?? ''}`));
     parts.push(sizeNormal());
     parts.push(textPrintLine(''));
@@ -70,7 +71,9 @@ export function renderFooterRaw() {
     const date = new Date().toLocaleString('pt-PT', {timeZone: 'Europe/Lisbon'});
     parts.push(align(1)); // center
     parts.push(horizontalLine());
+    parts.push(newLine());
     parts.push(textPrintLine(date));
+    parts.push(newLine());
     parts.push(newLine());
     parts.push(newLine());
     parts.push(align(0)); // left
@@ -188,21 +191,22 @@ export function renderSessionRaw(sessionData) {
     parts.push(bold(0));
 
     for (const m of sessionData.cashMovements) {
-        const date = new Date(m.createdAt).toLocaleString('pt-PT', {timeZone: 'Europe/Lisbon'});
-        parts.push(textPrint(`${date} - `));
-        parts.push(bold(1));
-        parts.push(textPrint(`${m.user?.name || 'n/a'} - `));
-        parts.push(bold(0));
         const type = m.type === 'CASH_IN' ? 'Reforço' : (m.type === 'CASH_OUT' ? 'Sangria' : m.type);
         parts.push(textPrint(`${type}: `));
         parts.push(bold(1));
         parts.push(textPrintLine(`${toEuros((m.amount || 0) / 100)}`));
         parts.push(bold(0));
+        parts.push(textPrint(`   ->`));
+        const date = new Date(m.createdAt).toLocaleString('pt-PT', {timeZone: 'Europe/Lisbon'});
+        parts.push(textPrint(`Em ${date} por `));
+        parts.push(bold(1));
+        parts.push(textPrintLine(`${m.user?.name || 'n/a'}`));
+        parts.push(bold(0));
     }
 
     parts.push(textPrint(`Fecho: `));
     parts.push(bold(1));
-    parts.push(textPrintLine(`${toEuros(sessionData.finalCashValue)}`));
+    parts.push(textPrintLine(`${toEuros(sessionData.finalCashValue / 100)}`));
     parts.push(bold(0));
     parts.push(newLine());
 

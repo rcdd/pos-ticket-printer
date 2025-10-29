@@ -139,6 +139,7 @@ export default function UserModal({
                         value={form.name}
                         onChange={handleValueField("name")}
                         maxLength={64}
+                        showSymbols={false}
                         textFieldProps={{
                             label: "Nome",
                             autoComplete: "name",
@@ -149,6 +150,7 @@ export default function UserModal({
                         value={form.username}
                         onChange={handleValueField("username")}
                         maxLength={64}
+                        showSymbols={false}
                         textFieldProps={{
                             label: "Nome de utilizador",
                             autoComplete: "username",
@@ -164,13 +166,14 @@ export default function UserModal({
                             if (!submitting) handleSubmit();
                         }}
                         showPasswordToggle
+                        showSymbols={false}
                         textFieldProps={{
                             label: "Password",
                             type: "password",
                             autoComplete: isEdit ? "new-password" : "password",
                             required: !isEdit,
                             helperText: isEdit ? "Deixe em branco para manter a password atual." : undefined,
-                            fullWidth: true
+                            fullWidth: true,
                         }}
                     />
                     <TextField

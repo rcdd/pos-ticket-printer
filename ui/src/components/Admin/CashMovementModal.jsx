@@ -105,7 +105,6 @@ export default function CashMovementModal({open, onClose, modalType, session, on
                         textFieldProps={{
                             label: "Montante",
                             fullWidth: true,
-                            autoFocus: true,
                             autoComplete: "off",
                             error: amount.length > 0 && amountInvalid,
                             helperText: amount.length > 0 && amountInvalid ? "Introduza um valor superior a 0" : " ",

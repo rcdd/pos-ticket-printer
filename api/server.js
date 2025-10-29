@@ -237,6 +237,9 @@ app.post('/printer/print-session', async (req, res) => {
     req.body.printer = printNameOption;
     req.body.headers = await options.getHeadersVariable();
 
+    const dbOpenDrawerOption = await options.getOpenDrawerVariable() ?? false;
+    req.body.openDrawer = dbOpenDrawerOption ? (req.body.openDrawer || false) : false;
+
     await printer.printSessionSummary(req, res);
 });
 

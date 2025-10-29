@@ -3,39 +3,9 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
-async function loadPrintersLib() {
-    if (process.platform === 'win32') return null;
-    try {
-        const mod = await import('@printers/printers');
-        const candidate = mod?.default ?? mod;
-
-        if (typeof candidate === 'function') {
-            try {
-                return new candidate();
-            } catch { /* ignore */
-            }
-        }
-        return candidate;
-    } catch (e) {
-        console.warn('[@printers/printers] import falhou:', e.message);
-        return null;
-    }
-}
-
 export class EscposStrategy {
     async listPrinters() {
-        // const lib = await loadPrintersLib();
-        //
-        // if (lib?.getAllPrinters) {
-        //     try {
-        //         const printers = await lib.getAllPrinters();
-        //         return Array.isArray(printers) ? printers : [];
-        //     } catch {
-        //     }
-        // }
-
         if (process.platform === 'win32') {
-            console.warn('[@printers/printers] não disponível no Windows, usando fallback via PowerShell');
             const list = await listViaWindows();
             return Array.isArray(list) ? list : [];
         }
@@ -43,25 +13,7 @@ export class EscposStrategy {
     }
 
     async printRawByName(printerName, buffer, jobName = 'POS Ticket') {
-        // const lib = await loadPrintersLib();
-        //
-        // if (lib?.getPrinterByName) {
-        //     try {
-        //         const p = await lib.getPrinterByName(printerName);
-        //         if (!p) throw new Error(`Printer "${printerName}" not found`);
-        //
-        //         const data = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
-        //         const printFn = p.printBytes ?? p.printRaw;
-        //         if (typeof printFn !== 'function') throw new Error('Método de impressão não encontrado no objeto da impressora');
-        //
-        //         await printFn.call(p, data, {jobName, simple: {paperSize: 'COM10'}, waitForCompletion: true});
-        //         return;
-        //     } catch {
-        //     }
-        // }
-
         if (process.platform === 'win32') {
-            console.warn('[@printers/printers] não disponível no Windows, usando fallback via PowerShell');
             await printViaWindows(printerName, buffer, jobName);
             return;
         }
@@ -98,7 +50,6 @@ export class EscposStrategy {
 }
 
 /* ---------- Fallback Windows ---------- */
-
 async function listViaWindows() {
     return new Promise((resolve) => {
         const ps = [
@@ -153,12 +104,10 @@ function printViaWindows(printerName, buffer, jobName) {
 
         const tryUNC = () => {
             if (!share) return false;
-            console.warn("[Fallback] Usando cópia via UNC para imprimir no Windows");
             const unc = `\\\\localhost\\${share}`;
             const args = ['/c', 'copy', '/b', tmpFile, unc];
             execFile('cmd.exe', args, {windowsHide: true}, (e, so, se) => {
                 if (!e) {
-                    console.log("Impressão via UNC concluída");
                     clean();
                     return resolve();
                 }
@@ -187,7 +136,6 @@ function printViaWindows(printerName, buffer, jobName) {
 }
 
 /* ---------- Fallback via CUPS (macOS/Linux) ---------- */
-
 async function listViaCUPS() {
     return new Promise((resolve) => {
         const cmd = '/usr/bin/lpstat'; // caminho típico no macOS; em Linux pode ser /usr/bin/lpstat também

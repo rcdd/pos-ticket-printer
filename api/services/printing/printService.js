@@ -7,9 +7,6 @@ import {openCashDrawer} from "./printCommands.js";
 
 const escpos = new EscposStrategy();
 
-const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-const INTER_JOB_DELAY_MS = Number(process.env.PRINT_INTER_JOB_DELAY_MS || 30);
-
 function toEuros(n) {
     if (typeof n === 'string') return Number(n.replace(',', '.')) || 0;
     if (Number.isInteger(n) && Math.abs(n) > 100) return n / 100;
@@ -82,14 +79,18 @@ export async function printTicketRequest({printerName, headers, items, totalAmou
     await escpos.printRawByName(printerName, buf, `${jobPrefix} Job`);
 }
 
-export async function printSessionRequest({printerName, headers, sessionData}) {
+export async function printSessionRequest({printerName, headers, sessionData, openDrawer}) {
     const jobPrefix = 'POS';
 
-    const buf = Buffer.concat([
+    let buf = Buffer.concat([
         initPrinter(),
         renderSessionRaw(sessionData),
         renderHeaderRaw(headers),
     ]);
+
+    if (openDrawer) {
+        buf = Buffer.concat([openCashDrawer(), buf]);
+    }
     await escpos.printRawByName(printerName, buf, `${jobPrefix} Session Summary`);
 }
 

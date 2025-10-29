@@ -131,6 +131,13 @@ export default function TextFieldKeyboard({
         window.removeEventListener('pointermove', active.onPointerMove);
         window.removeEventListener('pointerup', active.onPointerUp);
         window.removeEventListener('pointercancel', active.onPointerUp);
+        if (active.captureTarget?.releasePointerCapture && active.pointerId != null) {
+            try {
+                active.captureTarget.releasePointerCapture(active.pointerId);
+            } catch (error) {
+                // ignore release errors; element might already be detached
+            }
+        }
         if (active.previousUserSelect !== undefined) {
             document.body.style.userSelect = active.previousUserSelect;
         }
@@ -166,9 +173,12 @@ export default function TextFieldKeyboard({
     }, [openOnFocus, virtualKeyboardEnabled, acquireKeyboard, instanceId, close]);
 
     const handleDragStart = React.useCallback((event) => {
+        console.log('start drag');
         if (!open || !virtualKeyboardEnabled) return;
-        if (event.button !== 0) return;
-        event.preventDefault();
+        const pointerType = event.pointerType || 'mouse';
+        const isMouse = pointerType === 'mouse';
+        if (isMouse && event.button !== 0) return;
+        if (isMouse && event.cancelable) event.preventDefault();
         event.stopPropagation();
 
         stopDrag();
@@ -178,14 +188,27 @@ export default function TextFieldKeyboard({
         const startY = event.clientY;
         const origin = {x: dragOffset.x, y: dragOffset.y};
 
-        const previousUserSelect = document.body.style.userSelect;
-        const previousCursor = document.body.style.cursor;
-        document.body.style.userSelect = 'none';
-        document.body.style.cursor = 'grabbing';
+        const previousUserSelect = isMouse ? document.body.style.userSelect : undefined;
+        const previousCursor = isMouse ? document.body.style.cursor : undefined;
+        if (isMouse) {
+            document.body.style.userSelect = 'none';
+            document.body.style.cursor = 'grabbing';
+        }
+
+        const captureTarget = event.currentTarget;
+        let capturedTarget = null;
+        if (isMouse && captureTarget?.setPointerCapture && pointerId != null) {
+            try {
+                captureTarget.setPointerCapture(pointerId);
+                capturedTarget = captureTarget;
+            } catch (error) {
+                // ignore capture errors; window listeners still handle drag
+            }
+        }
 
         const onPointerMove = (moveEvent) => {
             if ((moveEvent.pointerId ?? 1) !== pointerId) return;
-            moveEvent.preventDefault();
+            if (isMouse && moveEvent.cancelable) moveEvent.preventDefault();
             const dx = moveEvent.clientX - startX;
             const dy = moveEvent.clientY - startY;
             setDragOffset({x: origin.x + dx, y: origin.y + dy});
@@ -201,6 +224,8 @@ export default function TextFieldKeyboard({
             onPointerUp,
             previousUserSelect,
             previousCursor,
+            pointerId: capturedTarget ? pointerId : null,
+            captureTarget: capturedTarget,
         };
 
         window.addEventListener('pointermove', onPointerMove);
@@ -296,33 +321,37 @@ export default function TextFieldKeyboard({
                         bgcolor: "background.paper",
                     }}
                 >
-                    <Box
-                        onPointerDown={handleDragStart}
-                        sx={{
-                            cursor: 'grab',
-                            display: 'flex',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            mb: 1,
-                            userSelect: 'none',
-                        }}
-                    >
-                        <Box sx={{width: 72, height: 6, borderRadius: 3, bgcolor: 'text.disabled', opacity: 0.5}}/>
-                    </Box>
                     <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{mb: 1}}>
                         <Stack direction="row" spacing={0.5}>
-                            <Key onClick={() => setShift(s => !s)} sx={{px: 1.5}}>
+                            <Key onClick={() => setShift(s => !s)} sx={{px: 1.5}}
+                                 variant={shift ? "contained" : "outlined"}>
                                 <KeyboardCapslockIcon fontSize="small"/>
                             </Key>
                             <Key onClick={backspace} sx={{px: 1.5}}>
                                 <BackspaceIcon fontSize="small"/>
                             </Key>
                         </Stack>
+                        <Box
+                            onPointerDown={handleDragStart}
+                            sx={{
+                                cursor: 'grab',
+                                display: 'flex',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                mb: 1,
+                                userSelect: 'none',
+                                touchAction: 'none',
+                                height: 56,
+                                width: 100,
+                            }}
+                        >
+                            <Box sx={{width: 72, height: 6, borderRadius: 3, bgcolor: 'text.disabled', opacity: 0.5}}/>
+                        </Box>
                         <Stack direction="row" spacing={0.5}>
                             <Key color="success" variant="contained" onClick={handleEnter} sx={{px: 2}}>
                                 <KeyboardReturnIcon sx={{mr: 0.5}} fontSize="small"/> OK
                             </Key>
-                            <Key color="inherit" onClick={close} sx={{px: 1.5}}>
+                            <Key color="error" variant="contained" onClick={close} sx={{px: 1.5}}>
                                 <CloseIcon fontSize="small"/>
                             </Key>
                         </Stack>

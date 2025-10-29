@@ -137,7 +137,8 @@ export default function SessionPage({ onCloseSession }) {
             closingAmount: totalAmountCents,
             finalCashValue: finalCashValueCents,
             notes,
-            cashMovements
+            cashMovements,
+            openDrawer: true
         };
 
         await PrinterService.printSessionSummary(sessionPayload).catch((error) => {

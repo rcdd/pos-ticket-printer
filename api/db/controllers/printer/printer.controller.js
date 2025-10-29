@@ -70,6 +70,7 @@ export const printSessionSummary = async (req, res) => {
     try {
         let printerName = req.body.printer;
         const headers = req.body.headers;
+        const openDrawer = req.body.openDrawer || false;
 
         if (!printerName || printerName === 'undefined') {
             try {
@@ -87,7 +88,8 @@ export const printSessionSummary = async (req, res) => {
         await printSessionRequest({
             printerName,
             headers,
-            sessionData: req.body
+            sessionData: req.body,
+            openDrawer
         });
         res.send('OK');
     } catch (err) {

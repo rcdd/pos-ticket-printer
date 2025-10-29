@@ -170,7 +170,7 @@ function ProductModal({open, close, selectedZone, zones = [], product = null}) {
                             helperText: `${newName?.length || 0}/20`,
                         }}
                         maxLength={20}
-                        showSymbols={false}
+                        showSymbols={true}
                     />
 
                     <InputLabel htmlFor="price" sx={{mt: 2}} required>Preço</InputLabel>
