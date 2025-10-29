@@ -283,7 +283,7 @@ function Reset-NpmArtifacts
         }
         catch
         {
-            throw "Falha ao remover node_modules em $projPath: $($_.Exception.Message)"
+            throw "Falha ao remover node_modules em $projPath : $($_.Exception.Message)"
         }
     }
 
@@ -296,7 +296,7 @@ function Reset-NpmArtifacts
         }
         catch
         {
-            throw "Falha ao remover package-lock.json em $projPath: $($_.Exception.Message)"
+            throw ( "Falha ao remover package-lock.json em $projPath : $_.Exception.Message" )
         }
     }
 }
