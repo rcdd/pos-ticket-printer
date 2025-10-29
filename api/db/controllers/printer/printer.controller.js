@@ -3,7 +3,6 @@ import db from '../../index.js';
 const Option = db.options;
 
 import {listPrinters, printTicketRequest, printSessionRequest, listUSBDevices, testDirectConnection as testDirectConnectionService} from '../../../services/printing/printService.js';
-import {EscposStrategy} from '../../../services/printing/escposStrategy.js';
 
 export const getPrintName = async () => {
     const opt = await Option.findOne({where: {name: 'printer'}});
@@ -138,90 +137,190 @@ export const testDirectConnection = async (req, res) => {
 };
 
 export const getPrinterDetails = async (req, res) => {
-    const printerName = req.query.name || req.body.name;
-
-    if (!printerName) {
-        return res.status(400).send({message: 'Printer name is required'});
-    }
-
-    console.log(`[getPrinterDetails] Getting details for printer: ${printerName}`);
-
     try {
-        // Use existing EscposStrategy (already working!)
-        const escpos = new EscposStrategy();
-        const printerInfo = await escpos.getPrinterDetails(printerName);
+        const printerName = req.query.name || req.body.name;
 
-        if (!printerInfo) {
-            console.log('[getPrinterDetails] Printer not found');
-            return res.status(404).send({
-                message: 'Impressora não encontrada',
-                detail: `Não foi possível encontrar a impressora "${printerName}"`
-            });
+        if (!printerName) {
+            return res.status(400).send({message: 'Printer name is required'});
         }
 
-        console.log('[getPrinterDetails] Found printer:', JSON.stringify(printerInfo, null, 2));
+        console.log(`[getPrinterDetails] Getting details for printer: ${printerName}`);
+
+        // Use PowerShell to get detailed printer information
+        const { exec } = await import('child_process');
+        const { promisify } = await import('util');
+        const execAsync = promisify(exec);
+
+        // Escape printer name for PowerShell - replace " with ""
+        const escapedPrinterName = printerName.replace(/"/g, '""');
+
+        // Use PowerShell with proper escaping
+        const psCommand = `Get-Printer -Name '${escapedPrinterName}' | Select-Object Name, DriverName, PortName, Shared, Published, ComputerName | ConvertTo-Json`;
+
+        console.log(`[getPrinterDetails] Executing: ${psCommand}`);
+
+        const { stdout, stderr } = await execAsync(`powershell.exe -ExecutionPolicy Bypass -Command "${psCommand}"`, {
+            timeout: 5000,
+            windowsHide: true
+        });
+
+        if (stderr) {
+            console.log(`[getPrinterDetails] PowerShell stderr: ${stderr}`);
+        }
+
+        console.log(`[getPrinterDetails] PowerShell stdout: ${stdout}`);
+
+        const printerInfo = JSON.parse(stdout);
+
+        // Get port details
+        const escapedPortName = (printerInfo.PortName || '').replace(/"/g, '""');
+        const portCommand = `Get-PrinterPort -Name '${escapedPortName}' | Select-Object Name, Description, PortMonitor, PortNumber | ConvertTo-Json`;
+
+        let portInfo = null;
+        try {
+            console.log(`[getPrinterDetails] Getting port info for: ${printerInfo.PortName}`);
+            const { stdout: portStdout, stderr: portStderr } = await execAsync(`powershell.exe -ExecutionPolicy Bypass -Command "${portCommand}"`, {
+                timeout: 5000,
+                windowsHide: true
+            });
+
+            if (portStderr) {
+                console.log('[getPrinterDetails] Port query stderr:', portStderr);
+            }
+
+            if (portStdout && portStdout.trim()) {
+                portInfo = JSON.parse(portStdout);
+                console.log('[getPrinterDetails] Port info:', portInfo);
+            }
+        } catch (err) {
+            console.log('[getPrinterDetails] Could not get port info:', err.message);
+        }
 
         const result = {
-            printer: {
-                Name: printerInfo.name,
-                PortName: printerInfo.portName || 'Unknown',
-                DriverName: printerInfo.driverName || 'Unknown',
-                URI: printerInfo.uri,
-                Description: printerInfo.description,
-                Location: printerInfo.location,
-                IsDefault: printerInfo.isDefault,
-                IsShared: printerInfo.isShared,
-                State: printerInfo.state,
-                StateReasons: printerInfo.stateReasons
-            },
+            printer: printerInfo,
+            port: portInfo,
             recommendations: []
         };
 
-        // Analyze connection type
-        const portName = (printerInfo.portName || '').toUpperCase();
-        const uri = (printerInfo.uri || '').toUpperCase();
+        // Analyze and provide recommendations
+        if (printerInfo.PortName) {
+            const portName = printerInfo.PortName.toUpperCase();
 
-        console.log(`[getPrinterDetails] Analyzing - PortName: "${portName}", URI: "${uri}"`);
+            if (portName.startsWith('USB')) {
+                result.recommendations.push({
+                    type: 'usb',
+                    message: 'This printer is connected via USB. Direct USB printing on Windows is complex.',
+                    suggestion: 'Consider using Network printing or Shared printer method (fallback).'
+                });
+            } else if (portName.startsWith('IP_') || portName.includes('TCP')) {
+                result.recommendations.push({
+                    type: 'network',
+                    message: 'This printer appears to be network-connected.',
+                    suggestion: `Use Direct Network printing with the IP address from port ${printerInfo.PortName}.`
+                });
 
-        if (portName.includes('USB') || uri.includes('USB')) {
-            result.recommendations.push({
-                type: 'usb',
-                message: '🔌 Impressora USB detectada',
-                suggestion: 'USB direto no Windows é complexo. Opções: 1) Se a impressora tiver Ethernet/WiFi, use impressão direta de rede (muito mais rápido!), ou 2) Continue com método partilhado atual (funciona bem, apenas mais lento).'
-            });
-        } else if (portName.startsWith('IP_') || portName.includes('TCP') || uri.includes('SOCKET') || uri.includes('IPP')) {
-            result.recommendations.push({
-                type: 'network',
-                message: '✅ Impressora de rede detectada!',
-                suggestion: 'Perfeito! Use "Conexão Direta" tipo Network. Configure o IP da impressora e porta 9100 para máximo desempenho.'
-            });
-        } else if (portName.startsWith('COM')) {
-            result.recommendations.push({
-                type: 'serial',
-                message: `📟 Impressora serial/COM na porta ${printerInfo.portName}`,
-                suggestion: `Use "Conexão Direta" tipo Serial. Caminho: ${printerInfo.portName}`
-            });
-        } else if (portName.startsWith('WSD') || uri.includes('WSD')) {
-            result.recommendations.push({
-                type: 'network',
-                message: '🌐 Impressora de rede (WSD) detectada',
-                suggestion: 'Esta impressora está na rede! Verifique o painel da impressora ou configurações para encontrar o IP e use "Conexão Direta" Network.'
-            });
-        } else {
-            result.recommendations.push({
-                type: 'unknown',
-                message: `❓ Conexão: ${printerInfo.portName || printerInfo.uri || 'Tipo desconhecido'}`,
-                suggestion: 'Verifique o manual da impressora. Se tiver porta Ethernet/WiFi, configure IP estático e use Impressão Direta Network (melhor desempenho). Senão, método partilhado funciona bem.'
-            });
+                if (portInfo && portInfo.PortNumber) {
+                    result.recommendations.push({
+                        type: 'network',
+                        message: `Network port detected: ${portInfo.PortNumber}`,
+                        suggestion: `Try Direct Network printing with port ${portInfo.PortNumber}.`
+                    });
+                }
+            } else if (portName.startsWith('COM')) {
+                result.recommendations.push({
+                    type: 'serial',
+                    message: `This printer is connected via serial port ${printerInfo.PortName}.`,
+                    suggestion: `Use Direct Serial printing with device path: ${printerInfo.PortName}`
+                });
+            } else if (portName.startsWith('FILE:')) {
+                result.recommendations.push({
+                    type: 'other',
+                    message: 'This is a print-to-file printer.',
+                    suggestion: 'Not suitable for POS printing.'
+                });
+            } else if (portName.startsWith('WSD')) {
+                result.recommendations.push({
+                    type: 'network',
+                    message: 'This is a network printer using WSD (Web Services for Devices).',
+                    suggestion: 'Check your printer settings for its IP address and use Direct Network printing.'
+                });
+            }
         }
 
         res.json(result);
-
     } catch (err) {
-        console.error('[getPrinterDetails] Error:', err);
-        res.status(500).send({
-            message: 'Erro ao obter detalhes da impressora',
-            detail: err.message
-        });
+        console.error('[getPrinterDetails] PowerShell method failed:', err);
+
+        // Fallback: Try using @printers/printers library
+        try {
+            console.log('[getPrinterDetails] Trying fallback method with @printers/printers...');
+            const { default: printersLib } = await import('@printers/printers');
+            const allPrinters = await printersLib.getAllPrinters();
+
+            const foundPrinter = allPrinters.find(p =>
+                p.name === printerName || p.systemName === printerName
+            );
+
+            if (!foundPrinter) {
+                return res.status(404).send({
+                    message: 'Impressora não encontrada',
+                    detail: `Não foi possível encontrar a impressora "${printerName}"`
+                });
+            }
+
+            console.log('[getPrinterDetails] Found printer via library:', foundPrinter);
+
+            const result = {
+                printer: {
+                    Name: foundPrinter.name,
+                    PortName: foundPrinter.portName || 'Unknown',
+                    DriverName: foundPrinter.driver || 'Unknown',
+                    connection: foundPrinter.connection,
+                    status: foundPrinter.status
+                },
+                port: null,
+                recommendations: [],
+                method: 'library'
+            };
+
+            // Analyze connection type
+            const portName = (foundPrinter.portName || '').toUpperCase();
+            const connection = (foundPrinter.connection || '').toUpperCase();
+
+            if (portName.includes('USB') || connection.includes('USB')) {
+                result.recommendations.push({
+                    type: 'usb',
+                    message: 'Impressora USB detectada.',
+                    suggestion: 'Para melhor desempenho, considere: 1) Adicionar conexão de rede à impressora, ou 2) Manter método partilhado (mais lento mas funcional).'
+                });
+            } else if (portName.startsWith('IP_') || portName.includes('TCP') || connection.includes('NETWORK')) {
+                result.recommendations.push({
+                    type: 'network',
+                    message: 'Impressora de rede detectada!',
+                    suggestion: 'Use "Impressão Direta" com o IP da impressora para máximo desempenho.'
+                });
+            } else if (portName.startsWith('COM')) {
+                result.recommendations.push({
+                    type: 'serial',
+                    message: `Impressora serial detectada na porta ${foundPrinter.portName}.`,
+                    suggestion: `Use "Impressão Direta" tipo Serial com: ${foundPrinter.portName}`
+                });
+            } else {
+                result.recommendations.push({
+                    type: 'unknown',
+                    message: `Tipo de conexão: ${foundPrinter.portName || 'Desconhecido'}`,
+                    suggestion: 'Se a impressora tiver capacidade de rede (Ethernet/WiFi), configure-a para usar Impressão Direta Network (mais rápido).'
+                });
+            }
+
+            res.json(result);
+
+        } catch (fallbackErr) {
+            console.error('[getPrinterDetails] Fallback also failed:', fallbackErr);
+            res.status(500).send({
+                message: 'Erro ao obter detalhes da impressora',
+                detail: `PowerShell: ${err.message}. Library: ${fallbackErr.message}`
+            });
+        }
     }
 };
