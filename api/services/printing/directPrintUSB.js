@@ -111,97 +111,25 @@ async function printToWindowsCOM(comPort, buffer, jobName) {
  */
 export async function listUSBDevices() {
     const devices = [];
-    console.log('[DirectPrint] Starting USB device detection...');
-    console.log('[DirectPrint] Platform:', process.platform);
 
     try {
         if (process.platform === 'win32') {
-            // Windows: Use WMI to find USB printers and COM ports
-            console.log('[DirectPrint] Using Windows detection methods...');
-
-            // Method 1: Query USB printers using WMI
-            console.log('[DirectPrint] Method 1: Querying WMI for USB printers...');
-            try {
-                const wmiQuery = `Get-WmiObject -Query "SELECT * FROM Win32_Printer WHERE PortName LIKE 'USB%'" | Select-Object -ExpandProperty PortName`;
-                const { stdout: usbPorts } = await execAsync(`powershell.exe -Command "${wmiQuery}"`, {
-                    timeout: 5000,
-                    windowsHide: true
-                });
-
-                const usbPortList = usbPorts.trim().split('\n').map(p => p.trim()).filter(Boolean);
-                console.log('[DirectPrint] Method 1 found:', usbPortList);
-                devices.push(...usbPortList);
-            } catch (err) {
-                console.log('[DirectPrint] WMI USB printer query failed:', err.message);
-            }
-
-            // Method 2: List COM ports (for USB-to-Serial adapters)
-            console.log('[DirectPrint] Method 2: Listing COM ports...');
-            try {
-                const { stdout: comPorts } = await execAsync('powershell.exe -Command "[System.IO.Ports.SerialPort]::getportnames()"', {
-                    timeout: 5000,
-                    windowsHide: true
-                });
-                const ports = comPorts.trim().split('\n').map(p => p.trim()).filter(Boolean);
-                console.log('[DirectPrint] Method 2 found:', ports);
-                devices.push(...ports);
-            } catch (err) {
-                console.log('[DirectPrint] COM port listing failed:', err.message);
-            }
-
-            // Method 3: Query USB devices using WMIC
-            console.log('[DirectPrint] Method 3: Querying WMIC for USB devices...');
-            try {
-                const wmicQuery = `wmic path Win32_USBControllerDevice get Dependent | findstr "USB"`;
-                const { stdout: usbDevices } = await execAsync(wmicQuery, {
-                    timeout: 5000,
-                    windowsHide: true
-                });
-
-                // Extract device paths from output
-                const usbDeviceMatches = usbDevices.match(/USB\\[^\\"]+/g);
-                console.log('[DirectPrint] Method 3 found:', usbDeviceMatches || []);
-                if (usbDeviceMatches) {
-                    devices.push(...usbDeviceMatches.map(d => `USB:${d}`));
-                }
-            } catch (err) {
-                console.log('[DirectPrint] WMIC USB device query failed:', err.message);
-            }
-
-            // Method 4: Check if printers library can detect USB
-            console.log('[DirectPrint] Method 4: Using @printers/printers library...');
-            try {
-                const { default: printersLib } = await import('@printers/printers');
-                const allPrinters = await printersLib.getAllPrinters();
-
-                // Filter USB printers
-                const usbPrinters = allPrinters.filter(p =>
-                    p.portName && (
-                        p.portName.toUpperCase().includes('USB') ||
-                        p.connection?.toUpperCase().includes('USB')
-                    )
-                );
-
-                console.log('[DirectPrint] Method 4 found USB printers:', usbPrinters.map(p => p.name || p.portName));
-                usbPrinters.forEach(p => {
-                    const identifier = p.portName || p.name;
-                    if (identifier && !devices.includes(identifier)) {
-                        devices.push(`PRINTER:${identifier}`);
-                    }
-                });
-            } catch (err) {
-                console.log('[DirectPrint] @printers/printers USB detection failed:', err.message);
-            }
+            // Windows: List COM ports
+            const { stdout } = await execAsync('powershell.exe -Command "[System.IO.Ports.SerialPort]::getportnames()"', {
+                timeout: 5000,
+                windowsHide: true
+            });
+            const ports = stdout.trim().split('\n').map(p => p.trim()).filter(Boolean);
+            devices.push(...ports);
 
         } else {
             // Linux/macOS: Check common USB device paths
             const commonPaths = [
-                '/dev/usb/lp0', '/dev/usb/lp1', '/dev/usb/lp2', '/dev/usb/lp3',
-                '/dev/ttyUSB0', '/dev/ttyUSB1', '/dev/ttyUSB2', '/dev/ttyUSB3',
-                '/dev/ttyS0', '/dev/ttyS1', '/dev/ttyS2',
+                '/dev/usb/lp0', '/dev/usb/lp1', '/dev/usb/lp2',
+                '/dev/ttyUSB0', '/dev/ttyUSB1', '/dev/ttyUSB2',
+                '/dev/ttyS0', '/dev/ttyS1',
                 '/dev/cu.usbserial', '/dev/tty.usbserial',
-                '/dev/cu.usbmodem', '/dev/tty.usbmodem',
-                '/dev/ttyACM0', '/dev/ttyACM1'
+                '/dev/cu.usbmodem', '/dev/tty.usbmodem'
             ];
 
             for (const devPath of commonPaths) {
@@ -209,29 +137,12 @@ export async function listUSBDevices() {
                     devices.push(devPath);
                 }
             }
-
-            // Try to use lsusb if available
-            try {
-                const { stdout } = await execAsync('lsusb 2>/dev/null', {
-                    timeout: 3000
-                });
-                if (stdout && stdout.includes('Printer')) {
-                    // Found printer in lsusb output
-                    console.log('[DirectPrint] USB Printer detected via lsusb');
-                }
-            } catch (err) {
-                // lsusb not available or failed
-            }
         }
     } catch (err) {
         console.error(`[DirectPrint] Error listing USB devices: ${err.message}`);
     }
 
-    // Remove duplicates
-    const uniqueDevices = [...new Set(devices)];
-    console.log('[DirectPrint] Total USB devices found:', uniqueDevices.length);
-    console.log('[DirectPrint] Devices:', uniqueDevices);
-    return uniqueDevices;
+    return devices;
 }
 
 /**
