@@ -135,3 +135,99 @@ export const testDirectConnection = async (req, res) => {
         res.status(500).send({message: 'Erro ao testar conexão', detail: String(err?.message || err)});
     }
 };
+
+export const getPrinterDetails = async (req, res) => {
+    try {
+        const printerName = req.query.name || req.body.name;
+
+        if (!printerName) {
+            return res.status(400).send({message: 'Printer name is required'});
+        }
+
+        console.log(`[getPrinterDetails] Getting details for printer: ${printerName}`);
+
+        // Use PowerShell to get detailed printer information
+        const { exec } = await import('child_process');
+        const { promisify } = await import('util');
+        const execAsync = promisify(exec);
+
+        const psCommand = `Get-Printer -Name "${printerName}" | Select-Object Name, DriverName, PortName, Shared, Published, ComputerName | ConvertTo-Json`;
+
+        const { stdout } = await execAsync(`powershell.exe -Command "${psCommand}"`, {
+            timeout: 5000,
+            windowsHide: true
+        });
+
+        const printerInfo = JSON.parse(stdout);
+
+        // Get port details
+        const portCommand = `Get-PrinterPort -Name "${printerInfo.PortName}" | Select-Object Name, Description, PortMonitor, PortNumber | ConvertTo-Json`;
+
+        let portInfo = null;
+        try {
+            const { stdout: portStdout } = await execAsync(`powershell.exe -Command "${portCommand}"`, {
+                timeout: 5000,
+                windowsHide: true
+            });
+            portInfo = JSON.parse(portStdout);
+        } catch (err) {
+            console.log('[getPrinterDetails] Could not get port info:', err.message);
+        }
+
+        const result = {
+            printer: printerInfo,
+            port: portInfo,
+            recommendations: []
+        };
+
+        // Analyze and provide recommendations
+        if (printerInfo.PortName) {
+            const portName = printerInfo.PortName.toUpperCase();
+
+            if (portName.startsWith('USB')) {
+                result.recommendations.push({
+                    type: 'usb',
+                    message: 'This printer is connected via USB. Direct USB printing on Windows is complex.',
+                    suggestion: 'Consider using Network printing or Shared printer method (fallback).'
+                });
+            } else if (portName.startsWith('IP_') || portName.includes('TCP')) {
+                result.recommendations.push({
+                    type: 'network',
+                    message: 'This printer appears to be network-connected.',
+                    suggestion: `Use Direct Network printing with the IP address from port ${printerInfo.PortName}.`
+                });
+
+                if (portInfo && portInfo.PortNumber) {
+                    result.recommendations.push({
+                        type: 'network',
+                        message: `Network port detected: ${portInfo.PortNumber}`,
+                        suggestion: `Try Direct Network printing with port ${portInfo.PortNumber}.`
+                    });
+                }
+            } else if (portName.startsWith('COM')) {
+                result.recommendations.push({
+                    type: 'serial',
+                    message: `This printer is connected via serial port ${printerInfo.PortName}.`,
+                    suggestion: `Use Direct Serial printing with device path: ${printerInfo.PortName}`
+                });
+            } else if (portName.startsWith('FILE:')) {
+                result.recommendations.push({
+                    type: 'other',
+                    message: 'This is a print-to-file printer.',
+                    suggestion: 'Not suitable for POS printing.'
+                });
+            } else if (portName.startsWith('WSD')) {
+                result.recommendations.push({
+                    type: 'network',
+                    message: 'This is a network printer using WSD (Web Services for Devices).',
+                    suggestion: 'Check your printer settings for its IP address and use Direct Network printing.'
+                });
+            }
+        }
+
+        res.json(result);
+    } catch (err) {
+        console.error('[getPrinterDetails] erro:', err);
+        res.status(500).send({message: 'Erro ao obter detalhes da impressora', detail: String(err?.message || err)});
+    }
+};

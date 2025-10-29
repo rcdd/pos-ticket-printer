@@ -24,6 +24,7 @@ import PrintRoundedIcon from "@mui/icons-material/PrintRounded";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import SaveIcon from "@mui/icons-material/Save";
+import InfoIcon from "@mui/icons-material/Info";
 
 import TextFieldKeyboard from "../../components/Common/TextFieldKeyboard";
 import PrinterService from "../../services/printer.service";
@@ -75,6 +76,8 @@ function PrinterPage() {
     const [usbDevices, setUsbDevices] = useState([]);
     const [loadingUSBDevices, setLoadingUSBDevices] = useState(false);
     const [testingConnection, setTestingConnection] = useState(false);
+    const [printerDetails, setPrinterDetails] = useState(null);
+    const [loadingPrinterDetails, setLoadingPrinterDetails] = useState(false);
 
     const debounceRef = useRef(null);
     const debounceSave = useCallback((fn) => {
@@ -350,6 +353,29 @@ function PrinterPage() {
         }
     };
 
+    const handleGetPrinterDetails = async () => {
+        if (!printer) {
+            pushMessage("warning", "Seleciona uma impressora primeiro.");
+            return;
+        }
+
+        try {
+            setLoadingPrinterDetails(true);
+            const res = await PrinterService.getPrinterDetails(printer);
+            setPrinterDetails(res.data);
+
+            // Show recommendations
+            if (res.data?.recommendations && res.data.recommendations.length > 0) {
+                const firstRec = res.data.recommendations[0];
+                pushMessage("info", `${firstRec.message} ${firstRec.suggestion}`);
+            }
+        } catch (error) {
+            pushNetworkError(error, {title: "Erro ao obter detalhes da impressora"});
+        } finally {
+            setLoadingPrinterDetails(false);
+        }
+    };
+
     const printerMenu = useMemo(() => printers.map((p) => (
         <MenuItem key={p.systemName} value={p.systemName}>
             {p.name}
@@ -486,6 +512,47 @@ function PrinterPage() {
                                             Seleciona a impressora do sistema a utilizar.
                                         </FormHelperText>
                                     </FormControl>
+
+                                    <LoadingButton
+                                        variant="outlined"
+                                        loading={loadingPrinterDetails}
+                                        startIcon={<InfoIcon />}
+                                        onClick={handleGetPrinterDetails}
+                                        disabled={!printer || savingPrintMethod}
+                                        sx={{alignSelf: "flex-start"}}
+                                    >
+                                        Ver Detalhes da Impressora
+                                    </LoadingButton>
+
+                                    {printerDetails && (
+                                        <Alert severity="info" sx={{whiteSpace: "pre-wrap"}}>
+                                            <Typography variant="subtitle2" fontWeight={600}>
+                                                Detalhes: {printerDetails.printer?.Name}
+                                            </Typography>
+                                            <Typography variant="body2" sx={{mt: 1}}>
+                                                <strong>Porta:</strong> {printerDetails.printer?.PortName}
+                                            </Typography>
+                                            {printerDetails.port && (
+                                                <Typography variant="body2">
+                                                    <strong>Monitor:</strong> {printerDetails.port?.PortMonitor}
+                                                </Typography>
+                                            )}
+                                            {printerDetails.recommendations && printerDetails.recommendations.length > 0 && (
+                                                <Box sx={{mt: 2}}>
+                                                    <Typography variant="subtitle2" fontWeight={600}>
+                                                        Recomendações:
+                                                    </Typography>
+                                                    {printerDetails.recommendations.map((rec, idx) => (
+                                                        <Typography key={idx} variant="body2" sx={{mt: 0.5}}>
+                                                            • {rec.message}
+                                                            <br />
+                                                            <em>{rec.suggestion}</em>
+                                                        </Typography>
+                                                    ))}
+                                                </Box>
+                                            )}
+                                        </Alert>
+                                    )}
 
                                     <LoadingButton
                                         variant="contained"

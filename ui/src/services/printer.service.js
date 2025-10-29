@@ -11,6 +11,10 @@ class PrinterService {
         return http.get(this.BASE_URL + "/printer/usb-devices");
     }
 
+    getPrinterDetails(printerName) {
+        return http.get(this.BASE_URL + "/printer/details", { params: { name: printerName } });
+    }
+
     testDirectConnection(config) {
         return http.post(this.BASE_URL + "/printer/test-direct-connection", { config });
     }
