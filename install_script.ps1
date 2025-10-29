@@ -136,38 +136,130 @@ function Test-NpmOnline
 }
 function Set-NpmNetworkSettings
 {
-    $env:NPM_CONFIG_FETCH_RETRIES = '5'
+    $env:NPM_CONFIG_FETCH_RETRIES = '6'
     $env:NPM_CONFIG_FETCH_RETRY_FACTOR = '2'
-    $env:NPM_CONFIG_FETCH_RETRY_MINTIMEOUT = '2000'
-    $env:NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT = '10000'
-    $env:NPM_CONFIG_NETWORK_TIMEOUT = '120000'
+    $env:NPM_CONFIG_FETCH_RETRY_MINTIMEOUT = '20000'
+    $env:NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT = '300000'
+    $env:NPM_CONFIG_NETWORK_TIMEOUT = '600000'
     $env:NPM_CONFIG_AUDIT = 'false'
     $env:NPM_CONFIG_FUND = 'false'
+    $env:NPM_CONFIG_PREFER_OFFLINE = 'true'
+    $env:NPM_CONFIG_PREFER_RETRY = 'true'
+    $env:NPM_CONFIG_MAXSOCKETS = '3'
+}
+function Invoke-NpmWithRetries
+{
+    param(
+        [string]$NpmCmd,
+        [string[]]$Arguments,
+        [int]$Attempts = 5,
+        [int]$DelaySeconds = 12
+    )
+    $display = "npm $($Arguments -join ' ')"
+    for ($i = 1; $i -le $Attempts; $i++)
+    {
+        try
+        {
+            Write-Info ("Executar {0} (tentativa {1}/{2})..." -f $display, $i, $Attempts)
+            & $NpmCmd @Arguments
+            if ($LASTEXITCODE -eq 0)
+            {
+                return $true
+            }
+            throw [System.Exception]::new(("Exit code {0}" -f $LASTEXITCODE))
+        }
+        catch
+        {
+            if ($i -ge $Attempts)
+            {
+                Write-Err ("{0} falhou após {1} tentativas. Último erro: {2}" -f $display, $Attempts, $_.Exception.Message)
+                return $false
+            }
+            Write-Warn ("{0} falhou (tentativa {1}/{2}): {3}. A tentar novamente em {4}s..." -f $display, $i, $Attempts, $_.Exception.Message, $DelaySeconds)
+            Start-Sleep -Seconds $DelaySeconds
+        }
+    }
+    return $false
+}
+function Remove-NodeModulesIfExists([string]$ProjectPath)
+{
+    $nodeModulesPath = Join-Path $ProjectPath 'node_modules'
+    if (Test-Path $nodeModulesPath)
+    {
+        Write-Warn ("A remover diretório node_modules incompleto em {0}..." -f $nodeModulesPath)
+        try
+        {
+            Remove-Item $nodeModulesPath -Recurse -Force -ErrorAction Stop
+            Write-Info "node_modules removido; a próxima execução fará uma instalação limpa."
+        }
+        catch
+        {
+            Write-Warn ("Falhou ao remover node_modules: {0}" -f $_.Exception.Message)
+        }
+    }
 }
 function Invoke-NpmCiOrInstall([string]$NpmCmd, [string]$Path)
 {
+    $success = $false
+    $lastErrorMessage = $null
     Push-Location $Path
     try
     {
         Set-NpmNetworkSettings
+        $attempts = 5
+        $retryDelaySeconds = 12
+        $ciArgs = @('ci', '--prefer-offline', '--prefer-retry', '--no-audit', '--no-fund')
+        $installArgs = @('install', '--prefer-offline', '--prefer-retry', '--include', 'optional', '--no-audit', '--no-fund')
+        $ranCi = $false
+        $attemptedCi = $false
         if (Test-NpmOnline)
         {
-            & $NpmCmd ci --prefer-offline --no-audit --no-fund
+            $attemptedCi = $true
+            $ranCi = Invoke-NpmWithRetries -NpmCmd $NpmCmd -Arguments $ciArgs -Attempts $attempts -DelaySeconds $retryDelaySeconds
         }
         else
         {
-            Write-Warn "NPM registry offline; using 'npm install'..."; & $NpmCmd install --include optional --no-audit --no-fund
+            Write-Warn "Registo npm parece offline; a usar 'npm install' com cache local se disponível..."
         }
+        if ($ranCi)
+        {
+            $success = $true
+            return $true
+        }
+        if ($attemptedCi)
+        {
+            Write-Warn ("npm ci não concluiu após {0} tentativas. Fallback para 'npm install'..." -f $attempts)
+        }
+        else
+        {
+            Write-Info "A executar 'npm install' diretamente."
+        }
+        if (-not (Invoke-NpmWithRetries -NpmCmd $NpmCmd -Arguments $installArgs -Attempts $attempts -DelaySeconds $retryDelaySeconds))
+        {
+            throw 'npm install falhou após várias tentativas.'
+        }
+        $success = $true
+        return $true
     }
     catch
     {
-        Write-Warn ("npm ci falhou ({0}). Fallback para 'npm install'..." -f $_.Exception.Message)
-        & $NpmCmd install --no-audit --no-fund
+        $lastErrorMessage = $_.Exception.Message
+        Write-Err ("Falha ao preparar dependências npm em {0}: {1}" -f $Path, $lastErrorMessage)
     }
     finally
     {
         Pop-Location
     }
+    if (-not $success)
+    {
+        Remove-NodeModulesIfExists $Path
+        if ($lastErrorMessage)
+        {
+            throw ("npm install falhou em {0}: {1}" -f $Path, $lastErrorMessage)
+        }
+        throw ("npm install falhou em {0}." -f $Path)
+    }
+    return $true
 }
 
 # ========================
@@ -1101,7 +1193,16 @@ if (Test-Path (Join-Path $uiPath 'package.json'))
         Push-Location $uiPath
         try
         {
-            Set-NpmNetworkSettings; & $NpmCmd install -D serve --no-audit --no-fund
+            Set-NpmNetworkSettings
+            if (-not (Invoke-NpmWithRetries -NpmCmd $NpmCmd -Arguments @('install', '-D', 'serve', '--prefer-offline', '--prefer-retry', '--no-audit', '--no-fund')))
+            {
+                throw "npm install -D serve falhou após várias tentativas."
+            }
+        }
+        catch
+        {
+            Remove-NodeModulesIfExists $uiPath
+            throw
         }
         finally
         {
@@ -1119,7 +1220,16 @@ if (Test-Path (Join-Path $uiPath 'package.json'))
         Push-Location $uiPath
         try
         {
-            Set-NpmNetworkSettings; & $NpmCmd install -D react-scripts@5 --no-audit --no-fund
+            Set-NpmNetworkSettings
+            if (-not (Invoke-NpmWithRetries -NpmCmd $NpmCmd -Arguments @('install', '-D', 'react-scripts@5', '--prefer-offline', '--prefer-retry', '--no-audit', '--no-fund')))
+            {
+                throw "npm install -D react-scripts@5 falhou após várias tentativas."
+            }
+        }
+        catch
+        {
+            Remove-NodeModulesIfExists $uiPath
+            throw
         }
         finally
         {
