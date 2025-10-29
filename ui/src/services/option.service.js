@@ -58,6 +58,22 @@ class OptionService {
     saveFavoritesSettings(payload) {
         return http.post(this.BASE_URL + "/option/favorites", payload);
     }
+
+    getPrintMethod() {
+        return http.get(this.BASE_URL + "/option/get-print-method");
+    }
+
+    setPrintMethod(printMethod) {
+        return http.post(this.BASE_URL + "/option/set-print-method", {printMethod});
+    }
+
+    getDirectPrintConfig() {
+        return http.get(this.BASE_URL + "/option/get-direct-print-config");
+    }
+
+    setDirectPrintConfig(config) {
+        return http.post(this.BASE_URL + "/option/set-direct-print-config", {config});
+    }
 }
 
 export default new OptionService();

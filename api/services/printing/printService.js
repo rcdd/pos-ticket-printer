@@ -4,6 +4,7 @@ import {
 } from './receiptRenderer.js';
 import {EscposStrategy} from "./escposStrategy.js";
 import {openCashDrawer} from "./printCommands.js";
+import directPrintStrategy from "./directPrintStrategy.js";
 
 const escpos = new EscposStrategy();
 
@@ -36,11 +37,14 @@ function expandItems(items = []) {
     return lines;
 }
 
-export async function printTicketRequest({printerName, headers, items, totalAmount, printType, openDrawer, isTest}) {
+export async function printTicketRequest({printerName, headers, items, totalAmount, printType, openDrawer, isTest, printMethod, directPrintConfig}) {
     const totalEuros = toEuros(totalAmount);
     const expanded = expandItems(items);
 
     const jobPrefix = 'POS';
+
+    // Determine print method: 'direct' or 'shared' (default)
+    const method = printMethod && printMethod.toLowerCase() === 'direct' ? 'direct' : 'shared';
 
     if (isTest) {
         await escpos.getPrinterDetails(printerName).then(async printerDetails => {
@@ -49,14 +53,25 @@ export async function printTicketRequest({printerName, headers, items, totalAmou
                 renderHeaderRaw(headers),
             ]);
 
-            await escpos.printRawByName(printerName, buf, `${jobPrefix} Test Print`);
+            // Print using selected method
+            if (method === 'direct' && directPrintConfig) {
+                await directPrintStrategy.printRaw(directPrintConfig, buf, `${jobPrefix} Test Print`);
+            } else {
+                await escpos.printRawByName(printerName, buf, `${jobPrefix} Test Print`);
+            }
         });
         return;
     }
 
     if (openDrawer) {
         const buf = Buffer.concat([initPrinter(), openCashDrawer(),]);
-        await escpos.printRawByName(printerName, buf, `${jobPrefix} Open Drawer`);
+
+        // Print using selected method
+        if (method === 'direct' && directPrintConfig) {
+            await directPrintStrategy.printRaw(directPrintConfig, buf, `${jobPrefix} Open Drawer`);
+        } else {
+            await escpos.printRawByName(printerName, buf, `${jobPrefix} Open Drawer`);
+        }
     }
 
     let buf = Buffer.concat([initPrinter(),]);
@@ -79,20 +94,51 @@ export async function printTicketRequest({printerName, headers, items, totalAmou
         ]);
     }
 
-    await escpos.printRawByName(printerName, buf, `${jobPrefix} Job`);
+    // Print using selected method
+    if (method === 'direct' && directPrintConfig) {
+        await directPrintStrategy.printRaw(directPrintConfig, buf, `${jobPrefix} Job`);
+    } else {
+        await escpos.printRawByName(printerName, buf, `${jobPrefix} Job`);
+    }
 }
 
-export async function printSessionRequest({printerName, headers, sessionData}) {
+export async function printSessionRequest({printerName, headers, sessionData, printMethod, directPrintConfig}) {
     const jobPrefix = 'POS';
+
+    // Determine print method: 'direct' or 'shared' (default)
+    const method = printMethod && printMethod.toLowerCase() === 'direct' ? 'direct' : 'shared';
 
     const buf = Buffer.concat([
         initPrinter(),
         renderSessionRaw(sessionData),
         renderHeaderRaw(headers),
     ]);
-    await escpos.printRawByName(printerName, buf, `${jobPrefix} Session Summary`);
+
+    // Print using selected method
+    if (method === 'direct' && directPrintConfig) {
+        await directPrintStrategy.printRaw(directPrintConfig, buf, `${jobPrefix} Session Summary`);
+    } else {
+        await escpos.printRawByName(printerName, buf, `${jobPrefix} Session Summary`);
+    }
 }
 
 export async function listPrinters() {
     return await escpos.listPrinters();
+}
+
+/**
+ * List available USB/Serial devices for direct printing
+ * @returns {Promise<string[]>}
+ */
+export async function listUSBDevices() {
+    return await directPrintStrategy.listUSBDevices();
+}
+
+/**
+ * Test direct printer connection
+ * @param {object} config - Direct printer configuration
+ * @returns {Promise<{success: boolean, message: string}>}
+ */
+export async function testDirectConnection(config) {
+    return await directPrintStrategy.testConnection(config);
 }
