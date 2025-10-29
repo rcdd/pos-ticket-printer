@@ -624,9 +624,9 @@ function PrinterPage() {
                                                     fullWidth
                                                     value={directConfig.devicePath}
                                                     onChange={(e) => onChangeDirectConfig("devicePath", e.target.value)}
-                                                    placeholder="Ex: 0x0425:0x0101"
+                                                    placeholder="Ex: COM1, /dev/usb/lp0, /dev/ttyUSB0"
                                                     disabled={savingPrintMethod || savingDirectConfig}
-                                                    helperText="VID:PID da impressora USB (use o botão Listar para descobrir)"
+                                                    helperText="Caminho do dispositivo no sistema (Windows: COM1, Linux/Mac: /dev/usb/lp0)"
                                                 />
                                                 <LoadingButton
                                                     variant="outlined"
@@ -646,27 +646,17 @@ function PrinterPage() {
                                                 Dispositivos encontrados:
                                             </Typography>
                                             <Stack spacing={0.5} sx={{mt: 1}}>
-                                                {usbDevices.map((device, idx) => {
-                                                    // Handle both old format (string) and new format (object)
-                                                    const displayText = typeof device === 'string'
-                                                        ? device
-                                                        : device.displayName || `${device.product || 'USB Printer'} (${device.identifier})`;
-                                                    const deviceValue = typeof device === 'string'
-                                                        ? device
-                                                        : device.identifier;
-
-                                                    return (
-                                                        <Button
-                                                            key={idx}
-                                                            variant="text"
-                                                            size="small"
-                                                            onClick={() => onChangeDirectConfig("devicePath", deviceValue)}
-                                                            sx={{justifyContent: "flex-start", textTransform: "none"}}
-                                                        >
-                                                            {displayText}
-                                                        </Button>
-                                                    );
-                                                })}
+                                                {usbDevices.map((device, idx) => (
+                                                    <Button
+                                                        key={idx}
+                                                        variant="text"
+                                                        size="small"
+                                                        onClick={() => onChangeDirectConfig("devicePath", device)}
+                                                        sx={{justifyContent: "flex-start", textTransform: "none"}}
+                                                    >
+                                                        {device}
+                                                    </Button>
+                                                ))}
                                             </Stack>
                                         </Box>
                                     )}

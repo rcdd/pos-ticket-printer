@@ -187,7 +187,7 @@ export const getPrinterDetails = async (req, res) => {
             result.recommendations.push({
                 type: 'usb',
                 message: '🔌 Impressora USB detectada',
-                suggestion: 'Para usar Impressão Direta USB: 1) Execute o script de instalação (install_script.ps1) para instalar as ferramentas necessárias (Python e Visual Studio Build Tools), 2) Vá a Configurações → Impressora → Conexão Direta → Tipo: USB, 3) Clique em "Listar" para descobrir o VID:PID da impressora (ex: 0x0425:0x0101), 4) Cole o VID:PID no campo "Caminho do Dispositivo". ALTERNATIVA MAIS SIMPLES: Se a impressora tiver Ethernet/WiFi, use Impressão Direta Network (muito mais rápido e sem dependências!).'
+                suggestion: 'USB direto no Windows é complexo. Opções: 1) Se a impressora tiver Ethernet/WiFi, use impressão direta de rede (muito mais rápido!), ou 2) Continue com método partilhado atual (funciona bem, apenas mais lento).'
             });
         } else if (portName.startsWith('IP_') || portName.includes('TCP') || uri.includes('SOCKET') || uri.includes('IPP')) {
             result.recommendations.push({
