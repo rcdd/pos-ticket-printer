@@ -394,6 +394,140 @@ function Ensure-NodeLtsVersion([string]$TargetVersion = '20.12.2')
 }
 Ensure-NodeLtsVersion '20.12.2'
 
+# ========================
+# Python (for node-gyp / native modules)
+# ========================
+Write-Info "Checking Python for native module compilation..."
+function Get-PythonVersion
+{
+    try
+    {
+        $v = (& python --version 2>&1) | Out-String
+        if ($v -match 'Python\s+(\d+\.\d+\.\d+)')
+        {
+            return $Matches[1]
+        }
+    }
+    catch
+    {
+    }
+    return $null
+}
+
+$pythonVer = Get-PythonVersion
+if ($null -eq $pythonVer)
+{
+    Write-Info "Installing Python 3.11 via Chocolatey (required for native modules)..."
+    Ensure-ChocoPackage 'python311' '--force'
+    Refresh-Env
+
+    # Add Python to PATH
+    $pythonPaths = @(
+        "C:\Python311",
+        "C:\Python311\Scripts",
+        "$env:LOCALAPPDATA\Programs\Python\Python311",
+        "$env:LOCALAPPDATA\Programs\Python\Python311\Scripts"
+    )
+    foreach ($p in $pythonPaths)
+    {
+        if (Test-Path $p)
+        {
+            Add-PathIfMissing $p -PersistUser
+        }
+    }
+    Refresh-Env
+
+    $pythonVer = Get-PythonVersion
+    if ($null -eq $pythonVer)
+    {
+        Write-Warn "Python not found after install, but continuing..."
+    }
+    else
+    {
+        Write-Ok "Python installed: $pythonVer"
+    }
+}
+else
+{
+    Write-Ok "Python already present: $pythonVer"
+}
+
+# ========================
+# Visual Studio Build Tools (for native modules)
+# ========================
+Write-Info "Checking Visual Studio Build Tools..."
+
+$vsBuildTools = $false
+$vsWhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+
+if (Test-Path $vsWhere)
+{
+    try
+    {
+        $vsInstalls = & $vsWhere -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -format json | ConvertFrom-Json
+        if ($vsInstalls -and $vsInstalls.Count -gt 0)
+        {
+            $vsBuildTools = $true
+            Write-Ok "Visual Studio Build Tools already installed."
+        }
+    }
+    catch
+    {
+        Write-Warn "Could not query VS installation: $($_.Exception.Message)"
+    }
+}
+
+if (-not $vsBuildTools)
+{
+    Write-Info "Installing Visual Studio Build Tools (this may take 10-15 minutes)..."
+    Write-Host "  This is required to compile native USB printing modules." -ForegroundColor DarkGray
+
+    # Try windows-build-tools first (smaller, faster)
+    Write-Info "Attempting quick install via windows-build-tools package..."
+    try
+    {
+        & $NpmCmd install --global windows-build-tools --vs2019 2>&1 | Out-Null
+        $vsBuildTools = $true
+        Write-Ok "Build tools installed via npm package."
+    }
+    catch
+    {
+        Write-Warn "npm windows-build-tools failed, trying Chocolatey visualstudio2019buildtools..."
+
+        try
+        {
+            Ensure-ChocoPackage 'visualstudio2019buildtools' '--package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --includeOptional --passive --locale en-US"'
+            Refresh-Env
+            $vsBuildTools = $true
+            Write-Ok "Visual Studio Build Tools installed via Chocolatey."
+        }
+        catch
+        {
+            Write-Warn "Failed to install VS Build Tools: $($_.Exception.Message)"
+            Write-Warn "You may need to manually install Visual Studio Build Tools from:"
+            Write-Host "  https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2019" -ForegroundColor Yellow
+        }
+    }
+}
+
+# Configure node-gyp to use Python
+if ($pythonVer)
+{
+    $pythonExe = (Get-Command python.exe -ErrorAction SilentlyContinue).Source
+    if ($pythonExe)
+    {
+        Write-Info "Configuring node-gyp to use Python..."
+        try
+        {
+            & $NpmCmd config set python $pythonExe 2>&1 | Out-Null
+        }
+        catch
+        {
+            Write-Warn "Could not configure node-gyp python path."
+        }
+    }
+}
+
 $NodeExe = $script:NodeExe
 if (-not $NodeExe)
 {
