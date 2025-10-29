@@ -117,7 +117,7 @@ function Close-Splash
 }
 
 # Splash on/off via env
-$useSplash = -not $env:POS_NO_SPLASH
+$useSplash = -not (Test-Path Env:POS_NO_SPLASH)
 $ScriptRoot = Split-Path -Path $MyInvocation.MyCommand.Path -Parent
 if ($useSplash)
 {
@@ -190,42 +190,55 @@ try
     }
 
     # PM2_HOME + ports
-    if (Test-Admin)
+    $isAdmin = Test-Admin
+    if ($isAdmin)
     {
+        Write-Host "[INFO] Running as Administrator; using system-wide PM2_HOME." -ForegroundColor Cyan
         $pm2Home = Join-Path $env:ProgramData 'pm2'
         if (-not (Test-Path $pm2Home))
         {
+            Write-Host "[INFO] Creating PM2_HOME at $pm2Home" -ForegroundColor Cyan
             New-Item -ItemType Directory -Path $pm2Home | Out-Null
         }
         cmd.exe /d /c "icacls `"$pm2Home`" /grant *S-1-5-32-545:(OI)(CI)M >nul 2>&1" | Out-Null
-        try
-        {
-            [Environment]::SetEnvironmentVariable('PM2_HOME', $pm2Home, 'Machine')
-        }
-        catch
-        {
-        }
     }
     else
     {
+        Write-Host "[INFO] Running as standard user; using per-user PM2_HOME." -ForegroundColor Cyan
         $pm2Home = Join-Path $env:LOCALAPPDATA 'pm2'
         if (-not (Test-Path $pm2Home))
         {
+            Write-Host "[INFO] Creating PM2_HOME at $pm2Home" -ForegroundColor Cyan
             New-Item -ItemType Directory -Path $pm2Home | Out-Null
         }
+    }
+
+    $scope = if ($isAdmin) { 'Machine' } else { 'User' }
+    $currentPm2Home = [Environment]::GetEnvironmentVariable('PM2_HOME', $scope)
+    if (-not [string]::IsNullOrWhiteSpace($currentPm2Home) -and (Test-Path $currentPm2Home) -and ($currentPm2Home.TrimEnd('\') -ieq $pm2Home.TrimEnd('\')))
+    {
+        Write-Host "[INFO] PM2_HOME já configurado para $currentPm2Home (escopo: $scope)." -ForegroundColor DarkGray
+    }
+    else
+    {
         try
         {
-            [Environment]::SetEnvironmentVariable('PM2_HOME', $pm2Home, 'User')
+            Write-Host "[INFO] Atualizando PM2_HOME ($scope) para $pm2Home" -ForegroundColor Cyan
+            [Environment]::SetEnvironmentVariable('PM2_HOME', $pm2Home, $scope)
         }
         catch
         {
         }
     }
     $env:PM2_HOME = $pm2Home
+    Write-Host "[INFO] Using PM2_HOME: $pm2Home" -ForegroundColor Cyan
+    $env:PM2_HOME = $pm2Home
 
+    Write-Host "[INFO] Calculating PM2 ports based on user SID..." -ForegroundColor Cyan
     $uid = ([Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
     $hash = [Math]::Abs($uid.GetHashCode())
     $base = 8300 + ($hash % 300)    # 8300..8599
+    Write-Host "[INFO] User SID: $uid  Hash: $hash  Base port: $base" -ForegroundColor Cyan
     $env:PM2_RPC_PORT = "$base"
     $env:PM2_PUB_PORT = "$( $base + 1 )"
 
