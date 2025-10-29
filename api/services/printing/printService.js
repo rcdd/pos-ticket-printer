@@ -42,6 +42,12 @@ export async function printTicketRequest({printerName, headers, items, totalAmou
 
     const jobPrefix = 'POS';
 
+    let buf = Buffer.concat([initPrinter()]);
+
+    if (openDrawer) {
+        buf = Buffer.concat([buf, openCashDrawer()]);
+    }
+
     if (isTest) {
         await escpos.getPrinterDetails(printerName).then(async printerDetails => {
             const buf = Buffer.concat([
@@ -54,12 +60,6 @@ export async function printTicketRequest({printerName, headers, items, totalAmou
         return;
     }
 
-    if (openDrawer) {
-        const buf = Buffer.concat([initPrinter(), openCashDrawer(),]);
-        await escpos.printRawByName(printerName, buf, `${jobPrefix} Open Drawer`);
-    }
-
-    let buf = Buffer.concat([initPrinter(),]);
     if (printType === 'tickets' || printType === 'both') {
         for (const line of expanded) {
             buf = Buffer.concat([

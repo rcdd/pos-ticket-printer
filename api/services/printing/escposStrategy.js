@@ -61,7 +61,7 @@ export class EscposStrategy {
         // }
 
         if (process.platform === 'win32') {
-            console.warn('[@printers/printers] não disponível no Windows, usando fallback via print.exe');
+            console.warn('[@printers/printers] não disponível no Windows, usando fallback via PowerShell');
             await printViaWindows(printerName, buffer, jobName);
             return;
         }
@@ -136,6 +136,7 @@ function printViaWindows(printerName, buffer, jobName) {
         ];
         execFile(ps[0], ps.slice(1), { encoding: 'utf8', windowsHide: true }, (err, stdout) => {
             const share = (stdout || '').trim();
+            console.log("printer name: ", share);
             const data = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
 
             let tmpDir, tmpFile;
@@ -151,16 +152,22 @@ function printViaWindows(printerName, buffer, jobName) {
 
             const tryUNC = () => {
                 if (!share) return false;
+                console.warn("[Fallback] Usando cópia via UNC para imprimir no Windows");
                 const unc = `\\\\localhost\\${share}`;
                 const args = ['/c', 'copy', '/b', tmpFile, unc];
                 execFile('cmd.exe', args, { windowsHide: true }, (e, so, se) => {
-                    if (!e) { clean(); return resolve(); }
+                    if (!e) {
+                        console.log("Impressão via UNC concluída");
+                        clean();
+                        return resolve();
+                    }
                     tryPrintExe();
                 });
                 return true;
             };
 
             const tryPrintExe = () => {
+                console.warn("[Fallback] Usando print.exe para imprimir no Windows");
                 const cmd = process.env.SystemRoot
                     ? path.join(process.env.SystemRoot, 'System32', 'print.exe')
                     : 'print';
