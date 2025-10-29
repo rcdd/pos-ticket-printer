@@ -21,7 +21,8 @@
     "pino-http": "^10.5.0",
     "sequelize": "^6.37.7",
     "jsonwebtoken": "^9.0.2",
-    "node-thermal-printer": "^4.5.1"
+    "escpos": "^3.0.0-alpha.6",
+    "escpos-usb": "^3.0.0-alpha.6"
   },
   "scripts": {
     "start": "node --enable-source-maps server.js",
