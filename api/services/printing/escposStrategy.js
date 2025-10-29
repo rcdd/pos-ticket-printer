@@ -70,30 +70,15 @@ export class EscposStrategy {
     }
 
     async getPrinterDetails(printerName) {
-        console.log(`[EscposStrategy] getPrinterDetails called for: "${printerName}"`);
-
         const list = await this.listPrinters();
-
-        console.log(`[EscposStrategy] listPrinters returned ${list?.length || 0} printers`);
-
-        if (!Array.isArray(list) || list.length === 0) {
-            console.warn('[EscposStrategy] No printers found in list');
-            return null;
-        }
+        if (!Array.isArray(list)) return null;
 
         const target = String(printerName).toLowerCase();
-        console.log(`[EscposStrategy] Looking for printer: "${target}"`);
-
         for (const printer of list) {
             const np = printer.nativePrinter ?? printer;
             const names = [np.name, np.systemName].map(n => n && String(n).toLowerCase());
-
-            console.log(`[EscposStrategy] Checking printer names: [${names.join(', ')}]`);
-
             if (names.includes(target)) {
-                console.log(`[EscposStrategy] Match found! Returning details for: ${np.name}`);
-
-                const details = {
+                return {
                     name: np.name ?? null,
                     systemName: np.systemName ?? null,
                     driverName: np.driverName || 'unknown',
@@ -106,13 +91,8 @@ export class EscposStrategy {
                     state: np.state || 'unknown',
                     stateReasons: Array.isArray(np.stateReasons) ? np.stateReasons : [],
                 };
-
-                console.log('[EscposStrategy] Printer details:', JSON.stringify(details, null, 2));
-                return details;
             }
         }
-
-        console.warn(`[EscposStrategy] No match found for "${printerName}"`);
         return null;
     }
 }
@@ -121,73 +101,27 @@ export class EscposStrategy {
 
 async function listViaWindows() {
     return new Promise((resolve) => {
-        console.log('[EscposStrategy] Querying Windows printers via PowerShell...');
-
-        // Get more detailed printer information
         const ps = [
             'powershell',
             '-NoProfile',
-            '-ExecutionPolicy', 'Bypass',
             '-Command',
-            'Get-Printer | Select-Object Name,DriverName,PortName,PrinterStatus,JobCount,@{Name="Default";Expression={$_.Name -eq (Get-WmiObject -Query "SELECT * FROM Win32_Printer WHERE Default=True").Name}},@{Name="Shared";Expression={$_.ShareName -ne $null -and $_.ShareName -ne ""}},ShareName,Location,Comment | ConvertTo-Json -Depth 3'
+            'Get-Printer | Select-Object Name,DriverName,PortName,Default,Shared | ConvertTo-Json -Depth 2 -Compress'
         ];
-
-        execFile(ps[0], ps.slice(1), {encoding: 'utf8', windowsHide: true, timeout: 10000}, (err, stdout, stderr) => {
-            if (err) {
-                console.error('[EscposStrategy] PowerShell error:', err.message);
-                console.error('[EscposStrategy] stderr:', stderr);
-                return resolve([]);
-            }
-
-            if (!stdout || !stdout.trim()) {
-                console.warn('[EscposStrategy] PowerShell returned empty output');
-                return resolve([]);
-            }
-
-            console.log('[EscposStrategy] PowerShell raw output:', stdout);
-
+        execFile(ps[0], ps.slice(1), {encoding: 'utf8', windowsHide: true}, (err, stdout) => {
+            if (err || !stdout) return resolve([]);
             try {
                 const arr = JSON.parse(stdout);
                 const list = Array.isArray(arr) ? arr : [arr];
-
-                console.log(`[EscposStrategy] Found ${list.length} printer(s)`);
-
-                const mapped = list.map(p => {
-                    console.log(`[EscposStrategy] Processing printer: ${p.Name}, Port: ${p.PortName}`);
-
-                    // Try to infer URI from PortName for better compatibility
-                    let uri = null;
-                    const portName = p.PortName || '';
-                    if (portName.startsWith('IP_')) {
-                        uri = `socket://${portName.substring(3)}`;
-                    } else if (portName.startsWith('WSD')) {
-                        uri = `wsd://${portName}`;
-                    } else if (portName.match(/^USB\d/)) {
-                        uri = `usb://${portName}`;
-                    } else if (portName.match(/^COM\d/)) {
-                        uri = `serial://${portName}`;
-                    }
-
-                    return {
-                        name: p.Name,
-                        systemName: p.Name,
-                        driverName: p.DriverName || 'Unknown',
-                        portName: p.PortName,
-                        uri: uri,
-                        description: p.Comment || null,
-                        location: p.Location || null,
-                        isDefault: !!p.Default,
-                        isShared: !!p.Shared,
-                        state: p.PrinterStatus || 'Normal',
-                        stateReasons: [],
-                        nativePrinter: p
-                    };
-                });
-
-                resolve(mapped);
-            } catch (parseErr) {
-                console.error('[EscposStrategy] JSON parse error:', parseErr.message);
-                console.error('[EscposStrategy] Failed to parse:', stdout);
+                resolve(list.map(p => ({
+                    name: p.Name,
+                    systemName: p.Name,
+                    driverName: p.DriverName,
+                    portName: p.PortName,
+                    isDefault: !!p.Default,
+                    isShared: !!p.Shared,
+                    nativePrinter: p
+                })));
+            } catch {
                 resolve([]);
             }
         });
