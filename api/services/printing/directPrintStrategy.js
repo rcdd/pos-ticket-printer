@@ -5,7 +5,7 @@
  */
 
 import { printToNetwork, testNetworkPrinter } from './directPrintNetwork.js';
-import { printToUSB, listUSBDevices, testUSBDevice } from './directPrintUSB.js';
+import { printToUSB, listUSBDevices, testUSBDevice, printDirect, testConnection as testDirectConnection } from './directPrintUSB.js';
 
 export class DirectPrintStrategy {
     /**
@@ -113,13 +113,8 @@ export class DirectPrintStrategy {
                     if (!config.devicePath) {
                         return { success: false, message: 'Device path is required' };
                     }
-                    const isAvailable = await testUSBDevice(config.devicePath);
-                    return {
-                        success: isAvailable,
-                        message: isAvailable
-                            ? `USB device ${config.devicePath} is available`
-                            : `USB device ${config.devicePath} not found or not writable`
-                    };
+                    const result = await testDirectConnection(config.devicePath, config.type);
+                    return result;
                 }
 
                 default:
