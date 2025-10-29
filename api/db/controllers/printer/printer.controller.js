@@ -151,47 +151,25 @@ export const getPrinterDetails = async (req, res) => {
         const { promisify } = await import('util');
         const execAsync = promisify(exec);
 
-        // Escape printer name for PowerShell - replace " with ""
-        const escapedPrinterName = printerName.replace(/"/g, '""');
+        const psCommand = `Get-Printer -Name "${printerName}" | Select-Object Name, DriverName, PortName, Shared, Published, ComputerName | ConvertTo-Json`;
 
-        // Use PowerShell with proper escaping
-        const psCommand = `Get-Printer -Name '${escapedPrinterName}' | Select-Object Name, DriverName, PortName, Shared, Published, ComputerName | ConvertTo-Json`;
-
-        console.log(`[getPrinterDetails] Executing: ${psCommand}`);
-
-        const { stdout, stderr } = await execAsync(`powershell.exe -ExecutionPolicy Bypass -Command "${psCommand}"`, {
+        const { stdout } = await execAsync(`powershell.exe -Command "${psCommand}"`, {
             timeout: 5000,
             windowsHide: true
         });
 
-        if (stderr) {
-            console.log(`[getPrinterDetails] PowerShell stderr: ${stderr}`);
-        }
-
-        console.log(`[getPrinterDetails] PowerShell stdout: ${stdout}`);
-
         const printerInfo = JSON.parse(stdout);
 
         // Get port details
-        const escapedPortName = (printerInfo.PortName || '').replace(/"/g, '""');
-        const portCommand = `Get-PrinterPort -Name '${escapedPortName}' | Select-Object Name, Description, PortMonitor, PortNumber | ConvertTo-Json`;
+        const portCommand = `Get-PrinterPort -Name "${printerInfo.PortName}" | Select-Object Name, Description, PortMonitor, PortNumber | ConvertTo-Json`;
 
         let portInfo = null;
         try {
-            console.log(`[getPrinterDetails] Getting port info for: ${printerInfo.PortName}`);
-            const { stdout: portStdout, stderr: portStderr } = await execAsync(`powershell.exe -ExecutionPolicy Bypass -Command "${portCommand}"`, {
+            const { stdout: portStdout } = await execAsync(`powershell.exe -Command "${portCommand}"`, {
                 timeout: 5000,
                 windowsHide: true
             });
-
-            if (portStderr) {
-                console.log('[getPrinterDetails] Port query stderr:', portStderr);
-            }
-
-            if (portStdout && portStdout.trim()) {
-                portInfo = JSON.parse(portStdout);
-                console.log('[getPrinterDetails] Port info:', portInfo);
-            }
+            portInfo = JSON.parse(portStdout);
         } catch (err) {
             console.log('[getPrinterDetails] Could not get port info:', err.message);
         }
@@ -249,78 +227,7 @@ export const getPrinterDetails = async (req, res) => {
 
         res.json(result);
     } catch (err) {
-        console.error('[getPrinterDetails] PowerShell method failed:', err);
-
-        // Fallback: Try using @printers/printers library
-        try {
-            console.log('[getPrinterDetails] Trying fallback method with @printers/printers...');
-            const { default: printersLib } = await import('@printers/printers');
-            const allPrinters = await printersLib.getAllPrinters();
-
-            const foundPrinter = allPrinters.find(p =>
-                p.name === printerName || p.systemName === printerName
-            );
-
-            if (!foundPrinter) {
-                return res.status(404).send({
-                    message: 'Impressora não encontrada',
-                    detail: `Não foi possível encontrar a impressora "${printerName}"`
-                });
-            }
-
-            console.log('[getPrinterDetails] Found printer via library:', foundPrinter);
-
-            const result = {
-                printer: {
-                    Name: foundPrinter.name,
-                    PortName: foundPrinter.portName || 'Unknown',
-                    DriverName: foundPrinter.driver || 'Unknown',
-                    connection: foundPrinter.connection,
-                    status: foundPrinter.status
-                },
-                port: null,
-                recommendations: [],
-                method: 'library'
-            };
-
-            // Analyze connection type
-            const portName = (foundPrinter.portName || '').toUpperCase();
-            const connection = (foundPrinter.connection || '').toUpperCase();
-
-            if (portName.includes('USB') || connection.includes('USB')) {
-                result.recommendations.push({
-                    type: 'usb',
-                    message: 'Impressora USB detectada.',
-                    suggestion: 'Para melhor desempenho, considere: 1) Adicionar conexão de rede à impressora, ou 2) Manter método partilhado (mais lento mas funcional).'
-                });
-            } else if (portName.startsWith('IP_') || portName.includes('TCP') || connection.includes('NETWORK')) {
-                result.recommendations.push({
-                    type: 'network',
-                    message: 'Impressora de rede detectada!',
-                    suggestion: 'Use "Impressão Direta" com o IP da impressora para máximo desempenho.'
-                });
-            } else if (portName.startsWith('COM')) {
-                result.recommendations.push({
-                    type: 'serial',
-                    message: `Impressora serial detectada na porta ${foundPrinter.portName}.`,
-                    suggestion: `Use "Impressão Direta" tipo Serial com: ${foundPrinter.portName}`
-                });
-            } else {
-                result.recommendations.push({
-                    type: 'unknown',
-                    message: `Tipo de conexão: ${foundPrinter.portName || 'Desconhecido'}`,
-                    suggestion: 'Se a impressora tiver capacidade de rede (Ethernet/WiFi), configure-a para usar Impressão Direta Network (mais rápido).'
-                });
-            }
-
-            res.json(result);
-
-        } catch (fallbackErr) {
-            console.error('[getPrinterDetails] Fallback also failed:', fallbackErr);
-            res.status(500).send({
-                message: 'Erro ao obter detalhes da impressora',
-                detail: `PowerShell: ${err.message}. Library: ${fallbackErr.message}`
-            });
-        }
+        console.error('[getPrinterDetails] erro:', err);
+        res.status(500).send({message: 'Erro ao obter detalhes da impressora', detail: String(err?.message || err)});
     }
 };
