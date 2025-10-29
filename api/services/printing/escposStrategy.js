@@ -130,59 +130,59 @@ async function listViaWindows() {
 
 function printViaWindows(printerName, buffer, jobName) {
     return new Promise((resolve, reject) => {
-        const ps = [
-            'powershell','-NoProfile','-Command',
-            `($p = Get-Printer -Name '${printerName}' -ErrorAction SilentlyContinue) | ForEach-Object { $_.ShareName }`
-        ];
-        execFile(ps[0], ps.slice(1), { encoding: 'utf8', windowsHide: true }, (err, stdout) => {
-            const share = (stdout || '').trim();
-            console.log("printer name: ", share);
-            const data = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+        const share = (printerName || '').trim();
+        console.log("printer name: ", share);
+        const data = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
 
-            let tmpDir, tmpFile;
+        let tmpDir, tmpFile;
+        try {
+            tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'posraw-'));
+            tmpFile = path.join(tmpDir, 'job.bin');
+            fs.writeFileSync(tmpFile, data);
+        } catch (e) {
+            return reject(e);
+        }
+
+        const clean = () => {
             try {
-                tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'posraw-'));
-                tmpFile = path.join(tmpDir, 'job.bin');
-                fs.writeFileSync(tmpFile, data);
-            } catch (e) {
-                return reject(e);
+                fs.unlinkSync(tmpFile);
+                fs.rmdirSync(tmpDir);
+            } catch {
             }
+        };
 
-            const clean = () => { try { fs.unlinkSync(tmpFile); fs.rmdirSync(tmpDir); } catch {} };
-
-            const tryUNC = () => {
-                if (!share) return false;
-                console.warn("[Fallback] Usando cópia via UNC para imprimir no Windows");
-                const unc = `\\\\localhost\\${share}`;
-                const args = ['/c', 'copy', '/b', tmpFile, unc];
-                execFile('cmd.exe', args, { windowsHide: true }, (e, so, se) => {
-                    if (!e) {
-                        console.log("Impressão via UNC concluída");
-                        clean();
-                        return resolve();
-                    }
-                    tryPrintExe();
-                });
-                return true;
-            };
-
-            const tryPrintExe = () => {
-                console.warn("[Fallback] Usando print.exe para imprimir no Windows");
-                const cmd = process.env.SystemRoot
-                    ? path.join(process.env.SystemRoot, 'System32', 'print.exe')
-                    : 'print';
-                const args = ['/D:' + String(printerName), tmpFile];
-                execFile(cmd, args, { windowsHide: true }, (e2) => {
+        const tryUNC = () => {
+            if (!share) return false;
+            console.warn("[Fallback] Usando cópia via UNC para imprimir no Windows");
+            const unc = `\\\\localhost\\${share}`;
+            const args = ['/c', 'copy', '/b', tmpFile, unc];
+            execFile('cmd.exe', args, {windowsHide: true}, (e, so, se) => {
+                if (!e) {
+                    console.log("Impressão via UNC concluída");
                     clean();
-                    if (e2) return reject(e2);
-                    resolve();
-                });
-            };
-
-            if (!tryUNC()) {
+                    return resolve();
+                }
                 tryPrintExe();
-            }
-        });
+            });
+            return true;
+        };
+
+        const tryPrintExe = () => {
+            console.warn("[Fallback] Usando print.exe para imprimir no Windows");
+            const cmd = process.env.SystemRoot
+                ? path.join(process.env.SystemRoot, 'System32', 'print.exe')
+                : 'print';
+            const args = ['/D:' + String(printerName), tmpFile];
+            execFile(cmd, args, {windowsHide: true}, (e2) => {
+                clean();
+                if (e2) return reject(e2);
+                resolve();
+            });
+        };
+
+        if (!tryUNC()) {
+            tryPrintExe();
+        }
     });
 }
 
