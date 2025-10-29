@@ -242,54 +242,9 @@ function HomePage() {
     };
 
     const doCloseWindow = () => {
-        // Try multiple methods to close the window
-
-        // Method 1: Standard close (works if opened by script)
-        try {
-            window.opener = null;
-            window.open("", "_self");
-            window.close();
-        } catch (e) {
-            console.log("Standard close failed:", e);
-        }
-
-        // Method 2: For kiosk mode - simulate Alt+F4
-        // This works in Edge kiosk mode
-        setTimeout(() => {
-            try {
-                const event = new KeyboardEvent('keydown', {
-                    key: 'F4',
-                    code: 'F4',
-                    keyCode: 115,
-                    which: 115,
-                    altKey: true,
-                    bubbles: true,
-                    cancelable: true
-                });
-                document.dispatchEvent(event);
-            } catch (e) {
-                console.log("Alt+F4 simulation failed:", e);
-            }
-        }, 100);
-
-        // Method 3: Navigate to about:blank and close
-        setTimeout(() => {
-            try {
-                window.location.href = "about:blank";
-                window.close();
-            } catch (e) {
-                console.log("about:blank method failed:", e);
-            }
-        }, 200);
-
-        // Method 4: If all else fails, call backend to kill the process
-        setTimeout(async () => {
-            try {
-                await fetch('http://localhost:9393/system/exit', { method: 'POST' });
-            } catch (e) {
-                console.log("Backend exit failed:", e);
-            }
-        }, 300);
+        window.opener = null;
+        window.open("", "_self");
+        window.close();
     };
 
     const handleLogin = React.useCallback(async (value, userInfo = null) => {
@@ -715,13 +670,12 @@ function HomePage() {
                     <DialogContentText id="alert-dialog-description">
                         Ao fechar a aplicação, o POS-TicketPrint deixará de estar disponível.
                         <br/>
-                        <br/>
-                        <strong>Nota:</strong> Se a aplicação não fechar automaticamente, use <strong>Alt+F4</strong> para fechar o navegador.
+                        Confirme que pretende fechar a aplicação.
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setOpenCloseModal(false)}>Cancelar</Button>
-                    <Button onClick={doCloseWindow} autoFocus color="error" variant="contained">Fechar Aplicação</Button>
+                    <Button onClick={doCloseWindow} autoFocus>Fechar</Button>
                 </DialogActions>
             </Dialog>
             </Box>

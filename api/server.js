@@ -1,6 +1,5 @@
 import express from 'express';
 import 'dotenv/config';
-import { exec } from 'child_process';
 
 import * as printer  from "./db/controllers/printer/printer.controller.js";
 import * as options from "./db/controllers/options.controller.js";
@@ -212,15 +211,10 @@ app.use(authenticate);
 
 // POS/runtime endpoints (authenticated)
 app.get('/printer/list', printer.getPrinterList);
-app.get('/printer/usb-devices', printer.getUSBDeviceList);
-app.post('/printer/test-direct-connection', printer.testDirectConnection);
 
 app.post('/printer/print-ticket', async (req, res) => {
     const printNameOption = await options.getPrinterVariable();
-    const printMethod = await options.getPrintMethodVariable();
-    const directPrintConfig = await options.getDirectPrintConfigVariable();
-
-    if (printMethod !== 'direct' && (printNameOption === null || printNameOption === undefined || printNameOption === "")) {
+    if (printNameOption === null || printNameOption === undefined || printNameOption === "") {
         return res.status(404).send("Printer not defined");
     }
 
@@ -230,25 +224,18 @@ app.post('/printer/print-ticket', async (req, res) => {
     req.body.headers = await options.getHeadersVariable();
     req.body.printType = await options.getPrintTypeVariable();
     req.body.openDrawer = dbOpenDrawerOption ? (req.body.openDrawer || false) : false;
-    req.body.printMethod = printMethod;
-    req.body.directPrintConfig = directPrintConfig;
 
     await printer.printTicket(req, res);
 });
 
 app.post('/printer/print-session', async (req, res) => {
     const printNameOption = await options.getPrinterVariable();
-    const printMethod = await options.getPrintMethodVariable();
-    const directPrintConfig = await options.getDirectPrintConfigVariable();
-
-    if (printMethod !== 'direct' && (printNameOption === null || printNameOption === undefined || printNameOption === "")) {
+    if (printNameOption === null || printNameOption === undefined || printNameOption === "") {
         return res.status(404).send("Printer not defined");
     }
 
     req.body.printer = printNameOption;
     req.body.headers = await options.getHeadersVariable();
-    req.body.printMethod = printMethod;
-    req.body.directPrintConfig = directPrintConfig;
 
     await printer.printSessionSummary(req, res);
 });
@@ -301,12 +288,6 @@ app.post("/option/virtual-keyboard", options.setVirtualKeyboard);
 app.get("/option/favorites", options.getFavoritesSettings);
 app.post("/option/favorites", options.setFavoritesSettings);
 
-// Print Method & Direct Print Configuration
-app.get("/option/get-print-method", options.getPrintMethod);
-app.post("/option/set-print-method", options.setPrintMethod);
-app.get("/option/get-direct-print-config", options.getDirectPrintConfig);
-app.post("/option/set-direct-print-config", options.setDirectPrintConfig);
-
 // Products (management)
 app.post("/db/product", products.create);
 app.put("/db/product", products.update);
@@ -341,33 +322,3 @@ app.get("/sessions", sessions.findAll);
 // Cash Movements
 app.post("/cash-movement", cashMovements.create);
 app.get("/cash-movements/:sessionId", cashMovements.listBySession);
-
-// System control
-app.post("/system/exit", (req, res) => {
-    console.log("[System] Exit request received from client");
-
-    res.send({ message: "Shutting down application..." });
-
-    // Give time for response to be sent
-    setTimeout(() => {
-        console.log("[System] Attempting to close application...");
-
-        if (process.platform === 'win32') {
-            // On Windows, kill Edge processes and then exit
-            // Kill all Edge kiosk mode processes
-            exec('taskkill /F /IM msedge.exe', (error) => {
-                if (error) {
-                    console.log("[System] Could not kill Edge:", error.message);
-                }
-
-                // Exit the Node.js process
-                console.log("[System] Exiting Node.js process...");
-                process.exit(0);
-            });
-        } else {
-            // On Linux/Mac, just exit Node.js (Edge will stay open)
-            console.log("[System] Exiting Node.js process...");
-            process.exit(0);
-        }
-    }, 500);
-});

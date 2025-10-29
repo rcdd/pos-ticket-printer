@@ -17,8 +17,5 @@
     "ticket",
     "print"
   ],
-  "license": "MIT",
-  "devDependencies": {
-    "crypto.js": "^3.3.4"
-  }
+  "license": "MIT"
 }
