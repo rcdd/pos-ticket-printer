@@ -69,6 +69,11 @@ function ReportsPage() {
     const [printingSession, setPrintingSession] = React.useState(false);
     const [sessionUserNames, setSessionUserNames] = React.useState({open: "Desconhecido", close: "Desconhecido"});
 
+    const openSessionDrawer = React.useCallback((id) => {
+        const s = sessions.find(x => String(x.id) === String(id));
+        setViewSession(s || {id});
+    }, [sessions]);
+
     const resolveUserName = React.useCallback(async (id) => {
         if (!id) return "Desconhecido";
         if (userNameCacheRef.current.has(id)) {
@@ -233,6 +238,7 @@ function ReportsPage() {
             const val = typeof c.valueGetter === 'function' ? c.valueGetter(r[c.field], r) :
                 typeof c.valueFormatter === 'function' ? c.valueFormatter(r[c.field], r) :
                     r[c.field];
+            console.log(val);
             const s = String(val ?? '');
             return `"${s.replace(/"/g, '""')}"`;
         }).join(','));
@@ -246,7 +252,7 @@ function ReportsPage() {
         URL.revokeObjectURL(url);
     };
 
-    const sessionsCols = [
+    const sessionsCols = React.useMemo(() => ([
         {field: 'id', headerName: '#', width: 60},
         {
             field: 'openedAt', headerName: 'Início', minWidth: 100, flex: 1,
@@ -263,15 +269,15 @@ function ReportsPage() {
                       label={p.value === 'opened' ? 'Aberta' : 'Fechada'}/>
             )
         },
-        // {field: 'initialAmount', headerName: 'Abertura', width: 120, valueFormatter: (v) => eur(v)},
+        {field: 'initialAmount', headerName: 'Abertura', width: 120, valueFormatter: (v) => eur(v), hide: true},
         {field: 'invoices', headerName: 'Faturas', width: 100},
         {field: 'revoked', headerName: 'Anuladas', width: 110},
         {field: 'total', headerName: 'Total', width: 110, valueFormatter: (v) => eur(v)},
-        // {field: 'cash', headerName: 'Dinheiro', width: 120, valueFormatter: (v) => eur(v)},
-        // {field: 'card', headerName: 'Multibanco', width: 130, valueFormatter: (v) => eur(v)},
-        // {field: 'mbway', headerName: 'MB Way', width: 120, valueFormatter: (v) => eur(v)},
+        {field: 'cash', headerName: 'Dinheiro', width: 120, valueFormatter: (v) => eur(v), hide: true},
+        {field: 'card', headerName: 'Multibanco', width: 130, valueFormatter: (v) => eur(v), hide: true},
+        {field: 'mbway', headerName: 'MB Way', width: 120, valueFormatter: (v) => eur(v), hide: true},
         {
-            field: 'action', headerName: 'Ver', width: 70, sortable: false, filterable: false,
+            field: 'action', headerName: 'Ver', width: 70, sortable: false, filterable: false, hideCsv: true,
             renderCell: (params) => (
                 <Tooltip title="Ver sessão">
                     <IconButton size="small" onClick={() => openSessionDrawer(params.row.id)}>
@@ -280,9 +286,9 @@ function ReportsPage() {
                 </Tooltip>
             )
         },
-    ];
+    ]), [eur, openSessionDrawer]);
 
-    const invoicesCols = [
+    const invoicesCols = React.useMemo(() => ([
         {field: 'id', headerName: '#', width: 60},
         {
             field: 'createdAt', headerName: 'Data', minWidth: 100, flex: 1,
@@ -301,7 +307,7 @@ function ReportsPage() {
         },
         {field: 'total', headerName: 'Total', width: 140, valueFormatter: (v) => eur(v)},
         {
-            field: 'action', headerName: 'Ver', width: 90, sortable: false, filterable: false,
+            field: 'action', headerName: 'Ver', width: 90, sortable: false, filterable: false, hideCsv: true,
             renderCell: (params) => (
                 <Tooltip title="Ver fatura">
                     <IconButton size="small" onClick={() => setViewInvoice(params.row)}>
@@ -310,9 +316,9 @@ function ReportsPage() {
                 </Tooltip>
             )
         },
-    ];
+    ]), [eur]);
 
-    const productsCols = [
+    const productsCols = React.useMemo(() => ([
         {field: 'name', headerName: 'Produto/Menu', flex: 1, minWidth: 220},
         {field: 'zone', headerName: 'Zona', width: 110},
         {field: 'kind', headerName: 'Tipo', width: 110},
@@ -320,7 +326,16 @@ function ReportsPage() {
         {field: 'quantity', headerName: 'Qt.', width: 100},
         {field: 'unit', headerName: 'Preço (un)', width: 130, valueFormatter: (v) => eur(v)},
         {field: 'total', headerName: 'Total', width: 140, valueFormatter: (v) => eur(v)},
-    ];
+    ]), [eur]);
+
+    const sessionColumnVisibilityModel = React.useMemo(() => {
+        return sessionsCols.reduce((model, col) => {
+            if (col.hide) {
+                model[col.field] = false;
+            }
+            return model;
+        }, {});
+    }, [sessionsCols]);
 
     const resetFilters = () => {
         setDateFrom('');
@@ -328,12 +343,6 @@ function ReportsPage() {
         setSessionId('all');
         setPaymentFilter('all');
         setStatusFilter('all');
-    };
-
-    // ----- Session Drawer logic -----
-    const openSessionDrawer = async (id) => {
-        const s = sessions.find(x => String(x.id) === String(id));
-        setViewSession(s || {id});
     };
 
     React.useEffect(() => {
@@ -707,9 +716,9 @@ function ReportsPage() {
                         startIcon={<DownloadIcon/>}
                         variant="outlined"
                         onClick={() => {
-                            if (tab === 'sessions') downloadCSV('sessoes.csv', sessionsRows, sessionsCols);
-                            if (tab === 'invoices') downloadCSV('faturas.csv', filteredInvoices, invoicesCols);
-                            if (tab === 'products') downloadCSV('produtos.csv', productsAgg, productsCols);
+                            if (tab === 'sessions') downloadCSV('sessoes.csv', sessionsRows, sessionsCols.filter(s => !s.hideCsv));
+                            if (tab === 'invoices') downloadCSV('faturas.csv', filteredInvoices, invoicesCols.filter(i => !i.hideCsv));
+                            if (tab === 'products') downloadCSV('produtos.csv', productsAgg, productsCols.filter(p => !p.hideCsv));
                         }}
                     >
                         Exportar CSV
@@ -725,6 +734,9 @@ function ReportsPage() {
                         initialState={{
                             sorting: {
                                 sortModel: [{field: 'openedAt', sort: 'desc'}],
+                            },
+                            columns: {
+                                columnVisibilityModel: sessionColumnVisibilityModel,
                             },
                         }}
                         density="compact"
