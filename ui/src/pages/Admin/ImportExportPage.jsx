@@ -316,7 +316,7 @@ export default function ImportExportPage() {
                     name: p.name,
                     price: p.price_cents,
                     zoneId: zoneIdResolved,
-                    theme: p.theme,
+                    theme: p.theme.trim().toLowerCase(),
                     position: p.position
                 };
 
