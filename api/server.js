@@ -16,6 +16,7 @@ import cors from "cors";
 import db from "./db/index.js";
 import {authenticate, optionalAuthenticate} from "./middleware/auth.js";
 import {enforceLicense, initLicenseState} from "./services/license.service.js";
+import {AUTH_EXPIRES_HEADER, AUTH_TOKEN_HEADER} from "./services/token.service.js";
 
 const app = express();
 
@@ -137,6 +138,7 @@ async function ensureDatabaseSchema() {
 
 const corsOptions = {
     origin: process.env.CLIENT_ORIGIN?.split(',') || ["http://localhost:8888", "http://127.0.0.1:8888", "http://localhost:3000"],
+    exposedHeaders: [AUTH_TOKEN_HEADER, AUTH_EXPIRES_HEADER],
 };
 
 app.use(cors(corsOptions));

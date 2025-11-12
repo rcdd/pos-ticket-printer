@@ -1,14 +1,13 @@
 import db from "../index.js";
 import bcrypt from 'bcrypt';
 import {Op, where} from "sequelize";
-import jwt from "jsonwebtoken";
+import {generateAuthToken} from "../../services/token.service.js";
 import {readOnboardingStatus, setOnboardingStatus} from "./options.controller.js";
 
 const Users = db.users;
 const {UserRoles} = db;
 
 const USERNAME_CONFLICT_MESSAGE = "Esse nome de utilizador já existe. Escolha outro.";
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "12h";
 
 const toPublicUser = (userInstance) => {
     if (!userInstance) return null;
@@ -16,23 +15,6 @@ const toPublicUser = (userInstance) => {
     delete json.password;
     delete json.isDeleted;
     return json;
-};
-
-const createTokenForUser = (user) => {
-    const secret = process.env.JWT_SECRET;
-    if (!secret) {
-        throw new Error("JWT secret not configured (JWT_SECRET)");
-    }
-    const payload = {
-        id: user.id,
-        role: user.role,
-    };
-    const token = jwt.sign(payload, secret, {expiresIn: JWT_EXPIRES_IN});
-    const decoded = jwt.decode(token);
-    return {
-        token,
-        expiresAt: decoded?.exp ? decoded.exp * 1000 : null,
-    };
 };
 
 export const create = async (req, res) => {
@@ -323,7 +305,7 @@ export const login = async (req, res) => {
         }
 
         const publicUser = toPublicUser(user);
-        const {token, expiresAt} = createTokenForUser(user);
+        const {token, expiresAt} = generateAuthToken({id: user.id, role: user.role});
 
         res.send({
             token,
