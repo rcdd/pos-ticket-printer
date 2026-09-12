@@ -1,16 +1,23 @@
-import crypto from 'crypto';
 import db from '../db/index.js';
+import {
+    CROCKFORD_BASE32,
+    FEATURES,
+    LicenseError,
+    MILLIS_IN_DAY,
+    evaluateToken,
+} from './licenseToken.js';
+
+export {LicenseError, FEATURES};
 
 const Option = db.options;
 
 const OPTION_LICENSE_TOKEN = 'license_token';
 const OPTION_LICENSE_LAST_CHECK = 'license_last_check';
 const OPTION_LICENSE_INSTALLATION_CODE = 'license_installation_code';
-const CROCKFORD_BASE32 = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
-const SIGNATURE_LENGTH = 6;
-const MILLIS_IN_DAY = 24 * 60 * 60 * 1000;
 const INSTALLATION_CODE_PREFIX = 'PTP';
 const INSTALLATION_CODE_SEGMENT_LENGTH = 3;
+
+const noFeatures = () => Object.fromEntries(Object.keys(FEATURES).map((name) => [name, false]));
 
 const defaultState = {
     valid: false,
@@ -22,51 +29,10 @@ const defaultState = {
     token: null,
     lastCheckedAt: null,
     installationCode: null,
+    features: noFeatures(),
 };
 
 let cachedState = {...defaultState};
-
-export class LicenseError extends Error {
-    constructor(message, reason = 'invalid') {
-        super(message);
-        this.reason = reason;
-        this.name = 'LicenseError';
-    }
-}
-
-const upper = (value) => (value || '').toString().trim().toUpperCase();
-
-const decodeBase32 = (encoded) => {
-    const chars = upper(encoded).split('');
-    if (!chars.length) {
-        throw new LicenseError('O segmento de expiração da licença está vazio.', 'invalid_format');
-    }
-
-    return chars.reduce((acc, char) => {
-        const index = CROCKFORD_BASE32.indexOf(char);
-        if (index === -1) {
-            throw new LicenseError(`Carácter "${char}" inválido no segmento de expiração da licença.`, 'invalid_format');
-        }
-        return acc * 32 + index;
-    }, 0);
-};
-
-const encodeSignature = (payload, secret) => {
-    const digest = crypto.createHmac('sha256', secret).update(payload).digest();
-    let bits = '';
-    for (const byte of digest) {
-        bits += byte.toString(2).padStart(8, '0');
-    }
-
-    let output = '';
-    for (let i = 0; i + 5 <= bits.length && output.length < SIGNATURE_LENGTH; i += 5) {
-        const slice = bits.slice(i, i + 5);
-        const index = parseInt(slice, 2);
-        output += CROCKFORD_BASE32[index];
-    }
-
-    return output;
-};
 
 const randomInstallationSegment = () => {
     let output = '';
@@ -130,60 +96,14 @@ const ensureInstallationCode = async () => {
     return code;
 };
 
-const formatExpiryIso = (expiresAt) => {
-    if (!expiresAt) return null;
-    const date = new Date(expiresAt);
-    return Number.isNaN(date.getTime()) ? null : date.toISOString();
-};
-
-const evaluateToken = (token, secret) => {
-    if (!secret) {
-        throw new LicenseError('O código de instalação não está configurado.', 'misconfigured');
-    }
-
-    const cleanToken = upper(token).replace(/[^0-9A-Z\-]/g, '');
-    const segments = cleanToken.split('-').filter(Boolean);
-
-    if (segments.length !== 3) {
-        throw new LicenseError('O código de licença tem de conter três segmentos (TENANT-EXP-ASSINATURA).', 'invalid_format');
-    }
-
-    const [tenant, expirySegment, signature] = segments;
-
-    if (!tenant || tenant.length < 2 || tenant.length > 12) {
-        throw new LicenseError('O segmento do cliente é inválido ou está em falta.', 'invalid_format');
-    }
-
-    if (!signature || signature.length !== SIGNATURE_LENGTH) {
-        throw new LicenseError(`O segmento da assinatura tem de conter ${SIGNATURE_LENGTH} caracteres.`, 'invalid_format');
-    }
-
-    const payload = `${tenant}.${expirySegment}`;
-    const expectedSignature = encodeSignature(payload, secret);
-    if (signature !== expectedSignature) {
-        throw new LicenseError('A assinatura da licença é inválida ou não é compativel com esta máquina.', 'invalid_signature');
-    }
-
-    const daysSinceEpoch = decodeBase32(expirySegment);
-    const expiresAtEnd = (daysSinceEpoch + 1) * MILLIS_IN_DAY - 1;
-
-    return {
-        tenant,
-        expiresAt: expiresAtEnd,
-        expiresAtIso: formatExpiryIso(expiresAtEnd),
-        token: cleanToken,
-        status: 'valid',
-        valid: true,
-        message: `Licença válida até ${new Date(expiresAtEnd).toISOString().slice(0, 10)}.`,
-    };
-};
-
 const updateCachedState = (nextState) => {
     cachedState = {...defaultState, ...nextState};
     return cachedState;
 };
 
 export const getLicenseState = () => cachedState;
+
+export const hasFeature = (name) => Boolean(cachedState.valid && cachedState.features?.[name]);
 
 const evaluateStoredLicense = async () => {
     const installationCode = await ensureInstallationCode();
@@ -261,6 +181,7 @@ const evaluateStoredLicense = async () => {
             expiresAt: baseState.expiresAt,
             expiresAtIso: baseState.expiresAtIso,
             token: baseState.token,
+            features: baseState.features,
             lastCheckedAt,
             installationCode,
         });
