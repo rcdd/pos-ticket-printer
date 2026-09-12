@@ -28,7 +28,9 @@ function handleAuthError(res, err, contextLabel) {
         return res.status(500).send({message: "Auth secret not configured."});
     }
     console.error(`${contextLabel} token inválido:`, message);
-    return res.status(401).send({message: "Token inválido ou expirado."});
+    // code permite à UI distinguir "sessão expirada" de outros 401
+    // (ex.: credenciais de admin erradas numa anulação)
+    return res.status(401).send({message: "Token inválido ou expirado.", code: "AUTH_TOKEN_INVALID"});
 }
 
 function refreshUserSession(token, res) {
@@ -43,7 +45,7 @@ export function authenticate(req, res, next) {
         const token = extractToken(header) || req.query.token || req.body?.token;
 
         if (!token) {
-            return res.status(401).send({message: "Token ausente."});
+            return res.status(401).send({message: "Token ausente.", code: "AUTH_TOKEN_INVALID"});
         }
 
         req.user = refreshUserSession(token, res);

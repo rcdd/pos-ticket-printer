@@ -38,6 +38,11 @@ export const printTicket = async (req, res) => {
         const printType = req.body.printType || 'totals';
         const openDrawer = req.body.openDrawer || false;
         const isTest = req.body.test || false;
+        // título opcional do bloco de totais (ex.: "Conta - Mesa 2A" nos
+        // recibos de pagamento); a venda direta mantém o "Pedido:" de sempre
+        const receiptTitle = typeof req.body.receiptTitle === 'string'
+            ? req.body.receiptTitle.slice(0, 32)
+            : undefined;
 
         if (!printerName || printerName === 'undefined') {
             try {
@@ -56,7 +61,8 @@ export const printTicket = async (req, res) => {
             totalAmount,
             printType,
             openDrawer,
-            isTest
+            isTest,
+            receiptTitle
         });
 
         res.send('OK');

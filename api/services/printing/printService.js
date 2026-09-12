@@ -4,6 +4,7 @@ import {
 } from './receiptRenderer.js';
 import {EscposStrategy} from "./escposStrategy.js";
 import {openCashDrawer} from "./printCommands.js";
+import {renderOrderTicketRaw, renderOrderVoidRaw} from "./orderRenderer.js";
 
 const escpos = new EscposStrategy();
 
@@ -33,7 +34,7 @@ function expandItems(items = []) {
     return lines;
 }
 
-export async function printTicketRequest({printerName, headers, items, totalAmount, printType, openDrawer, isTest}) {
+export async function printTicketRequest({printerName, headers, items, totalAmount, printType, openDrawer, isTest, receiptTitle}) {
     const totalEuros = toEuros(totalAmount);
     const expanded = expandItems(items);
 
@@ -70,7 +71,7 @@ export async function printTicketRequest({printerName, headers, items, totalAmou
     if (printType === 'totals' || printType === 'both') {
         buf = Buffer.concat([
             buf,
-            renderTotalTicketRaw(items, totalEuros),
+            renderTotalTicketRaw(items, totalEuros, receiptTitle || 'Pedido:'),
             renderFooterRaw(headers),
             renderHeaderRaw(headers),
         ]);
@@ -96,4 +97,31 @@ export async function printSessionRequest({printerName, headers, sessionData, op
 
 export async function listPrinters() {
     return await escpos.listPrinters();
+}
+
+// Montagem do trabalho completo, no mesmo esquema dos talões clássicos:
+// conteúdo → footer (data + avanços) → header da casa + corte. Ver nota
+// no orderRenderer sobre a folga cabeça↔guilhotina.
+export function buildOrderTicketJob({headers, ...content}) {
+    return Buffer.concat([
+        renderOrderTicketRaw(content),
+        renderFooterRaw(headers),
+        renderHeaderRaw(headers),
+    ]);
+}
+
+export function buildOrderVoidJob({headers, ...content}) {
+    return Buffer.concat([
+        renderOrderVoidRaw(content),
+        renderFooterRaw(headers),
+        renderHeaderRaw(headers),
+    ]);
+}
+
+export async function printOrderTicket({printerName, ...job}) {
+    await escpos.printRawByName(printerName, buildOrderTicketJob(job), `POS Pedido ${job.number}`);
+}
+
+export async function printOrderVoid({printerName, ...job}) {
+    await escpos.printRawByName(printerName, buildOrderVoidJob(job), `POS Anulacao ${job.number}`);
 }

@@ -15,20 +15,21 @@
     "dotenv": "^10.0.0",
     "express": "^4.21.2",
     "iconv-lite": "^0.7.0",
+    "jsonwebtoken": "^9.0.2",
     "mysql": "^2.18.1",
     "mysql2": "^3.9.8",
     "pino-http": "^10.5.0",
-    "sequelize": "^6.37.7",
-    "jsonwebtoken": "^9.0.2"
+    "sequelize": "^6.37.7"
   },
   "scripts": {
     "start": "node --enable-source-maps server.js",
     "dev": "nodemon --watch . --ext js,mjs,cjs,json --exec node --enable-source-maps server.js",
-    "test": "node -e \"console.log('No automated tests yet.')\""
+    "test": "node --test tests/"
   },
   "devDependencies": {
     "express": "^4.21.2",
     "patch-package": "^8.0.1",
-    "pino-colada": "^2.2.2"
+    "pino-colada": "^2.2.2",
+    "supertest": "^7.2.2"
   }
 }

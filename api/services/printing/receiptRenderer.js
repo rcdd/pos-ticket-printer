@@ -42,10 +42,10 @@ export function renderItemTicketRaw(productName) {
     return Buffer.concat(parts);
 }
 
-export function renderTotalTicketRaw(items, totalEuros) {
+export function renderTotalTicketRaw(items, totalEuros, title = 'Pedido:') {
     const parts = [];
     parts.push(fontUnderline(1));
-    parts.push(textPrintLine('Pedido:'));
+    parts.push(textPrintLine(title));
     parts.push(fontUnderline(0));
 
     parts.push(newLine());

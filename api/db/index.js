@@ -11,6 +11,9 @@ import zoneModel from "./models/zone.model.js";
 import userModel, {UserRoles} from "./models/user.model.js";
 import sessionModel from "./models/session.model.js";
 import cashMovement from "./models/cashMovement.model.js";
+import tableModel, {TableStatus} from "./models/table.model.js";
+import orderModel, {OrderStatus} from "./models/order.model.js";
+import orderItemModel, {OrderItemStatus} from "./models/orderItem.model.js";
 
 const sequelize = new Sequelize(dbConfig.DB, dbConfig.USER, dbConfig.PASSWORD, {
     host: dbConfig.HOST,
@@ -40,7 +43,13 @@ db.zones = zoneModel(sequelize, Sequelize);
 db.users = userModel(sequelize, Sequelize);
 db.sessions = sessionModel(sequelize, Sequelize);
 db.cashMovements = cashMovement(sequelize, Sequelize);
+db.tables = tableModel(sequelize, Sequelize);
+db.orders = orderModel(sequelize, Sequelize);
+db.orderItems = orderItemModel(sequelize, Sequelize);
 db.UserRoles = UserRoles;
+db.TableStatus = TableStatus;
+db.OrderStatus = OrderStatus;
+db.OrderItemStatus = OrderItemStatus;
 
 // relations
 db.invoices.hasMany(db.records, { foreignKey: 'invoiceId' });
@@ -61,5 +70,24 @@ db.cashMovements.belongsTo(db.sessions, { foreignKey: 'sessionId', as: 'session'
 
 db.users.hasMany(db.cashMovements, { foreignKey: 'userId', as: 'cashMovements' });
 db.cashMovements.belongsTo(db.users, { foreignKey: 'userId', as: 'user' });
+
+// pedidos remotos (multiposto)
+db.sessions.hasMany(db.tables, { foreignKey: 'sessionId', as: 'tables' });
+db.tables.belongsTo(db.sessions, { foreignKey: 'sessionId', as: 'session' });
+db.tables.belongsTo(db.users, { foreignKey: 'openedById', as: 'openedBy' });
+
+db.sessions.hasMany(db.orders, { foreignKey: 'sessionId', as: 'orders' });
+db.orders.belongsTo(db.sessions, { foreignKey: 'sessionId', as: 'session' });
+db.tables.hasMany(db.orders, { foreignKey: 'tableId', as: 'orders' });
+db.orders.belongsTo(db.tables, { foreignKey: 'tableId', as: 'table' });
+db.orders.belongsTo(db.users, { foreignKey: 'userId', as: 'user' });
+db.orders.belongsTo(db.invoices, { foreignKey: 'invoiceId', as: 'invoice' });
+db.invoices.hasMany(db.orders, { foreignKey: 'invoiceId', as: 'orders' });
+
+db.orders.hasMany(db.orderItems, { foreignKey: 'orderId', as: 'items' });
+db.orderItems.belongsTo(db.orders, { foreignKey: 'orderId', as: 'order' });
+db.orderItems.belongsTo(db.products, { foreignKey: 'productId', as: 'product' });
+db.orderItems.belongsTo(db.menus, { foreignKey: 'menuId', as: 'menu' });
+db.orderItems.belongsTo(db.users, { foreignKey: 'cancelledById', as: 'cancelledBy' });
 
 export default db;

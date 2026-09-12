@@ -1,4 +1,6 @@
 import db from "../index.js";
+import {ensureLicenseState} from "../../services/license.service.js";
+
 const Option = db.options;
 
 const optionPrintName = 'printer';
@@ -10,6 +12,7 @@ const optionOnboarding = 'onboarding_completed';
 const optionVirtualKeyboard = 'virtual_keyboard_enabled';
 const optionFavorites = 'pos_favorites_enabled';
 const optionFavoritesCount = 'pos_favorites_count';
+const optionMultiTerminal = 'multi_terminal_enabled';
 
 export const readOnboardingStatus = async () => {
     const existing = await Option.findOne({where: {name: optionOnboarding}});
@@ -91,6 +94,65 @@ export const setVirtualKeyboard = async (req, res) => {
         console.error('Error saving virtual keyboard setting:', error);
         res.status(500).send({
             message: "Não foi possível guardar a configuração do teclado virtual.",
+            error: error?.message || error,
+        });
+    }
+};
+
+export const readMultiTerminalSetting = async () => {
+    const row = await Option.findOne({where: {name: optionMultiTerminal}});
+    return parseBoolean(row?.value, false);
+};
+
+export const writeMultiTerminalSetting = async (enabled) => {
+    const value = enabled ? 'true' : 'false';
+    const existing = await Option.findOne({where: {name: optionMultiTerminal}});
+    if (existing) {
+        await existing.update({value});
+    } else {
+        await Option.create({name: optionMultiTerminal, value});
+    }
+    return enabled;
+};
+
+export const getMultiTerminal = async (req, res) => {
+    try {
+        const enabled = await readMultiTerminalSetting();
+        res.send({enabled});
+    } catch (error) {
+        console.error('Error reading multi-terminal setting:', error);
+        res.status(500).send({
+            message: "Não foi possível obter a configuração do modo multiposto.",
+            error: error?.message || error,
+        });
+    }
+};
+
+export const setMultiTerminal = async (req, res) => {
+    try {
+        const {enabled} = req.body ?? {};
+        const parsed = parseBoolean(enabled, null);
+        if (parsed === null) {
+            return res.status(400).send({
+                message: "O campo 'enabled' é obrigatório e deve ser verdadeiro ou falso.",
+            });
+        }
+
+        if (parsed) {
+            const license = await ensureLicenseState();
+            if (!license.valid || !license.features?.multi) {
+                return res.status(403).send({
+                    message: "A licença atual não inclui o modo multiposto. Contacte o suporte para atualizar a licença.",
+                });
+            }
+        }
+
+        const updated = await writeMultiTerminalSetting(parsed);
+        res.send({enabled: updated});
+    } catch (error) {
+        console.error('Error saving multi-terminal setting:', error);
+        res.status(500).send({
+            message: "Não foi possível guardar a configuração do modo multiposto.",
             error: error?.message || error,
         });
     }

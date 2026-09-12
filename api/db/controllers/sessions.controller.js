@@ -1,4 +1,5 @@
 import db from "../index.js";
+import {emitEvent, EventTypes} from "../../services/events.service.js";
 
 const Session = db.sessions;
 
@@ -29,6 +30,7 @@ export const open = (req, res) => {
                 // Save Session in the database
                 Session.create(session)
                     .then(data => {
+                        emitEvent(EventTypes.SESSION_UPDATED, {sessionId: data.id, status: 'opened'});
                         res.send(data);
                     }).catch(err => {
                     res.status(500).send({
@@ -44,7 +46,7 @@ export const open = (req, res) => {
 }
 
 // Close a session
-export const closeSession = (req, res) => {
+export const closeSession = async (req, res) => {
     const id = req.params.id;
 
     if (!req.body.userId) {
@@ -52,6 +54,38 @@ export const closeSession = (req, res) => {
             message: "User ID can not be empty!"
         });
         return;
+    }
+
+    // Pedidos de terminais por pagar bloqueiam o fecho; com force=true
+    // ficam anulados (venda perdida, auditável) e as mesas abertas fecham.
+    try {
+        const pendingOrders = await db.orders.count({
+            where: {sessionId: id, status: db.OrderStatus.SENT},
+        });
+
+        if (pendingOrders > 0 && req.body.force !== true) {
+            return res.status(409).send({
+                message: `Existem ${pendingOrders} pedido(s) por pagar nesta sessão. Cobre-os na página Pedidos ou confirme o fecho para os anular.`,
+                pendingOrders,
+            });
+        }
+
+        if (pendingOrders > 0) {
+            await db.orders.update(
+                {status: db.OrderStatus.CANCELLED},
+                {where: {sessionId: id, status: db.OrderStatus.SENT}},
+            );
+        }
+
+        await db.tables.update(
+            {status: db.TableStatus.CLOSED, closedAt: new Date()},
+            {where: {sessionId: id, status: db.TableStatus.OPEN}},
+        );
+    } catch (error) {
+        return res.status(500).send({
+            message: "Erro ao verificar pedidos pendentes da sessão.",
+            error: error.message,
+        });
     }
 
     const updateData = {
@@ -67,6 +101,7 @@ export const closeSession = (req, res) => {
     })
         .then(num => {
             if (num[0] === 1) {
+                emitEvent(EventTypes.SESSION_UPDATED, {sessionId: Number(id), status: 'closed'});
                 res.send({
                     message: "Session was closed successfully."
                 });
