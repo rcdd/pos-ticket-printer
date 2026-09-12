@@ -96,11 +96,72 @@ No need to uninstall or manually clean up.
 
 ## 🛠️ Access points
 
-| Service       | URL                                                    |
-|---------------|--------------------------------------------------------|
-| POS UI        | [http://localhost:3000](http://localhost:3000)         |
-| Express API   | [http://localhost:9393/api](http://localhost:9393/api) |
-| phpMyAdmin    | [http://localhost:8080](http://localhost:8080)         |
+| Service       | URL                                                              |
+|---------------|------------------------------------------------------------------|
+| POS UI        | [http://localhost:3000](http://localhost:3000)                   |
+| Express API   | [http://localhost:9393/api](http://localhost:9393/api)           |
+| phpMyAdmin    | [http://localhost:8080](http://localhost:8080)                   |
+| Terminais     | [http://localhost:9393/terminal](http://localhost:9393/terminal) |
+
+---
+
+## 📱 Modo multiposto (terminais de pedidos)
+
+Funcionalidade **opcional** (requer licença com multiposto): empregados registam pedidos
+a partir de telemóveis/tablets ligados à rede Wi-Fi local; o talão do pedido sai na
+impressora (com número, ex.: `#042`) e o **pagamento é sempre feito na caixa** — pelo
+número do pedido ou fechando a mesa.
+
+Como ativar:
+
+1. Aplicar uma licença com multiposto (gerada com `--features multi`).
+2. UI principal → **Configurações → Terminais** → ativar o modo multiposto.
+3. Nos telemóveis, ler o **QR code** mostrado nessa página (ou abrir
+   `http://<IP-do-PC>:9393/terminal`) e iniciar sessão com um utilizador existente.
+
+Requisitos de rede: PC e telemóveis na mesma rede privada (idealmente um router/AP
+dedicado, sem internet), **IP fixo/reservado** para o PC e a regra de firewall da porta
+9393 (criada automaticamente pelo `install_script.ps1`).
+
+Notas de operação:
+
+- Sem sessão de caixa aberta, os terminais ficam bloqueados para novos pedidos.
+- Anular itens de um pedido já impresso exige aprovação de um administrador e imprime
+  um talão de anulação para a cozinha.
+- O fecho de sessão avisa se existirem pedidos por pagar (fechá-la mesmo assim anula-os).
+
+### 📵 Modo kiosk nos telemóveis/tablets
+
+O terminal é uma PWA em ecrã inteiro — nos telemóveis usa **"Adicionar ao ecrã
+principal"** e abre como uma app (sem barra de URL, portrait bloqueado).
+
+> ⚠️ **"Instala" mas abre como página do browser?** É a regra do Chrome: PWA
+> completa exige HTTPS, e o terminal é servido por `http://<IP>` na rede local.
+> Soluções: usar o **Fully Kiosk Browser** (não precisa de PWA — abaixo), ou,
+> por telemóvel, ativar a flag `chrome://flags/#unsafely-treat-insecure-origin-as-secure`
+> com o valor `http://<IP-do-PC>:9393` e reiniciar o Chrome — o "Instalar app"
+> passa a funcionar em ecrã inteiro (requer IP fixo/reservado no router).
+
+Para impedir que se saia da app:
+
+- **Android (grátis)** — Definições → Segurança → *Fixar aplicações* (screen
+  pinning): fixa a app; sair exige o PIN do dispositivo.
+- **iPhone/iPad (grátis)** — Definições → Acessibilidade → *Acesso Guiado*:
+  triplo-clique dentro da app bloqueia o dispositivo nela, com código para sair.
+- **Dispositivos dedicados (recomendado)** — [Fully Kiosk Browser](https://www.fully-kiosk.com)
+  (Android, licença única por dispositivo). Configuração recomendada:
+  - **Start URL**: `http://<IP-do-PC>:9393/terminal/`
+  - **Kiosk Mode**: ativado, com PIN de saída
+  - **Launch on Boot** + **Keep Screen On** (wake lock durante o turno)
+  - **Auto Reload on Errors/Idle**: ativado (recupera de quebras de Wi-Fi)
+  - **Barras do sistema**: ocultas (fullscreen)
+  - **Autofill Forms / Remember Form Data**: **desligado** (dispositivo partilhado;
+    autofill de credenciais antigas causa logins "impossíveis" de falhar)
+  - Em caso de comportamento estranho após updates: Settings → Clear Cache +
+    Clear Cookies + Delete Web Storage → Reload
+
+Desenvolvimento no Mac/Linux: `docker compose up -d mysqldb` + `npm run dev` em `api/` +
+`npm run dev` em `terminal/` (proxy para a API). Testes: `npm test` em `api/` e `terminal/`.
 
 ---
 
