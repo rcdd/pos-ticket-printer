@@ -64,6 +64,9 @@ import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import {SessionProvider} from "../context/SessionContext.jsx";
 import {useVirtualKeyboard} from "../context/VirtualKeyboardContext.jsx";
+import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
+import OrdersPage from "./OrdersPage.jsx";
+import OrderService from "../services/order.service.js";
 
 const drawerWidth = 240;
 
@@ -116,6 +119,7 @@ function HomePage() {
 
     const [checkingUsers, setCheckingUsers] = React.useState(true);
     const [requireUserSetup, setRequireUserSetup] = React.useState(false);
+    const [multiActive, setMultiActive] = React.useState(false);
     const licenseValid = Boolean(licenseInfo?.valid);
     const [shouldAutoPromptLogin, setShouldAutoPromptLogin] = React.useState(false);
     const showLockScreen = !login && !requireUserSetup && !checkingUsers && !checkingLicense;
@@ -184,6 +188,25 @@ function HomePage() {
         loadLicenseStatus();
     }, [loadLicenseStatus]);
 
+    // Multiposto ativo? (licença + configuração) — mostra/esconde a página Pedidos
+    React.useEffect(() => {
+        if (!licenseValid) {
+            setMultiActive(false);
+            return;
+        }
+        let canceled = false;
+        OrderService.getTerminalStatus()
+            .then(({data}) => {
+                if (!canceled) setMultiActive(Boolean(data?.multi));
+            })
+            .catch(() => {
+                if (!canceled) setMultiActive(false);
+            });
+        return () => {
+            canceled = true;
+        };
+    }, [licenseValid, login]);
+
     React.useEffect(() => {
         refreshSession();
     }, [refreshSession]);
@@ -226,6 +249,7 @@ function HomePage() {
 
     const navItems = React.useMemo(() => ([
         {icon: <HomeIcon/>, name: "POS", path: "/pos", visible: true},
+        {icon: <ReceiptLongIcon/>, name: "Pedidos", path: "/orders", visible: multiActive},
         {icon: <CategoryIcon/>, name: "Produtos", path: "/products", visible: adminMode},
         {icon: <AssessmentIcon/>, name: "Relatórios", path: "/reports", visible: adminMode},
         {icon: <ImportExportIcon/>, name: "Importar/Exportar", path: "/migration", visible: adminMode},
@@ -234,7 +258,7 @@ function HomePage() {
         {icon: <SettingsIcon/>, name: "Configurações", path: "/setup", visible: adminMode},
         {icon: <VpnKeyIcon/>, name: "Licença", path: "/license", visible: adminMode},
         {icon: <InfoIcon/>, name: "Sobre", path: "/about", visible: true},
-    ]), [session, adminMode]);
+    ]), [session, adminMode, multiActive]);
 
     const handleNav = (path) => {
         navigate(path);
@@ -361,6 +385,24 @@ function HomePage() {
         return () => window.removeEventListener('keydown', onKey);
     }, []);
 
+    // Sessão expirada (token JWT caducou por inatividade): em vez de deixar a
+    // app num limbo de erros, volta ao ecrã bloqueado e abre logo o login.
+    React.useEffect(() => {
+        const onSessionExpired = () => {
+            AuthService.clearSession();
+            setLogin(false);
+            setAdminMode(false);
+            setCurrentUser(null);
+            setOpen(false);
+            setSession(null);
+            setLoginModal(true);
+            navigate('/pos');
+        };
+
+        window.addEventListener('auth:session-expired', onSessionExpired);
+        return () => window.removeEventListener('auth:session-expired', onSessionExpired);
+    }, [navigate]);
+
     const title = React.useMemo(() => {
         const navItem = navItems.find((item) => item.path === location.pathname);
         if (navItem) return `TicketPrint — ${navItem.name}`;
@@ -420,6 +462,16 @@ function HomePage() {
 
                     {login && (
                         <>
+                            {multiActive && location.pathname !== '/orders' && (
+                                <IconButton color="inherit" disabled={!licenseValid || checkingLicense} onClick={() => {
+                                    handleNav('/orders')
+                                }}>
+                                    <Typography variant="h6" noWrap component="div"
+                                                sx={{display: 'flex', alignItems: 'center', gap: 0.5}}>
+                                        <ReceiptLongIcon fontSize="inherit"/> Pedidos
+                                    </Typography>
+                                </IconButton>
+                            )}
                             {location.pathname === '/pos' && session && (
                                 <IconButton color="inherit" disabled={!licenseValid || checkingLicense} onClick={() => {
                                     handleNav('/session')
@@ -430,7 +482,7 @@ function HomePage() {
                                     </Typography>
                                 </IconButton>
                             )}
-                            {(location.pathname === '/session' || location.pathname === '/about') && (
+                            {(location.pathname === '/session' || location.pathname === '/about' || location.pathname === '/orders') && (
                                 <IconButton color="inherit" disabled={!licenseValid || checkingLicense} onClick={() => {
                                     handleNav('/pos')
                                 }}>
@@ -567,6 +619,10 @@ function HomePage() {
                         element={login && adminMode ? <ReportsPage/> : <Navigate to="/pos" replace/>}
                     />
                     <Route path="/about" element={<AboutPage/>}/>
+                    <Route
+                        path="/orders"
+                        element={login && multiActive ? <OrdersPage/> : <Navigate to="/pos" replace/>}
+                    />
                     <Route
                         path="/migration"
                         element={login && adminMode ? <ImportExportPage/> : <Navigate to="/pos" replace/>}

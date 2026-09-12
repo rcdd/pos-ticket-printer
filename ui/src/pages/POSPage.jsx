@@ -16,10 +16,12 @@ import LoadingButton from '@mui/lab/LoadingButton';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import {useSession} from "../context/SessionContext.jsx";
 import OptionService from "../services/option.service";
+import OrderService from "../services/order.service";
+import SendToTableDialog from "../components/POS/SendToTableDialog.jsx";
 
 function POSPage({user}) {
     const {session, setSession} = useSession();
-    const {pushNetworkError} = useToast();
+    const {pushNetworkError, pushError, pushMessage} = useToast();
     const [products, setProducts] = useState([]);
     const [zones, setZones] = useState([]);
     const [menus, setMenus] = useState([]);
@@ -33,6 +35,35 @@ function POSPage({user}) {
     const [favoritesConfig, setFavoritesConfig] = React.useState({enabled: false, count: 6});
     const [favorites, setFavorites] = React.useState([]);
     const [loadingFavorites, setLoadingFavorites] = React.useState(false);
+
+    // multiposto ativo → o carrinho também pode ser enviado como pedido de mesa
+    const [multiActive, setMultiActive] = React.useState(false);
+    const [sendToTableOpen, setSendToTableOpen] = React.useState(false);
+
+    useEffect(() => {
+        let canceled = false;
+        OrderService.getTerminalStatus()
+            .then(({data}) => {
+                if (!canceled) setMultiActive(Boolean(data?.multi));
+            })
+            .catch(() => {
+                if (!canceled) setMultiActive(false);
+            });
+        return () => {
+            canceled = true;
+        };
+    }, [user?.id]);
+
+    const handleOrderSent = (result) => {
+        setSendToTableOpen(false);
+        setCart([]);
+        const number = `#${String(result.order?.number ?? 0).padStart(3, '0')}`;
+        const destination = result.tableNumber ? `Mesa ${result.tableNumber}` : 'pedido avulso';
+        pushMessage('success', `Pedido ${number} enviado (${destination}).`);
+        if (!result.printed) {
+            pushError(`O talão não foi impresso${result.printError ? `: ${result.printError}` : '.'} Pode reimprimir na página Pedidos.`);
+        }
+    };
 
     const handleInitSession = async () => {
         const num = parseFloat(String(initialCashValue).replace(',', '.'));
@@ -272,9 +303,18 @@ function POSPage({user}) {
                         setCart={setCart}
                         totalAmount={totalAmount}
                         removeProduct={removeProduct}
-                        handlePayment={handlePayment}/>
+                        handlePayment={handlePayment}
+                        handleSendToTable={multiActive && session ? () => setSendToTableOpen(true) : undefined}/>
                 </div>
             </div>
+
+            <SendToTableDialog
+                open={sendToTableOpen}
+                cart={cart}
+                totalAmount={totalAmount}
+                onClose={() => setSendToTableOpen(false)}
+                onSent={handleOrderSent}
+            />
 
             <PaymentModalComponent
                 openModal={openModal}

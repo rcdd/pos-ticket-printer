@@ -8,7 +8,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 
 export default function CartComponent({
                                           cart = [], setCart, totalAmount = 0,
-                                          removeProduct, handlePayment,
+                                          removeProduct, handlePayment, handleSendToTable,
                                       }) {
     const eur = useMemo(() => new Intl.NumberFormat('pt-PT', {style: 'currency', currency: 'EUR'}), []);
 
@@ -55,11 +55,14 @@ export default function CartComponent({
         setCart(newCart);
     }
 
+    const hasSendToTable = typeof handleSendToTable === 'function';
+
     return (<Box sx={{width: '100%'}}>
         <TableContainer
             component={Paper}
             sx={{
-                height: 'calc(100vh - 190px)',
+                // desconta o botão "Enviar p/ mesa" (48px + margem) quando existe
+                height: `calc(100vh - ${hasSendToTable ? 246 : 190}px)`,
                 overflow: 'auto',
                 borderRadius: 2,
                 boxShadow: '2px 2px 8px 4px rgba(0, 0, 0, 0.15)',
@@ -182,5 +185,18 @@ export default function CartComponent({
         >
             PAGAR
         </Button>
+
+        {hasSendToTable && (
+            <Button
+                variant="outlined"
+                fullWidth
+                size="medium"
+                sx={{mt: 1}}
+                disabled={!totalAmount}
+                onClick={handleSendToTable}
+            >
+                ENVIAR P/ MESA (sem pagar)
+            </Button>
+        )}
     </Box>);
 }

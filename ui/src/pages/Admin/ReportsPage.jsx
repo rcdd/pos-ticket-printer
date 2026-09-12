@@ -296,6 +296,16 @@ function ReportsPage() {
         },
         {field: 'sessionId', headerName: 'Sessão', width: 100},
         {
+            field: 'orders', headerName: 'Origem', width: 150, sortable: false, hide: true,
+            valueGetter: (value, row) => {
+                const orders = row?.orders ?? [];
+                if (!orders.length) return 'Caixa';
+                const table = orders.find((o) => o.table)?.table;
+                if (table) return `Mesa ${table.number}`;
+                return `Pedido #${String(orders[0].number).padStart(3, '0')}`;
+            },
+        },
+        {
             field: 'paymentMethod', headerName: 'Método', width: 140,
             valueFormatter: (v) => PaymentMethods.find(m => m.id === v)?.name ?? v
         },

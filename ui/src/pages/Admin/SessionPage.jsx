@@ -1,7 +1,8 @@
 import React, { useMemo, useCallback, useEffect, useState } from "react";
 import {
     Box, Button, Chip, Card, CardContent, Grid, Typography, Divider, Stack, Skeleton, Table,
-    TableHead, TableRow, TableCell, TableBody, Tooltip
+    TableHead, TableRow, TableCell, TableBody, Tooltip,
+    Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions
 } from "@mui/material";
 import InvoiceService from "../../services/invoice.service";
 import { PaymentMethods } from "../../enums/PaymentMethodsEnum";
@@ -21,6 +22,7 @@ export default function SessionPage({ onCloseSession }) {
     const { pushNetworkError } = useToast();
     const [isLoading, setIsLoading] = useState(true);
     const [openModalEndSession, setOpenModalEndSession] = useState(false);
+    const [pendingForceClose, setPendingForceClose] = useState(null);
     const [invoices, setInvoices] = useState([]);
     const [users, setUsers] = useState([]);
     const [cashMovements, setCashMovements] = useState([]);
@@ -153,17 +155,44 @@ export default function SessionPage({ onCloseSession }) {
             notes,
         };
 
-        SessionService.close(session.id, payload).then(() => {
+        const finishClose = () => {
             setSession(null);
             setOpenModalEndSession(false);
+            setPendingForceClose(null);
             if (typeof refreshSession === 'function') {
                 refreshSession();
             }
             onCloseSession(true);
-        }).catch((error) => {
+        };
+
+        try {
+            await SessionService.close(session.id, payload);
+            finishClose();
+        } catch (error) {
+            // Pedidos de terminais por pagar: pedir confirmação para anular
+            if (error?.response?.status === 409 && error?.response?.data?.pendingOrders) {
+                setPendingForceClose({
+                    count: error.response.data.pendingOrders,
+                    payload,
+                    finishClose,
+                });
+                return;
+            }
             pushNetworkError(error, { title: "Não foi possível fechar a sessão" });
             console.error(error?.response?.data || error);
-        });
+        }
+    };
+
+    const confirmForceClose = async () => {
+        if (!pendingForceClose) return;
+        try {
+            await SessionService.close(session.id, { ...pendingForceClose.payload, force: true });
+            pendingForceClose.finishClose();
+        } catch (error) {
+            setPendingForceClose(null);
+            pushNetworkError(error, { title: "Não foi possível fechar a sessão" });
+            console.error(error?.response?.data || error);
+        }
     };
 
     const {
@@ -326,6 +355,26 @@ export default function SessionPage({ onCloseSession }) {
                 setModal={setOpenModalEndSession}
                 onCloseSession={handleCloseSession}
             />
+
+            <Dialog open={Boolean(pendingForceClose)} onClose={() => setPendingForceClose(null)}>
+                <DialogTitle>Pedidos por pagar</DialogTitle>
+                <DialogContent>
+                    <DialogContentText>
+                        Existem <b>{pendingForceClose?.count}</b> pedido(s) de terminais por pagar nesta sessão.
+                        <br/><br/>
+                        Pode cobrá-los primeiro na página <b>Pedidos</b>. Se fechar agora,
+                        esses pedidos ficam <b>anulados</b> (venda perdida) e as mesas abertas são fechadas.
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button variant="contained" onClick={() => setPendingForceClose(null)}>
+                        Voltar
+                    </Button>
+                    <Button variant="contained" color="error" onClick={confirmForceClose}>
+                        Fechar e anular pedidos
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
             <CashMovementModal
                 open={modalMovementsOpen}

@@ -16,6 +16,7 @@ import OptionService from "../../services/option.service";
 import LoadingButton from "@mui/lab/LoadingButton";
 import Switch from "@mui/material/Switch";
 import {useVirtualKeyboard} from "../../context/VirtualKeyboardContext.jsx";
+import TerminalsSettings from "../../components/Admin/TerminalsSettings.jsx";
 
 function SetupPage() {
     const [tabPosition, setTabPosition] = React.useState("1");
@@ -93,11 +94,16 @@ function SetupPage() {
                         <TabList onChange={handleTabChange} aria-label="lab API tabs example">
                             <Tab label="Impressora" value="1"/>
                             <Tab label="Programa" value="2"/>
+                            <Tab label="Terminais" value="3"/>
                         </TabList>
                     </Box>
 
                     <TabPanel value="1">
                         <PrinterPage/>
+                    </TabPanel>
+
+                    <TabPanel value="3">
+                        <TerminalsSettings/>
                     </TabPanel>
 
                     <TabPanel value="2">

@@ -56,8 +56,17 @@ http.interceptors.response.use(
                 }
             }
         }
-        if (error?.response?.status === 401) {
+        // Só o 401 de token (sessão expirada/inválida) derruba a sessão —
+        // outros 401 (ex.: credenciais de admin erradas numa anulação) não.
+        if (error?.response?.status === 401 && error?.response?.data?.code === "AUTH_TOKEN_INVALID") {
             AuthService.clearSession();
+            if (typeof window !== "undefined" && window.dispatchEvent) {
+                try {
+                    window.dispatchEvent(new CustomEvent("auth:session-expired"));
+                } catch (eventError) {
+                    console.error("Falha ao emitir evento de sessão expirada:", eventError);
+                }
+            }
         }
         return Promise.reject(error);
     }
