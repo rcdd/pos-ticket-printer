@@ -1,5 +1,18 @@
 .DS_STORE
 node_modules/
+
+# Never publish the license generator (public repo)
+scripts/generate-license.js
+
+# Credentials/config per machine — never in the public repo
+.env
+api/.env
+
+# Internal dev docs (not for the public repo)
+docs/
+
+# Terminal app build output
+terminal/dist/
 scripts/flow/*/.flowconfig
 .flowconfig
 *~
