@@ -138,7 +138,7 @@ function Make-Backup
             $xd += $full
         }
     }
-    foreach ($p in @('api\node_modules', 'ui\node_modules', 'api\dist', 'ui\dist', 'api\build', 'ui\build', 'api\.next', 'ui\.next', 'api\.cache', 'ui\.cache'))
+    foreach ($p in @('api\node_modules', 'ui\node_modules', 'terminal\node_modules', 'api\dist', 'ui\dist', 'terminal\dist', 'api\build', 'ui\build', 'api\.next', 'ui\.next', 'api\.cache', 'ui\.cache'))
     {
         $full = Join-Path $Target $p
         if (Test-Path $full)
@@ -243,7 +243,7 @@ function Sync-Into
     $xf = @('*.env', '*.env.*')
     $xd = @('.git', '.idea', '.vscode',
     'node_modules', 'dist', 'build', '.next', '.cache', 'logs', 'data',
-    'api\node_modules', 'ui\node_modules', 'api\dist', 'ui\dist', 'api\build', 'ui\build', 'api\.next', 'ui\.next', 'api\.cache', 'ui\.cache')
+    'api\node_modules', 'ui\node_modules', 'terminal\node_modules', 'api\dist', 'ui\dist', 'terminal\dist', 'api\build', 'ui\build', 'api\.next', 'ui\.next', 'api\.cache', 'ui\.cache')
 
     $args = @("$SourceRoot", "$Target", "/E", "/R:1", "/W:1", "/IS", "/IT", "/FFT", "/NFL", "/NDL", "/NP")
     if ($DryRun)
@@ -419,6 +419,16 @@ try
             {
                 Reset-NpmArtifacts -projPath $uiPath
                 Npm-Install-And-Build -projPath $uiPath
+            }
+        }
+        $answer = Read-Host "Pretende atualizar o Terminal (multiposto)? (S/N)"
+        if ($answer -match '^[Ss]')
+        {
+            $terminalPath = Join-Path $Target 'terminal'
+            if ((Test-Path $terminalPath) -and (Test-Command npm))
+            {
+                Reset-NpmArtifacts -projPath $terminalPath
+                Npm-Install-And-Build -projPath $terminalPath
             }
         }
     }

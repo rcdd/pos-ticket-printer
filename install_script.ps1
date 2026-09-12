@@ -1132,7 +1132,10 @@ FLUSH PRIVILEGES;
     }
     Write-Ok "DB/user prontos."
     $apiEnv = Join-Path $ScriptRoot "api/.env"
-    $lines = @("DB_HOST=127.0.0.1", "DB_PORT=3306", "DB_USER=$DbUser", "DB_PASSWORD=$DbPass", "DB_NAME=$DbName", "JWT_SECRET=r@nd0mJw7Secr3t")
+    # JWT secret único por instalação (um valor fixo aqui seria público no repo
+    # e permitiria forjar tokens em qualquer cliente)
+    $JwtSecret = New-RandomPassword 32
+    $lines = @("DB_HOST=127.0.0.1", "DB_PORT=3306", "DB_USER=$DbUser", "DB_PASSWORD=$DbPass", "DB_NAME=$DbName", "JWT_SECRET=$JwtSecret")
     Set-Content -Path $apiEnv -Value $lines -Encoding ascii
     Write-Ok "API .env: $apiEnv"
     $rootFile = Join-Path $ScriptRoot ".secrets.root.txt"
@@ -1257,6 +1260,62 @@ if (Test-Path (Join-Path $uiPath 'package.json'))
 else
 {
     Write-Warn "ui\package.json not found; skipping UI build."
+}
+
+# ========================
+# Terminal app (multiposto) — build + firewall
+# ========================
+$terminalPath = Join-Path $ScriptRoot 'terminal'
+if (Test-Path (Join-Path $terminalPath 'package.json'))
+{
+    if (-not (Test-Path (Join-Path $terminalPath 'node_modules')))
+    {
+        Write-Info "Installing Terminal dependencies..."
+        Invoke-NpmCiOrInstall $NpmCmd $terminalPath | Out-Null
+    }
+    if (-not (Test-Path (Join-Path $terminalPath 'dist')))
+    {
+        Write-Info "Building Terminal app..."
+        Push-Location $terminalPath
+        try
+        {
+            & $NpmCmd run build
+        }
+        finally
+        {
+            Pop-Location
+        }
+    }
+    else
+    {
+        Write-Ok "Terminal build already present."
+    }
+
+    # Firewall: os telemoveis/tablets precisam de chegar a API (porta 9393)
+    # na rede privada. So e necessario para o modo multiposto.
+    Write-Info "Configuring firewall rule for terminals (port 9393)..."
+    try
+    {
+        $ruleName = 'POS Ticket - Terminais (9393)'
+        $existingRule = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
+        if (-not $existingRule)
+        {
+            New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort 9393 -Profile Private, Domain | Out-Null
+            Write-Ok "Firewall rule created ($ruleName)."
+        }
+        else
+        {
+            Write-Ok "Firewall rule already exists."
+        }
+    }
+    catch
+    {
+        Write-Warn "Nao foi possivel criar a regra de firewall (execute como Administrador): $( $_.Exception.Message )"
+    }
+}
+else
+{
+    Write-Warn "terminal\package.json not found; skipping Terminal build."
 }
 
 # ========================
