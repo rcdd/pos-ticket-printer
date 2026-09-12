@@ -1,0 +1,24 @@
+{
+  "name": "pos-ticket-terminal",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "author": {
+    "name": "Ruben Domingues",
+    "email": "geral@rubendomingues.pt"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "preact": "^10.24.3"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.9.1",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.8"
+  }
+}

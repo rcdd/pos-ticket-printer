@@ -1,0 +1,253 @@
+import {useCallback, useEffect, useRef, useState} from 'preact/hooks';
+import {api, clearSession, getStoredUser, getToken, setStoredUser, setUnauthorizedHandler} from './api.js';
+import {Login} from './views/Login.jsx';
+import {Home} from './views/Home.jsx';
+import {OrderBuilder} from './views/OrderBuilder.jsx';
+import {OrderSent} from './views/OrderSent.jsx';
+import {TableView} from './views/TableView.jsx';
+
+export function App() {
+    const [user, setUser] = useState(getStoredUser());
+    const [screen, setScreen] = useState({name: getToken() ? 'home' : 'login'});
+    const [status, setStatus] = useState({loading: true, multi: false, sessionOpen: false, licenseValid: false});
+
+    // banner efémero de sucesso (ex.: "Pedido #031 enviado")
+    const [flash, setFlash] = useState(null);
+    const flashTimer = useRef(null);
+    const showFlash = useCallback((text) => {
+        setFlash(text);
+        if (flashTimer.current) clearTimeout(flashTimer.current);
+        flashTimer.current = setTimeout(() => setFlash(null), 4000);
+    }, []);
+
+    // Navegação integrada com o histórico do browser: o botão físico de
+    // "voltar" do telemóvel navega dentro da app (mesa → início) em vez de
+    // fechar o browser. Cada ecrã é uma entrada no histórico.
+    const go = useCallback((next) => {
+        setScreen(next);
+        try {
+            window.history.pushState(next, '');
+        } catch {
+        }
+    }, []);
+
+    // substitui a entrada atual (login/logout não devem ficar no histórico)
+    const goReplace = useCallback((next) => {
+        setScreen(next);
+        try {
+            window.history.replaceState(next, '');
+        } catch {
+        }
+    }, []);
+
+    const goBack = useCallback(() => {
+        window.history.back();
+    }, []);
+
+    // Guard de navegação: um ecrã pode bloquear o "voltar" (físico ou do
+    // browser) para mostrar uma confirmação — ex.: pedido com itens por enviar.
+    const navGuard = useRef(null);
+    const screenRef = useRef(screen);
+    screenRef.current = screen;
+
+    const registerBackGuard = useCallback((fn) => {
+        navGuard.current = fn;
+    }, []);
+
+    useEffect(() => {
+        try {
+            window.history.replaceState({name: getToken() ? 'home' : 'login'}, '');
+        } catch {
+        }
+        const onPop = (event) => {
+            // o browser já fez pop; se o guard bloquear, repomos a entrada e
+            // o ecrã mostra a confirmação — se o utilizador confirmar, a
+            // continuação volta a fazer back (já com o guard desarmado)
+            if (typeof navGuard.current === 'function'
+                && navGuard.current(() => window.history.back())) {
+                try {
+                    window.history.pushState(screenRef.current, '');
+                } catch {
+                }
+                return;
+            }
+            setScreen(event.state?.name ? event.state : {name: 'home'});
+        };
+        window.addEventListener('popstate', onPop);
+        return () => window.removeEventListener('popstate', onPop);
+    }, []);
+
+    const logout = useCallback(() => {
+        clearSession();
+        setUser(null);
+        goReplace({name: 'login'});
+    }, [goReplace]);
+
+    useEffect(() => {
+        setUnauthorizedHandler(() => {
+            setUser(null);
+            goReplace({name: 'login'});
+        });
+    }, [goReplace]);
+
+    const refreshStatus = useCallback(async () => {
+        try {
+            const data = await api('/system/terminal-status');
+            setStatus({loading: false, ...data});
+            return data;
+        } catch {
+            setStatus((prev) => ({...prev, loading: false}));
+            return null;
+        }
+    }, []);
+
+    useEffect(() => {
+        refreshStatus();
+        const interval = setInterval(refreshStatus, 30000);
+        return () => clearInterval(interval);
+    }, [refreshStatus]);
+
+    // Tempo real: o SSE avisa quando há pedidos/mesas/sessão alterados,
+    // e as vistas recarregam via liveTick (o polling fica como fallback).
+    const [liveTick, setLiveTick] = useState(0);
+    useEffect(() => {
+        if (!user) return;
+        let source = null;
+        let retry = null;
+        let stopped = false;
+
+        const connect = () => {
+            const token = getToken();
+            if (!token || stopped) return;
+            source = new EventSource(`/events?token=${encodeURIComponent(token)}`);
+            const bump = () => setLiveTick((tick) => tick + 1);
+            source.addEventListener('order.created', bump);
+            source.addEventListener('order.updated', bump);
+            source.addEventListener('table.updated', bump);
+            source.addEventListener('session.updated', () => {
+                refreshStatus();
+                bump();
+            });
+            source.onerror = () => {
+                source.close();
+                if (!stopped) retry = setTimeout(connect, 5000);
+            };
+        };
+
+        connect();
+        return () => {
+            stopped = true;
+            if (source) source.close();
+            if (retry) clearTimeout(retry);
+        };
+    }, [user, refreshStatus]);
+
+    // Valida a sessão guardada ao arrancar
+    useEffect(() => {
+        if (!getToken()) return;
+        api('/user/me')
+            .then((data) => {
+                setUser(data);
+                setStoredUser(data);
+            })
+            .catch(() => {
+            });
+    }, []);
+
+    const onLogin = (loggedUser) => {
+        setUser(loggedUser);
+        setStoredUser(loggedUser);
+        goReplace({name: 'home'});
+        refreshStatus();
+    };
+
+    const goHome = () => {
+        // "Início" também respeita o guard; ao confirmar, segue para o início
+        if (typeof navGuard.current === 'function'
+            && navGuard.current(() => go({name: 'home'}))) {
+            return;
+        }
+        go({name: 'home'});
+    };
+
+    let banner = null;
+    if (!status.loading && !status.multi) {
+        banner = <div class="banner error">O modo multiposto não está ativo. Fale com o administrador.</div>;
+    } else if (!status.loading && !status.sessionOpen) {
+        banner = <div class="banner warning">A caixa está fechada — não é possível registar pedidos.</div>;
+    }
+
+    const canOrder = Boolean(status.multi && status.sessionOpen);
+
+    let view = null;
+    if (screen.name === 'login' || !user) {
+        view = <Login onLogin={onLogin}/>;
+    } else if (screen.name === 'home') {
+        view = (
+            <Home
+                liveTick={liveTick}
+                canOrder={canOrder}
+                onNewStandalone={() => go({name: 'order', table: null})}
+                onOpenTable={(table) => go({name: 'order', table})}
+                onNewTable={(table) => go({name: 'order', table})}
+            />
+        );
+    } else if (screen.name === 'order') {
+        view = (
+            <OrderBuilder
+                table={screen.table}
+                canOrder={canOrder}
+                onCancel={goBack}
+                registerBackGuard={registerBackGuard}
+                onViewTable={screen.table ? () => go({name: 'table', tableId: screen.table.id}) : null}
+                onSent={(result) => {
+                    if (result.printed) {
+                        const num = `#${String(result.order?.number ?? 0).padStart(3, '0')}`;
+                        const where = screen.table ? ` · Mesa ${screen.table.displayName || screen.table.number}` : '';
+                        showFlash(`✅ Pedido ${num} enviado${where} · talão impresso`);
+                        window.history.back();
+                    } else {
+                        goReplace({name: 'sent', result, table: screen.table});
+                    }
+                }}
+            />
+        );
+    } else if (screen.name === 'sent') {
+        view = (
+            <OrderSent
+                result={screen.result}
+                table={screen.table}
+                onNewOrder={() => go({name: 'order', table: screen.table})}
+                onViewTable={screen.table ? () => go({name: 'table', tableId: screen.table.id}) : null}
+                onHome={goHome}
+            />
+        );
+    } else if (screen.name === 'table') {
+        view = (
+            <TableView
+                liveTick={liveTick}
+                tableId={screen.tableId}
+                currentUser={user}
+                onBack={goBack}
+                onClosed={goHome}
+            />
+        );
+    }
+
+    return (
+        <>
+            <div class="topbar">
+                <span class="title">
+                    {user ? `TicketPrint · ${user.name || user.username}` : 'TicketPrint Terminal'}
+                </span>
+                {user && screen.name !== 'home' && (
+                    <button onClick={goHome}>Início</button>
+                )}
+                {user && <button onClick={logout}>Sair</button>}
+            </div>
+            {user && flash && <div class="banner success">{flash}</div>}
+            {user && banner}
+            {view}
+        </>
+    );
+}

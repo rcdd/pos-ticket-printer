@@ -1,0 +1,552 @@
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+:root {
+    --primary: #1976d2;
+    --primary-dark: #115293;
+    --bg: #f5f7fa;
+    --card: #ffffff;
+    --text: #1a2027;
+    --muted: #5a626e;
+    --danger: #d32f2f;
+    --success: #2e7d32;
+    --warning: #ed6c02;
+    --radius: 12px;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    font-size: 16px;
+    height: 100%;
+    /* bloqueia o pull-to-refresh do browser (deslizar para baixo recarregava
+       a página e perdia-se o carrinho) */
+    overscroll-behavior-y: none;
+}
+
+#app {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+button {
+    font: inherit;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+input, textarea {
+    font: inherit;
+    border: 1px solid #cfd6de;
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    width: 100%;
+    background: #fff;
+}
+
+input:focus, textarea:focus {
+    outline: 2px solid var(--primary);
+    border-color: var(--primary);
+}
+
+/* ---- topo ---- */
+.topbar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--primary);
+    color: #fff;
+    min-height: 56px;
+}
+
+.topbar .title {
+    font-weight: 600;
+    font-size: 17px;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.topbar button {
+    background: rgba(255, 255, 255, 0.16);
+    color: #fff;
+    padding: 8px 14px;
+    font-size: 14px;
+}
+
+/* ---- banners de estado ---- */
+.banner {
+    padding: 10px 14px;
+    font-size: 14px;
+    text-align: center;
+}
+
+.banner.warning {
+    background: #fff3e0;
+    color: #7a3c00;
+}
+
+.banner.error {
+    background: #fdecea;
+    color: #8e1a12;
+}
+
+.banner.success {
+    background: #e6f4ea;
+    color: #1b5e20;
+    font-weight: 600;
+    animation: fade-in 150ms ease;
+}
+
+/* ---- conteúdo ---- */
+.screen {
+    flex: 1;
+    padding: 14px;
+    padding-bottom: 96px;
+}
+
+.center {
+    max-width: 420px;
+    margin: 8vh auto 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(16, 24, 40, 0.1);
+}
+
+.error-text {
+    color: var(--danger);
+    font-size: 14px;
+    margin: 0;
+}
+
+.muted {
+    color: var(--muted);
+    font-size: 14px;
+}
+
+h1, h2, h3 {
+    margin: 0 0 6px;
+}
+
+/* ---- botões ---- */
+.btn {
+    display: block;
+    width: 100%;
+    padding: 15px;
+    font-size: 17px;
+    font-weight: 600;
+    background: var(--primary);
+    color: #fff;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+}
+
+.btn.secondary {
+    background: #e6ebf1;
+    color: var(--text);
+}
+
+.btn.danger {
+    background: var(--danger);
+}
+
+.btn.ghost {
+    background: transparent;
+    color: var(--primary);
+}
+
+/* ---- grelhas ---- */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+    grid-auto-rows: 1fr; /* todas as linhas com a mesma altura */
+    gap: 10px;
+}
+
+.tile {
+    width: 100%;
+    height: 100%;
+    min-height: 92px;
+    border-radius: var(--radius);
+    padding: 10px 8px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 15px;
+    line-height: 1.2;
+    word-break: break-word;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.12);
+    transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
+}
+
+.tile:active {
+    transform: scale(0.97);
+    filter: brightness(0.95);
+}
+
+/* nome do produto: no máximo 2 linhas, corta com reticências */
+.tile .label {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.tile .price {
+    font-weight: 400;
+    font-size: 13px;
+    opacity: 0.85;
+}
+
+/* balão de quantidade: flutua no canto superior direito do cartão */
+.tile-wrap .qty-badge {
+    position: absolute;
+    top: -7px;
+    right: -7px;
+    background: var(--danger);
+    color: #fff;
+    border: 2px solid #fff;
+    border-radius: 999px;
+    min-width: 26px;
+    height: 26px;
+    padding: 0 6px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+    z-index: 1;
+    pointer-events: none;
+}
+
+.tile-wrap {
+    position: relative;
+    height: 100%;
+}
+
+/* ---- separadores de zonas ---- */
+.tabs {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 4px 0 10px;
+    -webkit-overflow-scrolling: touch;
+}
+
+.tabs button {
+    flex: 0 0 auto;
+    padding: 10px 16px;
+    border-radius: 999px;
+    background: #e6ebf1;
+    color: var(--text);
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.tabs button.active {
+    background: var(--primary);
+    color: #fff;
+}
+
+/* ---- barra do carrinho ---- */
+.cartbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--card);
+    border-top: 1px solid #dde3ea;
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    z-index: 20;
+}
+
+.cartbar .total {
+    flex: 1;
+    font-weight: 700;
+    font-size: 18px;
+}
+
+.cartbar button {
+    padding: 13px 22px;
+    font-size: 16px;
+    font-weight: 700;
+    background: var(--success);
+    color: #fff;
+}
+
+.cartbar button:disabled {
+    background: #dfe5eb;
+    color: #98a2ae;
+    cursor: default;
+}
+
+.cartbar .total:has(+ button:disabled) {
+    color: var(--muted);
+}
+
+/* ---- linhas do carrinho / pedidos ---- */
+.line {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid #eef1f5;
+}
+
+.line:last-child {
+    border-bottom: none;
+}
+
+.line .name {
+    flex: 1;
+    min-width: 0;
+}
+
+.line .name.cancelled {
+    text-decoration: line-through;
+    color: var(--muted);
+}
+
+.qty-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.qty-controls button {
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+    font-weight: 700;
+    background: #e6ebf1;
+    color: var(--text);
+    border-radius: 10px;
+}
+
+.qty-controls .qty {
+    min-width: 30px;
+    text-align: center;
+    font-weight: 700;
+}
+
+/* ---- número de pedido gigante ---- */
+.big-number {
+    font-size: 72px;
+    font-weight: 800;
+    color: var(--primary);
+    text-align: center;
+    letter-spacing: 2px;
+}
+
+/* linha de grupo dentro do painel "mesa → grupos" */
+.group-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 14px;
+    margin-top: 8px;
+    border-radius: var(--radius);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+    text-align: left;
+}
+
+.group-row:active {
+    filter: brightness(0.95);
+}
+
+.group-row .group-name {
+    font-weight: 700;
+    font-size: 17px;
+}
+
+/* ---- lista de mesas ---- */
+.table-tile {
+    background: var(--card);
+    color: var(--text);
+    min-height: 92px;
+}
+
+.table-tile .amount {
+    font-size: 13px;
+    color: var(--success);
+    font-weight: 700;
+}
+
+/* ---- cabeçalho de página com back ---- */
+.page-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.back-btn {
+    width: 42px;
+    height: 42px;
+    flex: 0 0 auto;
+    border-radius: 12px;
+    background: #e6ebf1;
+    color: var(--text);
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.back-btn:active {
+    transform: scale(0.95);
+    filter: brightness(0.95);
+}
+
+/* ---- bottom sheet (drawer do pedido) ---- */
+.sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(16, 24, 40, 0.45);
+    z-index: 40;
+    animation: fade-in 150ms ease;
+}
+
+.sheet {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 41;
+    background: var(--card);
+    border-radius: 18px 18px 0 0;
+    box-shadow: 0 -6px 30px rgba(0, 0, 0, 0.25);
+    display: flex;
+    flex-direction: column;
+    max-height: 80vh;
+    padding-bottom: env(safe-area-inset-bottom);
+    animation: slide-up 200ms ease;
+}
+
+/* zona de arrasto do sheet (pega + cabeçalho): o dedo controla o fecho */
+.sheet-grab {
+    touch-action: none;
+    cursor: grab;
+    flex: 0 0 auto;
+}
+
+.sheet-handle {
+    width: 44px;
+    height: 5px;
+    border-radius: 999px;
+    background: #cfd6de;
+    margin: 10px auto 4px;
+}
+
+.sheet-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 6px 16px 10px;
+    border-bottom: 1px solid #eef1f5;
+    flex: 0 0 auto;
+}
+
+.sheet-body {
+    padding: 6px 16px 12px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    flex: 1 1 auto;
+}
+
+.sheet-footer {
+    display: flex;
+    gap: 10px;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    border-top: 1px solid #eef1f5;
+    flex: 0 0 auto;
+}
+
+@keyframes slide-up {
+    from {
+        transform: translateY(40px);
+        opacity: 0.6;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fade-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* cartão de confirmação centrado (ex.: descartar pedido) */
+.confirm-card {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 42;
+    width: min(360px, calc(100vw - 40px));
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 18px;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
+    animation: fade-in 150ms ease;
+}
+
+.spinner {
+    margin: 40px auto;
+    width: 34px;
+    height: 34px;
+    border: 4px solid #d7dee6;
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
