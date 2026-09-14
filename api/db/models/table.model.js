@@ -10,13 +10,13 @@ export default (sequelize, Sequelize) => {
             primaryKey: true,
             autoIncrement: true
         },
-        // nº da mesa física (fixo na sala: 1, 2, 3…)
+        // physical table number (fixed on the floor: 1, 2, 3…)
         number: {
             type: Sequelize.STRING,
             allowNull: false
         },
-        // letra do grupo/conta nessa mesa (A, B, C…), atribuída pelo sistema;
-        // a conta apresenta-se como number+letter ("12B")
+        // group/tab letter at that table (A, B, C…), assigned by the system;
+        // the tab presents itself as number+letter ("12B")
         letter: {
             type: Sequelize.STRING(3),
             allowNull: true

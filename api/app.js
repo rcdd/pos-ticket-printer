@@ -159,7 +159,7 @@ app.get("/health", (req, res) => {
     res.send("OK");
 });
 
-// App dos terminais (build estático servido pela API — mesma origem, sem CORS)
+// Terminal app (static build served by the API — same origin, no CORS)
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const terminalDist = path.resolve(__dirname, '../terminal/dist');
 app.use('/terminal', express.static(terminalDist));
@@ -171,7 +171,7 @@ app.get('/terminal/*', (req, res) => {
     res.sendFile(index);
 });
 
-// Estado público para os terminais (sem autenticação nem licença)
+// Public status for the terminals (no auth, no license required)
 app.get('/system/terminal-status', terminalStatus);
 
 // License endpoints (public)
@@ -227,9 +227,9 @@ app.post('/printer/print-ticket', async (req, res) => {
 
     req.body.printer = printNameOption;
     req.body.headers = await options.getHeadersVariable();
-    // a caixa pode pedir explicitamente só o total (ex.: recibo de pagamento
-    // de pedidos de terminais, cujas senhas já saíram na cozinha); sem
-    // indicação usa-se a configuração global, como sempre
+    // the register may explicitly request totals-only (e.g. payment receipt
+    // for terminal orders, whose product tickets already went to the kitchen);
+    // without an explicit value, the global setting applies as always
     req.body.printType = ['totals', 'tickets', 'both'].includes(req.body.printType)
         ? req.body.printType
         : await options.getPrintTypeVariable();

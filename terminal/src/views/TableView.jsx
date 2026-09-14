@@ -5,8 +5,8 @@ import {centsToEuros} from '../money.js';
 const formatNumber = (number) => `#${String(number ?? 0).padStart(3, '0')}`;
 const STATUS_LABEL = {sent: 'Por pagar', paid: 'Pago', cancelled: 'Anulado'};
 
-// Anular um item exige aprovação de admin (o empregado passa o telemóvel
-// ao responsável, que introduz as credenciais dele).
+// Voiding an item requires admin approval (the waiter hands the phone to
+// the person in charge, who types their own credentials).
 function CancelItemDialog({order, item, currentUser, onDone, onClose}) {
     const isAdmin = currentUser?.role === 'admin';
     const [username, setUsername] = useState('');
@@ -81,7 +81,7 @@ export function TableView({liveTick, tableId, currentUser, onBack, onClosed}) {
 
     useEffect(() => {
         load();
-        const interval = setInterval(load, 60000); // fallback; o SSE trata do tempo real
+        const interval = setInterval(load, 60000); // fallback; SSE handles realtime
         return () => clearInterval(interval);
     }, [load, liveTick]);
 
@@ -90,7 +90,7 @@ export function TableView({liveTick, tableId, currentUser, onBack, onClosed}) {
         setClosing(true);
         try {
             await api(`/table/${tableId}/close-empty`, {method: 'POST'});
-            // a conta deixou de existir — voltar ao início, não ao ecrã anterior
+            // the tab no longer exists — go home, not to the previous screen
             (onClosed ?? onBack)();
         } catch (err) {
             setError(err.message);

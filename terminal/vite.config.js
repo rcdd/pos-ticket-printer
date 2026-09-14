@@ -1,8 +1,8 @@
 import {defineConfig} from 'vite';
 import preact from '@preact/preset-vite';
 
-// Em produção a app é servida pela própria API em /terminal (mesma origem).
-// Em dev, o proxy encaminha as chamadas para a API local.
+// In production the app is served by the API itself at /terminal (same origin).
+// In dev, the proxy forwards calls to the local API.
 const API_PATHS = [
     '/user', '/users', '/order', '/orders', '/table', '/tables',
     '/zones', '/menus', '/db', '/option', '/license', '/session', '/sessions',

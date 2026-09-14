@@ -4,7 +4,7 @@ import './styles.css';
 
 render(<App/>, document.getElementById('app'));
 
-// PWA: regista o service worker (só em produção — em dev atrapalha o HMR)
+// PWA: register the service worker (production only — it gets in HMR's way in dev)
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('/terminal/sw.js').catch(() => {

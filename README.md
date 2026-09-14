@@ -101,67 +101,67 @@ No need to uninstall or manually clean up.
 | POS UI        | [http://localhost:3000](http://localhost:3000)                   |
 | Express API   | [http://localhost:9393/api](http://localhost:9393/api)           |
 | phpMyAdmin    | [http://localhost:8080](http://localhost:8080)                   |
-| Terminais     | [http://localhost:9393/terminal](http://localhost:9393/terminal) |
+| Terminals     | [http://localhost:9393/terminal](http://localhost:9393/terminal) |
 
 ---
 
-## 📱 Modo multiposto (terminais de pedidos)
+## 📱 Multi-terminal mode (ordering terminals)
 
-Funcionalidade **opcional** (requer licença com multiposto): empregados registam pedidos
-a partir de telemóveis/tablets ligados à rede Wi-Fi local; o talão do pedido sai na
-impressora (com número, ex.: `#042`) e o **pagamento é sempre feito na caixa** — pelo
-número do pedido ou fechando a mesa.
+**Optional** feature (requires a license with multi-terminal): waiters place orders
+from phones/tablets connected to the local Wi-Fi; the order ticket comes out on the
+printer (with a number, e.g. `#042`) and **payment always happens at the register** —
+by order number or by closing the table.
 
-Como ativar:
+How to enable:
 
-1. Aplicar uma licença com multiposto (gerada com `--features multi`).
-2. UI principal → **Configurações → Terminais** → ativar o modo multiposto.
-3. Nos telemóveis, ler o **QR code** mostrado nessa página (ou abrir
-   `http://<IP-do-PC>:9393/terminal`) e iniciar sessão com um utilizador existente.
+1. Apply a license that includes multi-terminal (generated with `--features multi`).
+2. Main UI → **Configurações → Terminais** → enable multi-terminal mode.
+3. On the phones, scan the **QR code** shown on that page (or open
+   `http://<PC-IP>:9393/terminal`) and sign in with an existing user.
 
-Requisitos de rede: PC e telemóveis na mesma rede privada (idealmente um router/AP
-dedicado, sem internet), **IP fixo/reservado** para o PC e a regra de firewall da porta
-9393 (criada automaticamente pelo `install_script.ps1`).
+Network requirements: PC and phones on the same private network (ideally a dedicated
+router/AP, no internet), a **static/reserved IP** for the PC, and the port 9393
+firewall rule (created automatically by `install_script.ps1`).
 
-Notas de operação:
+Operational notes:
 
-- Sem sessão de caixa aberta, os terminais ficam bloqueados para novos pedidos.
-- Anular itens de um pedido já impresso exige aprovação de um administrador e imprime
-  um talão de anulação para a cozinha.
-- O fecho de sessão avisa se existirem pedidos por pagar (fechá-la mesmo assim anula-os).
+- Without an open register session, terminals are blocked from placing new orders.
+- Voiding items of an already-printed order requires admin approval and prints a
+  void ticket for the kitchen.
+- Closing the session warns about unpaid orders (closing anyway cancels them).
 
-### 📵 Modo kiosk nos telemóveis/tablets
+### 📵 Kiosk mode on phones/tablets
 
-O terminal é uma PWA em ecrã inteiro — nos telemóveis usa **"Adicionar ao ecrã
-principal"** e abre como uma app (sem barra de URL, portrait bloqueado).
+The terminal is a fullscreen PWA — on phones use **"Add to Home Screen"** and it
+opens like an app (no URL bar, portrait locked).
 
-> ⚠️ **"Instala" mas abre como página do browser?** É a regra do Chrome: PWA
-> completa exige HTTPS, e o terminal é servido por `http://<IP>` na rede local.
-> Soluções: usar o **Fully Kiosk Browser** (não precisa de PWA — abaixo), ou,
-> por telemóvel, ativar a flag `chrome://flags/#unsafely-treat-insecure-origin-as-secure`
-> com o valor `http://<IP-do-PC>:9393` e reiniciar o Chrome — o "Instalar app"
-> passa a funcionar em ecrã inteiro (requer IP fixo/reservado no router).
+> ⚠️ **"Installs" but opens as a browser page?** That's Chrome's rule: a full PWA
+> requires HTTPS, and the terminal is served over `http://<IP>` on the LAN.
+> Workarounds: use the **Fully Kiosk Browser** (no PWA needed — below), or,
+> per phone, enable the `chrome://flags/#unsafely-treat-insecure-origin-as-secure`
+> flag with the value `http://<PC-IP>:9393` and restart Chrome — "Install app"
+> then works fullscreen (requires a static/reserved IP on the router).
 
-Para impedir que se saia da app:
+To keep users from leaving the app:
 
-- **Android (grátis)** — Definições → Segurança → *Fixar aplicações* (screen
-  pinning): fixa a app; sair exige o PIN do dispositivo.
-- **iPhone/iPad (grátis)** — Definições → Acessibilidade → *Acesso Guiado*:
-  triplo-clique dentro da app bloqueia o dispositivo nela, com código para sair.
-- **Dispositivos dedicados (recomendado)** — [Fully Kiosk Browser](https://www.fully-kiosk.com)
-  (Android, licença única por dispositivo). Configuração recomendada:
-  - **Start URL**: `http://<IP-do-PC>:9393/terminal/`
-  - **Kiosk Mode**: ativado, com PIN de saída
-  - **Launch on Boot** + **Keep Screen On** (wake lock durante o turno)
-  - **Auto Reload on Errors/Idle**: ativado (recupera de quebras de Wi-Fi)
-  - **Barras do sistema**: ocultas (fullscreen)
-  - **Autofill Forms / Remember Form Data**: **desligado** (dispositivo partilhado;
-    autofill de credenciais antigas causa logins "impossíveis" de falhar)
-  - Em caso de comportamento estranho após updates: Settings → Clear Cache +
+- **Android (free)** — Settings → Security → *App pinning* (screen pinning):
+  pin the app; leaving requires the device PIN.
+- **iPhone/iPad (free)** — Settings → Accessibility → *Guided Access*:
+  triple-click inside the app locks the device to it, with a passcode to exit.
+- **Dedicated devices (recommended)** — [Fully Kiosk Browser](https://www.fully-kiosk.com)
+  (Android, one-time license per device). Recommended configuration:
+  - **Start URL**: `http://<PC-IP>:9393/terminal/`
+  - **Kiosk Mode**: enabled, with an exit PIN
+  - **Launch on Boot** + **Keep Screen On** (wake lock during the shift)
+  - **Auto Reload on Errors/Idle**: enabled (recovers from Wi-Fi drops)
+  - **System bars**: hidden (fullscreen)
+  - **Autofill Forms / Remember Form Data**: **disabled** (shared device; stale
+    autofilled credentials cause logins that "impossibly" keep failing)
+  - If things act strangely after updates: Settings → Clear Cache +
     Clear Cookies + Delete Web Storage → Reload
 
-Desenvolvimento no Mac/Linux: `docker compose up -d mysqldb` + `npm run dev` em `api/` +
-`npm run dev` em `terminal/` (proxy para a API). Testes: `npm test` em `api/` e `terminal/`.
+Development on Mac/Linux: `docker compose up -d mysqldb` + `npm run dev` in `api/` +
+`npm run dev` in `terminal/` (proxies to the API). Tests: `npm test` in `api/` and `terminal/`.
 
 ---
 

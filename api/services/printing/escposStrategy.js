@@ -117,7 +117,7 @@ function printViaWindows(printerName, buffer, jobName) {
         };
 
         const tryPrintExe = () => {
-            console.warn("[Fallback] Usando print.exe para imprimir no Windows");
+            console.warn("[Fallback] Using print.exe to print on Windows");
             const cmd = process.env.SystemRoot
                 ? path.join(process.env.SystemRoot, 'System32', 'print.exe')
                 : 'print';
@@ -138,7 +138,7 @@ function printViaWindows(printerName, buffer, jobName) {
 /* ---------- Fallback via CUPS (macOS/Linux) ---------- */
 async function listViaCUPS() {
     return new Promise((resolve) => {
-        const cmd = '/usr/bin/lpstat'; // caminho típico no macOS; em Linux pode ser /usr/bin/lpstat também
+        const cmd = '/usr/bin/lpstat'; // typical macOS path; on Linux it is usually /usr/bin/lpstat as well
         execFile(cmd, ['-p'], {encoding: 'utf8'}, (err, stdout) => {
             if (err || !stdout) return resolve([]);
             const names = String(stdout)

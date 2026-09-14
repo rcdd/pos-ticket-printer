@@ -8,17 +8,17 @@ import {toEuros} from '../services/printing/utils.js';
 const asText = (buffer) => buffer.toString('latin1');
 const FULL_CUT = Buffer.from([0x1B, 0x6D, 0x00]);
 
-test('toEuros formata euros em pt-PT', () => {
+test('toEuros formats euros in pt-PT', () => {
     assert.equal(toEuros(1.5).replace(/ /g, ' '), '1,50 €');
     assert.equal(toEuros('abc').replace(/ /g, ' '), '0,00 €');
 });
 
-test('initPrinter começa com ESC @ (reset)', () => {
+test('initPrinter starts with ESC @ (reset)', () => {
     const buf = initPrinter();
     assert.deepEqual([...buf.subarray(0, 2)], [0x1B, 0x40]);
 });
 
-test('renderHeaderRaw imprime as duas linhas e corta o papel', () => {
+test('renderHeaderRaw prints both lines and cuts the paper', () => {
     const buf = renderHeaderRaw({firstLine: 'Festa da Aldeia', secondLine: 'Comissao de Festas'});
     const text = asText(buf);
     assert.match(text, /Festa da Aldeia/);
@@ -26,17 +26,17 @@ test('renderHeaderRaw imprime as duas linhas e corta o papel', () => {
     assert.ok(buf.includes(FULL_CUT));
 });
 
-test('renderHeaderRaw omite linhas vazias sem falhar', () => {
+test('renderHeaderRaw skips empty lines without failing', () => {
     const text = asText(renderHeaderRaw({}));
     assert.ok(text.length > 0);
 });
 
-test('renderItemTicketRaw imprime o item precedido de "1"', () => {
+test('renderItemTicketRaw prints the item prefixed with "1"', () => {
     const text = asText(renderItemTicketRaw('Bifana'));
     assert.match(text, /1 Bifana/);
 });
 
-test('renderTotalTicketRaw lista itens e total em euros', () => {
+test('renderTotalTicketRaw lists items and total in euros', () => {
     const items = [
         {quantity: 2, name: 'Imperial'},
         {quantity: 1, name: 'Francesinha'},
@@ -48,13 +48,13 @@ test('renderTotalTicketRaw lista itens e total em euros', () => {
     assert.match(text, /Total: 12,50/);
 });
 
-test('renderFooterRaw inclui a data', () => {
+test('renderFooterRaw includes the date', () => {
     const year = String(new Date().getFullYear());
     const text = asText(renderFooterRaw({}));
-    assert.ok(text.includes(year), 'esperava o ano atual no rodapé');
+    assert.ok(text.includes(year), 'expected the current year in the footer');
 });
 
-test('renderSessionRaw agrupa produtos por zona e mostra utilizadores', () => {
+test('renderSessionRaw groups products by zone and shows users', () => {
     const text = asText(renderSessionRaw({
         sessionId: 7,
         openedAt: '2026-09-09T08:00:00Z',

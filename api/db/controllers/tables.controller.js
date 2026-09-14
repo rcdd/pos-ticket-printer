@@ -7,13 +7,13 @@ const Order = db.orders;
 const OrderItem = db.orderItems;
 const {TableStatus, OrderStatus} = db;
 
-// quem abriu a conta (responsável pela mesa/grupo) — para tracking
+// who opened the tab (responsible for the table/group) — for tracking
 const openedByInclude = {model: db.users, as: 'openedBy', attributes: ['id', 'name', 'username']};
 
 const normalizeNumber = (value) => String(value ?? '').trim();
 
-// Nº de mesa física: estritamente numérico (1–9999), sem zeros à esquerda
-// ("01" e "1" são a mesma mesa). Devolve null se inválido.
+// Physical table number: strictly numeric (1–9999), no leading zeros
+// ("01" and "1" are the same table). Returns null if invalid.
 const normalizeTableNumber = (value) => {
     const raw = normalizeNumber(value);
     if (!/^\d+$/.test(raw)) return null;
@@ -22,7 +22,7 @@ const normalizeTableNumber = (value) => {
     return String(parsed);
 };
 
-// Sugere o próximo número de mesa livre: menor inteiro sem contas abertas
+// Suggests the next free table number: smallest integer with no open tabs
 const suggestNumber = async (sessionId, transaction = null) => {
     const open = await Table.findAll({
         where: {sessionId, status: TableStatus.OPEN},
@@ -37,7 +37,7 @@ const suggestNumber = async (sessionId, transaction = null) => {
     return String(candidate);
 };
 
-// Primeira letra livre entre os grupos abertos da mesa (reutiliza após fecho)
+// First free letter among the table's open groups (reused after closing)
 const assignLetter = (openTabs) => {
     const used = new Set(openTabs.map((tab) => tab.letter).filter(Boolean));
     for (let i = 0; i < 26; i += 1) {
@@ -49,7 +49,7 @@ const assignLetter = (openTabs) => {
     return null;
 };
 
-// ordenação natural: mesa 2 antes de mesa 10; letra desempata
+// natural ordering: table 2 before table 10; letter breaks ties
 const sortTabs = (tabs) => [...tabs].sort((a, b) => {
     const numA = Number(a.number);
     const numB = Number(b.number);
@@ -87,8 +87,8 @@ const withUnpaidTotals = async (tables) => {
     }));
 };
 
-// Abre uma conta/grupo: o empregado indica o nº da mesa física e o sistema
-// atribui a letra do grupo (12 → 12A; segundo grupo na mesma mesa → 12B).
+// Opens a tab/group: the waiter provides the physical table number and the
+// system assigns the group letter (12 → 12A; second group at the same table → 12B).
 export const open = async (req, res) => {
     try {
         const session = await getActiveSession();
@@ -99,7 +99,7 @@ export const open = async (req, res) => {
         }
 
         const result = await db.sequelize.transaction(async (transaction) => {
-            // lock na sessão: serializa a atribuição de letras entre terminais
+            // session lock: serializes letter assignment across terminals
             await db.sessions.findByPk(session.id, {transaction, lock: transaction.LOCK.UPDATE});
 
             let number = null;
@@ -141,12 +141,12 @@ export const open = async (req, res) => {
         emitEvent(EventTypes.TABLE_UPDATED, {tableId: result.table.id});
         res.status(201).send(result.table);
     } catch (error) {
-        console.error('[tables.open] erro:', error);
+        console.error('[tables.open] error:', error);
         res.status(500).send({message: "Não foi possível abrir a mesa."});
     }
 };
 
-// Contas abertas de uma mesa física (fluxo do terminal: nº → grupos)
+// Open tabs of a physical table (terminal flow: number → groups)
 export const findByNumber = async (req, res) => {
     try {
         const session = await getActiveSession();
@@ -169,7 +169,7 @@ export const findByNumber = async (req, res) => {
             tabs: sortTabs(await withUnpaidTotals(tabs)),
         });
     } catch (error) {
-        console.error('[tables.findByNumber] erro:', error);
+        console.error('[tables.findByNumber] error:', error);
         res.status(500).send({message: "Não foi possível obter a mesa."});
     }
 };
@@ -194,7 +194,7 @@ export const findAll = async (req, res) => {
         const tables = await Table.findAll({where, include: [openedByInclude]});
         res.send(sortTabs(await withUnpaidTotals(tables)));
     } catch (error) {
-        console.error('[tables.findAll] erro:', error);
+        console.error('[tables.findAll] error:', error);
         res.status(500).send({message: "Não foi possível obter as mesas."});
     }
 };
@@ -225,13 +225,13 @@ export const findOne = async (req, res) => {
 
         res.send({...table.toJSON(), unpaidTotal});
     } catch (error) {
-        console.error('[tables.findOne] erro:', error);
+        console.error('[tables.findOne] error:', error);
         res.status(500).send({message: "Não foi possível obter a mesa."});
     }
 };
 
-// Pagamento da mesa inteira na caixa: uma invoice única com os itens de
-// todos os pedidos por pagar; os pedidos ficam pagos e a mesa fecha.
+// Whole-table payment at the register: a single invoice with the items of
+// every unpaid order; the orders become paid and the tab closes.
 export const pay = async (req, res) => {
     try {
         const paymentMethod = req.body?.paymentMethod ?? 'cash';
@@ -310,12 +310,12 @@ export const pay = async (req, res) => {
             orderCount: result.orderCount,
         });
     } catch (error) {
-        console.error('[tables.pay] erro:', error);
+        console.error('[tables.pay] error:', error);
         res.status(500).send({message: "Não foi possível registar o pagamento da mesa."});
     }
 };
 
-// Fecha uma mesa sem consumo por pagar (o fecho com pagamento é feito na caixa)
+// Closes a tab with nothing left to pay (closing with payment happens at the register)
 export const closeEmpty = async (req, res) => {
     try {
         const table = await Table.findByPk(req.params.id);
@@ -339,7 +339,7 @@ export const closeEmpty = async (req, res) => {
         emitEvent(EventTypes.TABLE_UPDATED, {tableId: table.id});
         res.send(table);
     } catch (error) {
-        console.error('[tables.closeEmpty] erro:', error);
+        console.error('[tables.closeEmpty] error:', error);
         res.status(500).send({message: "Não foi possível fechar a mesa."});
     }
 };

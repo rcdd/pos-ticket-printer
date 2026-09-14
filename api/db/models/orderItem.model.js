@@ -34,8 +34,8 @@ export default (sequelize, Sequelize) => {
                 key: "id"
             }
         },
-        // Nome no momento do pedido: talões e histórico ficam estáveis
-        // mesmo que o produto seja renomeado/apagado depois
+        // Name at order time: tickets and history stay stable even if
+        // the product is renamed/deleted later
         nameSnapshot: {
             type: Sequelize.STRING,
             allowNull: false
@@ -45,7 +45,7 @@ export default (sequelize, Sequelize) => {
             allowNull: false,
             defaultValue: 1
         },
-        // Preço unitário em cêntimos no momento do pedido
+        // Unit price in cents at order time
         price: {
             type: Sequelize.INTEGER,
             allowNull: false

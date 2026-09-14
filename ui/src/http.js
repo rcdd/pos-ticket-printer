@@ -56,8 +56,8 @@ http.interceptors.response.use(
                 }
             }
         }
-        // Só o 401 de token (sessão expirada/inválida) derruba a sessão —
-        // outros 401 (ex.: credenciais de admin erradas numa anulação) não.
+        // Only a token 401 (expired/invalid session) tears the session down —
+        // other 401s (e.g. wrong admin credentials on a cancellation) don't.
         if (error?.response?.status === 401 && error?.response?.data?.code === "AUTH_TOKEN_INVALID") {
             AuthService.clearSession();
             if (typeof window !== "undefined" && window.dispatchEvent) {

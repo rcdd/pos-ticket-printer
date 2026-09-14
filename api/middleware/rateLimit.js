@@ -1,5 +1,5 @@
-// Rate-limit simples em memória para o login: protege as passwords de
-// tentativas repetidas vindas da rede local. Sem dependências externas.
+// Simple in-memory rate limit for login: protects passwords against
+// repeated attempts from the local network. No external dependencies.
 const WINDOW_MS = 60 * 1000;
 const MAX_ATTEMPTS = 5;
 

@@ -8,8 +8,8 @@ import {UserRoles} from '../db/models/user.model.js';
 
 const router = Router();
 
-// Endpoint público e leve: diz aos terminais se podem trabalhar
-// (multiposto ativo + caixa aberta), sem expor dados sensíveis.
+// Lightweight public endpoint: tells the terminals whether they can work
+// (multi-terminal active + register session open), without exposing sensitive data.
 export const terminalStatus = async (req, res) => {
     try {
         const license = await ensureLicenseState();
@@ -23,19 +23,19 @@ export const terminalStatus = async (req, res) => {
             sessionOpen: Boolean(session),
         });
     } catch (error) {
-        console.error('[system/terminal-status] erro:', error);
+        console.error('[system/terminal-status] error:', error);
         res.status(500).send({message: 'Não foi possível obter o estado do terminal.'});
     }
 };
 
-// Adaptadores virtuais (Hyper-V, WSL, VPNs, VMs) não servem para os
-// telemóveis — só geram QR codes inúteis ao lado do Wi-Fi/Ethernet real.
+// Virtual adapters (Hyper-V, WSL, VPNs, VMs) are useless to the phones —
+// they only produce pointless QR codes next to the real Wi-Fi/Ethernet.
 const VIRTUAL_IFACE_PATTERN = /vethernet|default switch|wsl|hyper-v|virtualbox|vbox|vmware|docker|loopback|utun|tailscale|zerotier|bridge/i;
 const isUsableAddress = (name, iface) =>
     iface.family === 'IPv4'
     && !iface.internal
     && !VIRTUAL_IFACE_PATTERN.test(name)
-    && !iface.address.startsWith('169.254.'); // link-local (sem DHCP)
+    && !iface.address.startsWith('169.254.'); // link-local (no DHCP)
 
 function listLanAddresses(port) {
     const collect = (filter) => {
@@ -58,7 +58,7 @@ function listLanAddresses(port) {
     if (usable.length > 0) {
         return usable;
     }
-    // fallback: se o filtro apagar tudo (setups exóticos), mostra o que há
+    // fallback: if the filter wipes everything (exotic setups), show what exists
     return collect((name, iface) => iface.family === 'IPv4' && !iface.internal);
 }
 
@@ -80,7 +80,7 @@ router.get('/system/info', requireRole(UserRoles.ADMIN), async (req, res) => {
             addresses: listLanAddresses(port),
         });
     } catch (error) {
-        console.error('[system/info] erro:', error);
+        console.error('[system/info] error:', error);
         res.status(500).send({message: 'Não foi possível obter a informação do sistema.'});
     }
 });

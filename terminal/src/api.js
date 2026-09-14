@@ -70,7 +70,7 @@ export async function api(path, {method = 'GET', body} = {}) {
         throw new ApiError('Sem ligação ao servidor. Verifique o Wi-Fi.', 0, null);
     }
 
-    // A API renova o token a cada pedido autenticado
+    // The API renews the token on every authenticated request
     const renewed = res.headers.get('x-auth-token');
     if (renewed) setToken(renewed);
 
@@ -83,8 +83,8 @@ export async function api(path, {method = 'GET', body} = {}) {
     }
 
     if (!res.ok) {
-        // só o 401 de token (sessão expirada) derruba a sessão; outros 401
-        // (ex.: credenciais de admin erradas ao anular um item) não deslogam
+        // only a token 401 (expired session) tears the session down; other
+        // 401s (e.g. wrong admin credentials when voiding an item) don't log out
         if (res.status === 401 && data && typeof data === 'object' && data.code === 'AUTH_TOKEN_INVALID') {
             clearSession();
             if (onUnauthorized) onUnauthorized();

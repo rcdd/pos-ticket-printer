@@ -15,9 +15,9 @@ const newRequestId = () =>
     (window.crypto?.randomUUID ? window.crypto.randomUUID()
         : `req-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
 
-// Envia o carrinho do POS como um pedido de mesa/avulso (sem pagamento).
-// Cada envio é um pedido novo — imprime talão e acumula na conta da mesa;
-// o fecho continua a ser feito na página Pedidos.
+// Sends the POS cart as a table/standalone order (no payment).
+// Each submit is a new order — prints a ticket and accrues on the tab;
+// closing/paying still happens on the Pedidos page.
 export default function SendToTableDialog({open, cart, totalAmount, onClose, onSent}) {
     const {pushNetworkError} = useToast();
     const [tables, setTables] = useState(null);
@@ -83,7 +83,7 @@ export default function SendToTableDialog({open, cart, totalAmount, onClose, onS
     };
 
     const canSend = Boolean(selected) && items.length > 0
-        && (selected?.kind !== 'new' || true); // número vazio = automático
+        && (selected?.kind !== 'new' || true); // empty number = auto-assign
 
     return (
         <Dialog open={open} onClose={sending ? undefined : onClose} fullWidth maxWidth="sm">

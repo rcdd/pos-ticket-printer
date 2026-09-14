@@ -24,12 +24,12 @@ const formatTime = (value) => new Date(value).toLocaleTimeString('pt-PT', {hour:
 
 const activeItems = (order) => (order.items ?? []).filter((item) => item.status === 'active');
 
-// Itens ativos no formato aceite por /printer/print-ticket (recibo do cliente)
+// Active items in the shape /printer/print-ticket accepts (customer receipt)
 const receiptItems = (orders) => orders
     .flatMap(activeItems)
     .map((item) => ({name: item.nameSnapshot, quantity: item.quantity, type: 'product'}));
 
-// Consumo agregado de uma conta: soma quantidades por produto
+// Aggregated consumption of a tab: sums quantities per product
 const aggregateItems = (orders) => {
     const map = new Map();
     for (const item of orders.flatMap(activeItems)) {
@@ -47,13 +47,13 @@ export default function OrdersPage() {
     const [searchNumber, setSearchNumber] = useState('');
     const [manageTableId, setManageTableId] = useState(null);
 
-    // alvo do pagamento: {kind: 'order'|'table', id, total, items, label}
+    // payment target: {kind: 'order'|'table', id, total, items, label}
     const [payTarget, setPayTarget] = useState(null);
     const [isPrinting, setIsPrinting] = useState(false);
     const [isPrinted, setIsPrinted] = useState(false);
     const [invoiceId, setInvoiceId] = useState(null);
 
-    // anulação de pedido inteiro (aprovação admin)
+    // whole-order cancellation (admin approval)
     const [cancelTarget, setCancelTarget] = useState(null);
     const [adminUsername, setAdminUsername] = useState('');
     const [adminPassword, setAdminPassword] = useState('');
@@ -79,7 +79,7 @@ export default function OrdersPage() {
         return () => clearInterval(interval);
     }, [load]);
 
-    // Tempo real: pedidos novos dos terminais aparecem sem refrescar
+    // Realtime: new terminal orders show up without refreshing
     useEffect(() => {
         const token = AuthService.getToken();
         if (!token || typeof EventSource === 'undefined') return undefined;
@@ -110,7 +110,7 @@ export default function OrdersPage() {
         };
     }, [load]);
 
-    // ---- vista por mesa: junta contas abertas com os seus pedidos por pagar ----
+    // ---- table view: joins open tabs with their unpaid orders ----
     const tableCards = useMemo(() => {
         if (tables === null || orders === null) return null;
 
@@ -145,8 +145,8 @@ export default function OrdersPage() {
         [orders],
     );
 
-    // a modal de gestão lê sempre do estado atual; se a conta fechar
-    // entretanto (paga noutro lado), a modal fecha-se sozinha
+    // the manage modal always reads current state; if the tab gets closed
+    // in the meantime (paid elsewhere), the modal closes itself
     const manageCard = useMemo(
         () => (manageTableId && tableCards ? tableCards.find((c) => c.table.id === manageTableId) ?? null : null),
         [manageTableId, tableCards],
@@ -198,14 +198,14 @@ export default function OrdersPage() {
                 ? await OrderService.payTable(payTarget.id, payload)
                 : await OrderService.pay(payTarget.id, payload);
 
-            // Recibo para o cliente (best-effort — o pagamento já está registado)
+            // Customer receipt (best-effort — the payment is already recorded)
             try {
                 await PrinterService.printTicket({
                     items: payTarget.items,
                     totalAmount: (finalAmount / 100).toFixed(2),
                     openDrawer,
-                    // as senhas dos produtos já saíram quando o pedido chegou
-                    // à cozinha — no pagamento imprime-se apenas o total
+                    // product tickets already went out when the order reached
+                    // the kitchen — payment prints the total only
                     printType: 'totals',
                     receiptTitle: `Conta - ${payTarget.label}:`,
                 });
@@ -280,7 +280,7 @@ export default function OrdersPage() {
         }
     };
 
-    // bloco de um pedido dentro da modal de gestão: itens completos + ações
+    // one order's block inside the manage modal: full items + actions
     const orderBlock = (order) => (
         <Box key={order.id} sx={{py: 1.5}}>
             <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
@@ -333,7 +333,7 @@ export default function OrdersPage() {
     return (
         <Box>
             <Stack direction={{xs: 'column', lg: 'row'}} spacing={3} alignItems="flex-start">
-                {/* ================= MESAS (protagonistas) ================= */}
+                {/* ================= TABLES (the protagonists) ================= */}
                 <Box sx={{flex: 3, width: '100%'}}>
                     <Stack direction="row" alignItems="center" spacing={1} sx={{mb: 2}}>
                         <TableRestaurantIcon color="primary" fontSize="large"/>
@@ -436,7 +436,7 @@ export default function OrdersPage() {
                     )}
                 </Box>
 
-                {/* ================= AVULSOS (secundário) ================= */}
+                {/* ================= STANDALONE ORDERS (secondary) ================= */}
                 <Box sx={{flex: 1, width: '100%', minWidth: {lg: 300}}}>
                     <Stack direction="row" alignItems="center" spacing={1} sx={{mb: 2}}>
                         <ReceiptLongIcon color="primary"/>

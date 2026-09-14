@@ -1,9 +1,9 @@
 import {printOrderTicket, printOrderVoid} from './printing/printService.js';
 import {getPrinterVariable, getHeadersVariable} from '../db/controllers/options.controller.js';
 
-// A impressão é "best effort": o pedido já está guardado quando isto corre.
-// Falha de impressora devolve {printed:false, error} e o terminal oferece
-// "Reimprimir" — nunca se perde um pedido por causa do papel.
+// Printing is best-effort: the order is already saved by the time this runs.
+// A printer failure returns {printed:false, error} and the terminal offers
+// "Reimprimir" — an order is never lost because of paper.
 
 const activeItems = (order) =>
     (order.items ?? []).filter((item) => item.status !== 'cancelled');

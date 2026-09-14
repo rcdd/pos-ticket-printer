@@ -24,8 +24,8 @@ html, body {
     font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
     font-size: 16px;
     height: 100%;
-    /* bloqueia o pull-to-refresh do browser (deslizar para baixo recarregava
-       a página e perdia-se o carrinho) */
+    /* blocks the browser's pull-to-refresh (swiping down reloaded the
+       page and the cart was lost) */
     overscroll-behavior-y: none;
 }
 
@@ -57,7 +57,7 @@ input:focus, textarea:focus {
     border-color: var(--primary);
 }
 
-/* ---- topo ---- */
+/* ---- top bar ---- */
 .topbar {
     position: sticky;
     top: 0;
@@ -87,7 +87,7 @@ input:focus, textarea:focus {
     font-size: 14px;
 }
 
-/* ---- banners de estado ---- */
+/* ---- status banners ---- */
 .banner {
     padding: 10px 14px;
     font-size: 14px;
@@ -111,7 +111,7 @@ input:focus, textarea:focus {
     animation: fade-in 150ms ease;
 }
 
-/* ---- conteúdo ---- */
+/* ---- content ---- */
 .screen {
     flex: 1;
     padding: 14px;
@@ -148,7 +148,7 @@ h1, h2, h3 {
     margin: 0 0 6px;
 }
 
-/* ---- botões ---- */
+/* ---- buttons ---- */
 .btn {
     display: block;
     width: 100%;
@@ -177,11 +177,11 @@ h1, h2, h3 {
     color: var(--primary);
 }
 
-/* ---- grelhas ---- */
+/* ---- grids ---- */
 .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
-    grid-auto-rows: 1fr; /* todas as linhas com a mesma altura */
+    grid-auto-rows: 1fr; /* every row gets the same height */
     gap: 10px;
 }
 
@@ -210,7 +210,7 @@ h1, h2, h3 {
     filter: brightness(0.95);
 }
 
-/* nome do produto: no máximo 2 linhas, corta com reticências */
+/* product name: at most 2 lines, ellipsis overflow */
 .tile .label {
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -224,7 +224,7 @@ h1, h2, h3 {
     opacity: 0.85;
 }
 
-/* balão de quantidade: flutua no canto superior direito do cartão */
+/* quantity badge: floats at the tile's top-right corner */
 .tile-wrap .qty-badge {
     position: absolute;
     top: -7px;
@@ -252,7 +252,7 @@ h1, h2, h3 {
     height: 100%;
 }
 
-/* ---- separadores de zonas ---- */
+/* ---- zone tabs ---- */
 .tabs {
     display: flex;
     gap: 8px;
@@ -276,7 +276,7 @@ h1, h2, h3 {
     color: #fff;
 }
 
-/* ---- barra do carrinho ---- */
+/* ---- cart bar ---- */
 .cartbar {
     position: fixed;
     left: 0;
@@ -315,7 +315,7 @@ h1, h2, h3 {
     color: var(--muted);
 }
 
-/* ---- linhas do carrinho / pedidos ---- */
+/* ---- cart / order lines ---- */
 .line {
     display: flex;
     align-items: center;
@@ -360,7 +360,7 @@ h1, h2, h3 {
     font-weight: 700;
 }
 
-/* ---- número de pedido gigante ---- */
+/* ---- giant order number ---- */
 .big-number {
     font-size: 72px;
     font-weight: 800;
@@ -369,7 +369,7 @@ h1, h2, h3 {
     letter-spacing: 2px;
 }
 
-/* linha de grupo dentro do painel "mesa → grupos" */
+/* group row inside the "table → groups" panel */
 .group-row {
     display: flex;
     align-items: center;
@@ -394,7 +394,7 @@ h1, h2, h3 {
     font-size: 17px;
 }
 
-/* ---- lista de mesas ---- */
+/* ---- tables list ---- */
 .table-tile {
     background: var(--card);
     color: var(--text);
@@ -407,7 +407,7 @@ h1, h2, h3 {
     font-weight: 700;
 }
 
-/* ---- cabeçalho de página com back ---- */
+/* ---- page header with back button ---- */
 .page-header {
     display: flex;
     align-items: center;
@@ -435,7 +435,7 @@ h1, h2, h3 {
     filter: brightness(0.95);
 }
 
-/* ---- bottom sheet (drawer do pedido) ---- */
+/* ---- bottom sheet (order drawer) ---- */
 .sheet-backdrop {
     position: fixed;
     inset: 0;
@@ -460,7 +460,7 @@ h1, h2, h3 {
     animation: slide-up 200ms ease;
 }
 
-/* zona de arrasto do sheet (pega + cabeçalho): o dedo controla o fecho */
+/* sheet drag zone (handle + header): the finger controls closing */
 .sheet-grab {
     touch-action: none;
     cursor: grab;
@@ -520,7 +520,7 @@ h1, h2, h3 {
     }
 }
 
-/* cartão de confirmação centrado (ex.: descartar pedido) */
+/* centered confirmation card (e.g. discard order) */
 .confirm-card {
     position: fixed;
     left: 50%;

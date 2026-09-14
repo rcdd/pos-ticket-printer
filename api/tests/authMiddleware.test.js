@@ -28,7 +28,7 @@ const makeReq = (token, via = 'header') => ({
     body: via === 'body' && token ? {token} : {},
 });
 
-test('authenticate: sem token responde 401', () => {
+test('authenticate: no token responds 401', () => {
     const res = makeRes();
     let called = false;
     authenticate(makeReq(null), res, () => {
@@ -39,7 +39,7 @@ test('authenticate: sem token responde 401', () => {
     assert.equal(res.body.code, 'AUTH_TOKEN_INVALID');
 });
 
-test('authenticate: token válido popula req.user e renova o token', () => {
+test('authenticate: valid token populates req.user and renews the token', () => {
     const {token} = generateAuthToken({id: 9, role: 'cashier'});
     const req = makeReq(token);
     const res = makeRes();
@@ -52,11 +52,11 @@ test('authenticate: token válido popula req.user e renova o token', () => {
     assert.equal(called, true);
     assert.equal(req.user.id, 9);
     assert.equal(req.user.role, 'cashier');
-    assert.ok(res.headers['x-auth-token'], 'esperava token renovado no header');
+    assert.ok(res.headers['x-auth-token'], 'expected renewed token in the header');
     assert.ok(res.headers['x-auth-expires-at']);
 });
 
-test('authenticate: aceita token via query string (necessário para o SSE)', () => {
+test('authenticate: accepts token via query string (required for SSE)', () => {
     const {token} = generateAuthToken({id: 3, role: 'waiter'});
     const req = makeReq(token, 'query');
     const res = makeRes();
@@ -70,7 +70,7 @@ test('authenticate: aceita token via query string (necessário para o SSE)', () 
     assert.equal(req.user.id, 3);
 });
 
-test('authenticate: token adulterado responde 401', () => {
+test('authenticate: tampered token responds 401', () => {
     const {token} = generateAuthToken({id: 1, role: 'admin'});
     const res = makeRes();
     let called = false;
@@ -84,7 +84,7 @@ test('authenticate: token adulterado responde 401', () => {
     assert.equal(res.body.code, 'AUTH_TOKEN_INVALID');
 });
 
-test('optionalAuthenticate: sem token segue sem utilizador', () => {
+test('optionalAuthenticate: without a token continues with no user', () => {
     const req = makeReq(null);
     const res = makeRes();
     let called = false;

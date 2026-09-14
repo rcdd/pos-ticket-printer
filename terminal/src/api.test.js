@@ -8,7 +8,7 @@ const mockResponse = ({status = 200, body = null, headers = {}} = {}) => ({
     text: async () => (body === null ? '' : JSON.stringify(body)),
 });
 
-// localStorage não existe em ambiente node — stub mínimo
+// localStorage does not exist in a node environment — minimal stub
 const store = new Map();
 beforeEach(() => {
     globalThis.localStorage = {
@@ -24,7 +24,7 @@ afterEach(() => {
 });
 
 describe('api()', () => {
-    it('envia o token e renova-o a partir do header', async () => {
+    it('sends the token and renews it from the header', async () => {
         setToken('token-antigo');
         globalThis.fetch = vi.fn().mockResolvedValue(mockResponse({
             body: {ok: true},
@@ -37,7 +37,7 @@ describe('api()', () => {
         expect(getToken()).toBe('token-novo');
     });
 
-    it('erro da API vira ApiError com a mensagem do servidor', async () => {
+    it('API errors become ApiError with the server message', async () => {
         globalThis.fetch = vi.fn().mockResolvedValue(mockResponse({
             status: 409,
             body: {message: 'Não existe nenhuma sessão de caixa aberta.'},
@@ -49,7 +49,7 @@ describe('api()', () => {
         });
     });
 
-    it('401 de token limpa a sessão e chama o handler', async () => {
+    it('token 401 clears the session and calls the handler', async () => {
         setToken('expirado');
         const onUnauthorized = vi.fn();
         setUnauthorizedHandler(onUnauthorized);
@@ -63,7 +63,7 @@ describe('api()', () => {
         expect(onUnauthorized).toHaveBeenCalled();
     });
 
-    it('401 de negócio (ex.: credenciais admin erradas) NÃO desloga', async () => {
+    it('business 401 (e.g. wrong admin credentials) does NOT log out', async () => {
         setToken('valido');
         const onUnauthorized = vi.fn();
         setUnauthorizedHandler(onUnauthorized);
@@ -77,7 +77,7 @@ describe('api()', () => {
         expect(onUnauthorized).not.toHaveBeenCalled();
     });
 
-    it('falha de rede dá mensagem amigável', async () => {
+    it('network failure yields a friendly message', async () => {
         globalThis.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
 
         await expect(api('/orders')).rejects.toMatchObject({
@@ -88,7 +88,7 @@ describe('api()', () => {
 });
 
 describe('newRequestId', () => {
-    it('gera ids únicos', () => {
+    it('generates unique ids', () => {
         const ids = new Set(Array.from({length: 50}, () => newRequestId()));
         expect(ids.size).toBe(50);
     });

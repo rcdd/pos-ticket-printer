@@ -28,8 +28,8 @@ function handleAuthError(res, err, contextLabel) {
         return res.status(500).send({message: "Auth secret not configured."});
     }
     console.error(`${contextLabel} token inválido:`, message);
-    // code permite à UI distinguir "sessão expirada" de outros 401
-    // (ex.: credenciais de admin erradas numa anulação)
+    // the code lets the UI tell "session expired" apart from other 401s
+    // (e.g. wrong admin credentials on a cancellation)
     return res.status(401).send({message: "Token inválido ou expirado.", code: "AUTH_TOKEN_INVALID"});
 }
 

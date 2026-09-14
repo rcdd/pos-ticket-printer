@@ -6,12 +6,12 @@ import {UserRoles} from '../db/models/user.model.js';
 
 const router = Router();
 
-// O pagamento é exclusivo da caixa (UI principal)
+// Payment is exclusive to the register (main UI)
 const cashier = requireRole(UserRoles.ADMIN, UserRoles.CASHIER);
 
-// A criação exige o modo multiposto ativo (licença + configuração).
-// As leituras ficam sempre disponíveis para a caixa poder listar e cobrar
-// pedidos existentes mesmo que o multiposto seja entretanto desativado.
+// Creating requires multi-terminal mode to be active (license + setting).
+// Reads stay always available so the register can still list and charge
+// existing orders even if multi-terminal gets disabled in the meantime.
 const multi = requireFeature('multi');
 
 router.post('/order', multi, orders.create);

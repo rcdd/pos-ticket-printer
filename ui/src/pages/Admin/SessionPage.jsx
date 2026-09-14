@@ -169,7 +169,7 @@ export default function SessionPage({ onCloseSession }) {
             await SessionService.close(session.id, payload);
             finishClose();
         } catch (error) {
-            // Pedidos de terminais por pagar: pedir confirmação para anular
+            // Unpaid terminal orders: ask for confirmation to cancel them
             if (error?.response?.status === 409 && error?.response?.data?.pendingOrders) {
                 setPendingForceClose({
                     count: error.response.data.pendingOrders,

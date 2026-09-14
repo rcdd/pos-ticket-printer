@@ -5,17 +5,17 @@ import {
 
 export const formatOrderNumber = (number) => `#${String(number ?? 0).padStart(3, '0')}`;
 
-// NOTA sobre corte/avanços: estes renderers produzem SÓ o conteúdo do talão.
-// O trabalho completo é montado em printService (conteúdo → footer com data e
-// avanços → header da casa + corte), o mesmo esquema dos talões clássicos —
-// nas impressoras com folga entre a cabeça e a guilhotina, o header impresso
-// antes do corte cai abaixo dele e vira o topo do talão seguinte, e assim
-// nunca se perde texto.
+// NOTE on cut/feeds: these renderers produce ONLY the ticket content.
+// The full job is assembled in printService (content → footer with date and
+// feeds → shop header + cut), same scheme as the classic tickets — on
+// printers with a gap between the print head and the cutter, the header
+// printed right before the cut lands below it and becomes the top of the
+// next ticket, so no text is ever lost.
 
-// Talão de pedido para a cozinha/bar. Nas mesas, o destaque é a MESA
-// (é o que a cozinha e a sala usam); o nº do pedido fica numa linha
-// pequena de referência (2ª via/auditoria). Nos avulsos, o nº é a
-// identidade do cliente e mantém-se gigante.
+// Kitchen/bar order ticket. For table orders the highlight is the TABLE
+// (what kitchen and floor staff use); the order number goes on a small
+// reference line (reprints/audit). For standalone orders the number is
+// the customer's identity and stays giant.
 export function renderOrderTicketRaw({number, tableNumber, items = [], note, waiterName, reprint = false}) {
     const parts = [];
     parts.push(escInit());
@@ -61,7 +61,7 @@ export function renderOrderTicketRaw({number, tableNumber, items = [], note, wai
         parts.push(bold(0));
     }
 
-    // referência pequena: nº do pedido (nas mesas) + empregado
+    // small reference line: order number (table orders) + waiter
     const refParts = [];
     if (tableNumber) refParts.push(`Pedido ${formatOrderNumber(number)}`);
     if (waiterName) refParts.push(String(waiterName));
@@ -75,7 +75,7 @@ export function renderOrderTicketRaw({number, tableNumber, items = [], note, wai
     return Buffer.concat(parts);
 }
 
-// Talão de anulação: avisa a cozinha que itens de um pedido foram cancelados.
+// Void ticket: tells the kitchen that items of an order were cancelled.
 export function renderOrderVoidRaw({number, tableNumber, items = [], approvedByName}) {
     const parts = [];
     parts.push(escInit());

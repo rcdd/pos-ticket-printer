@@ -1,5 +1,5 @@
-// Service worker mínimo: cache-first para os estáticos da app,
-// rede sempre para a API (os dados têm de estar frescos).
+// Minimal service worker: cache-first for the app's static assets,
+// always network for the API (data must be fresh).
 const CACHE = 'terminal-v18';
 const APP_SHELL = ['/terminal/', '/terminal/manifest.webmanifest', '/terminal/icon.svg'];
 
@@ -20,7 +20,7 @@ self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
     const isAppAsset = url.pathname.startsWith('/terminal/');
     if (event.request.method !== 'GET' || !isAppAsset) {
-        return; // API e escritas vão sempre à rede
+        return; // API calls and writes always hit the network
     }
 
     event.respondWith(

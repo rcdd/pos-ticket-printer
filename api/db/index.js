@@ -71,7 +71,7 @@ db.cashMovements.belongsTo(db.sessions, { foreignKey: 'sessionId', as: 'session'
 db.users.hasMany(db.cashMovements, { foreignKey: 'userId', as: 'cashMovements' });
 db.cashMovements.belongsTo(db.users, { foreignKey: 'userId', as: 'user' });
 
-// pedidos remotos (multiposto)
+// remote orders (multi-terminal)
 db.sessions.hasMany(db.tables, { foreignKey: 'sessionId', as: 'tables' });
 db.tables.belongsTo(db.sessions, { foreignKey: 'sessionId', as: 'session' });
 db.tables.belongsTo(db.users, { foreignKey: 'openedById', as: 'openedBy' });

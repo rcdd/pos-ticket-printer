@@ -36,7 +36,7 @@ function POSPage({user}) {
     const [favorites, setFavorites] = React.useState([]);
     const [loadingFavorites, setLoadingFavorites] = React.useState(false);
 
-    // multiposto ativo → o carrinho também pode ser enviado como pedido de mesa
+    // multi-terminal active → the cart can also be sent as a table order
     const [multiActive, setMultiActive] = React.useState(false);
     const [sendToTableOpen, setSendToTableOpen] = React.useState(false);
 

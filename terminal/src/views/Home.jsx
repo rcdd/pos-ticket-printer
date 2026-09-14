@@ -15,7 +15,7 @@ export function Home({liveTick, canOrder, onNewStandalone, onOpenTable, onNewTab
     const [tables, setTables] = useState(null);
     const [error, setError] = useState(null);
 
-    // fluxo "mesa → grupos": escrever o nº mostra as contas dessa mesa
+    // "table → groups" flow: typing the number shows that table's tabs
     const [tableQuery, setTableQuery] = useState('');
     const [groups, setGroups] = useState(null); // {number, tabs} | null
     const [loadingGroups, setLoadingGroups] = useState(false);
@@ -32,7 +32,7 @@ export function Home({liveTick, canOrder, onNewStandalone, onOpenTable, onNewTab
 
     useEffect(() => {
         load();
-        const interval = setInterval(load, 60000); // fallback; o SSE trata do tempo real
+        const interval = setInterval(load, 60000); // fallback; SSE handles realtime
         return () => clearInterval(interval);
     }, [load, liveTick]);
 
@@ -50,7 +50,7 @@ export function Home({liveTick, canOrder, onNewStandalone, onOpenTable, onNewTab
         }
     }, []);
 
-    // com o painel de grupos aberto, mantém-no fresco (SSE)
+    // with the groups panel open, keep it fresh (SSE)
     useEffect(() => {
         if (groups?.number) {
             lookupTable(groups.number);

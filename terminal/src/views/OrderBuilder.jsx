@@ -5,7 +5,7 @@ import {themeStyle} from '../themes.js';
 
 const MENUS_TAB = '__menus__';
 
-// Cache simples do catálogo — evita repetir downloads em cada pedido
+// Simple catalog cache — avoids re-downloading on every order
 let catalogCache = null;
 
 async function loadCatalog() {
@@ -36,9 +36,8 @@ export function OrderBuilder({table, canOrder, onCancel, onSent, onViewTable, re
     const [confirmLeave, setConfirmLeave] = useState(false);
     const [requestId] = useState(newRequestId);
 
-    // Rascunho do carrinho em sessionStorage: sobrevive a um refresh
-    // acidental da página (rede de segurança para além do bloqueio
-    // do pull-to-refresh no CSS).
+    // Cart draft in sessionStorage: survives an accidental page refresh
+    // (safety net on top of the CSS pull-to-refresh block).
     const draftKey = table ? `tp_draft_table_${table.id}` : 'tp_draft_standalone';
 
     useEffect(() => {
@@ -72,7 +71,7 @@ export function OrderBuilder({table, canOrder, onCancel, onSent, onViewTable, re
         }
     };
 
-    // seta de voltar: com itens por enviar pede confirmação (toque acidental)
+    // back arrow: with unsent items, ask for confirmation (accidental tap)
     const handleBack = () => {
         if (cart.length > 0) {
             setConfirmLeave(true);
@@ -82,9 +81,9 @@ export function OrderBuilder({table, canOrder, onCancel, onSent, onViewTable, re
         }
     };
 
-    // o mesmo guard para o back físico do telemóvel/browser e para o "Início":
-    // bloqueia a navegação, mostra a confirmação e guarda a continuação
-    // (para onde o utilizador ia) para a retomar se ele confirmar
+    // same guard for the phone/browser hardware back and for "Início":
+    // blocks navigation, shows the confirmation and stores the continuation
+    // (where the user was heading) to resume it if they confirm
     const cartCountRef = useRef(0);
     cartCountRef.current = cart.length;
     const pendingNavRef = useRef(null);
@@ -95,7 +94,7 @@ export function OrderBuilder({table, canOrder, onCancel, onSent, onViewTable, re
             if (cartCountRef.current > 0) {
                 pendingNavRef.current = proceed ?? null;
                 setConfirmLeave(true);
-                return true; // bloqueia; a confirmação decide
+                return true; // block; the confirmation decides
             }
             return false;
         });
@@ -109,23 +108,23 @@ export function OrderBuilder({table, canOrder, onCancel, onSent, onViewTable, re
 
     const discardAndLeave = () => {
         if (typeof registerBackGuard === 'function') {
-            registerBackGuard(null); // desarma o guard: agora é para sair mesmo
+            registerBackGuard(null); // disarm the guard: now we really leave
         }
         clearDraft();
         const proceed = pendingNavRef.current;
         pendingNavRef.current = null;
         if (proceed) {
-            proceed(); // retoma a navegação original (back físico ou Início)
+            proceed(); // resume the original navigation (hardware back or Início)
         } else {
             onCancel(); // veio da seta "←" da app
         }
     };
 
-    // drag-to-close do bottom sheet (na pega/cabeçalho)
+    // bottom-sheet drag-to-close (on the handle/header)
     const [dragY, setDragY] = useState(0);
     const [draggingSheet, setDraggingSheet] = useState(false);
     const touchStartY = useRef(null);
-    const wasDragged = useRef(false); // evita que o click pós-arrasto feche o sheet
+    const wasDragged = useRef(false); // keeps the post-drag click from closing the sheet
 
     const onSheetTouchStart = (e) => {
         touchStartY.current = e.touches[0].clientY;
@@ -141,8 +140,8 @@ export function OrderBuilder({table, canOrder, onCancel, onSent, onViewTable, re
     const onSheetTouchEnd = (e) => {
         setDraggingSheet(false);
         if (wasDragged.current) {
-            // mata o "ghost click" que o browser dispara a seguir ao arrasto
-            // (senão aterrava no botão "Rever pedido" e baralhava o estado)
+            // kill the "ghost click" the browser fires right after a drag
+            // (it would land on the "Rever pedido" button and scramble state)
             e.preventDefault();
         }
         if (dragY > 90 && !sending) {

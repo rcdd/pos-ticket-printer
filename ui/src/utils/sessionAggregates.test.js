@@ -13,7 +13,7 @@ const beer = {id: 1, name: 'Imperial', price: 150, zone: {name: 'Bar'}};
 const dish = {id: 2, name: 'Francesinha', price: 950, zone: {name: 'Cozinha'}};
 
 describe('computeSessionAggregates', () => {
-    it('soma totais e agrega por método de pagamento', () => {
+    it('sums totals and aggregates by payment method', () => {
         const result = computeSessionAggregates([
             makeInvoice({total: 1000, paymentMethod: 'cash'}),
             makeInvoice({total: 500, paymentMethod: 'card'}),
@@ -27,7 +27,7 @@ describe('computeSessionAggregates', () => {
         ]));
     });
 
-    it('ignora faturas anuladas', () => {
+    it('ignores voided invoices', () => {
         const result = computeSessionAggregates([
             makeInvoice({total: 1000}),
             makeInvoice({total: 9999, isDeleted: true}),
@@ -36,7 +36,7 @@ describe('computeSessionAggregates', () => {
         expect(result.totalAmountCents).toBe(1000);
     });
 
-    it('só o dinheiro entra no valor de caixa (mais o fundo inicial)', () => {
+    it('only cash counts towards the drawer value (plus the opening float)', () => {
         const result = computeSessionAggregates([
             makeInvoice({total: 1000, paymentMethod: 'cash'}),
             makeInvoice({total: 500, paymentMethod: 'card'}),
@@ -45,7 +45,7 @@ describe('computeSessionAggregates', () => {
         expect(result.finalCashValueCents).toBe(2000 + 1000);
     });
 
-    it('agrega produtos por quantidade e separa vendas com desconto', () => {
+    it('aggregates products by quantity and separates discounted sales', () => {
         const result = computeSessionAggregates([
             makeInvoice({
                 records: [
@@ -72,7 +72,7 @@ describe('computeSessionAggregates', () => {
         });
     });
 
-    it('reforços e sangrias entram no valor final de caixa', () => {
+    it('cash-ins and cash-outs affect the final drawer value', () => {
         const result = computeSessionAggregates(
             [makeInvoice({total: 1000, paymentMethod: 'cash'})],
             500,
@@ -89,7 +89,7 @@ describe('computeSessionAggregates', () => {
         expect(result.finalCashValueCents).toBe(500 + 1000 - 200);
     });
 
-    it('aguenta entradas vazias/malformadas', () => {
+    it('handles empty/malformed input', () => {
         const result = computeSessionAggregates(undefined, undefined, undefined);
         expect(result.totalAmountCents).toBe(0);
         expect(result.productsAgg).toEqual([]);
@@ -97,7 +97,7 @@ describe('computeSessionAggregates', () => {
 });
 
 describe('sumByType', () => {
-    it('soma apenas os movimentos do tipo pedido', () => {
+    it('sums only movements of the requested type', () => {
         const movements = [
             {type: 'CASH_IN', amount: 100},
             {type: 'CASH_OUT', amount: 40},

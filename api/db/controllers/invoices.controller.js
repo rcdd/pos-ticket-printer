@@ -71,7 +71,7 @@ export const getAll = (req, res) => {
     Invoices.findAll({
         include: [
             {
-                // pedidos de terminais pagos por esta invoice (origem da venda)
+                // terminal orders paid by this invoice (sale origin)
                 model: db.orders,
                 as: 'orders',
                 attributes: ['id', 'number', 'tableId'],

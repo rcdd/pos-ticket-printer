@@ -11,7 +11,7 @@ export function App() {
     const [screen, setScreen] = useState({name: getToken() ? 'home' : 'login'});
     const [status, setStatus] = useState({loading: true, multi: false, sessionOpen: false, licenseValid: false});
 
-    // banner efémero de sucesso (ex.: "Pedido #031 enviado")
+    // ephemeral success banner (e.g. "Pedido #031 enviado")
     const [flash, setFlash] = useState(null);
     const flashTimer = useRef(null);
     const showFlash = useCallback((text) => {
@@ -20,9 +20,9 @@ export function App() {
         flashTimer.current = setTimeout(() => setFlash(null), 4000);
     }, []);
 
-    // Navegação integrada com o histórico do browser: o botão físico de
-    // "voltar" do telemóvel navega dentro da app (mesa → início) em vez de
-    // fechar o browser. Cada ecrã é uma entrada no histórico.
+    // Navigation integrated with browser history: the phone's hardware
+    // back button navigates inside the app (table → home) instead of
+    // closing the browser. Each screen is a history entry.
     const go = useCallback((next) => {
         setScreen(next);
         try {
@@ -31,7 +31,7 @@ export function App() {
         }
     }, []);
 
-    // substitui a entrada atual (login/logout não devem ficar no histórico)
+    // replaces the current entry (login/logout must not stay in history)
     const goReplace = useCallback((next) => {
         setScreen(next);
         try {
@@ -44,8 +44,8 @@ export function App() {
         window.history.back();
     }, []);
 
-    // Guard de navegação: um ecrã pode bloquear o "voltar" (físico ou do
-    // browser) para mostrar uma confirmação — ex.: pedido com itens por enviar.
+    // Navigation guard: a screen can block "back" (hardware or browser)
+    // to show a confirmation — e.g. an order with unsent items.
     const navGuard = useRef(null);
     const screenRef = useRef(screen);
     screenRef.current = screen;
@@ -60,9 +60,9 @@ export function App() {
         } catch {
         }
         const onPop = (event) => {
-            // o browser já fez pop; se o guard bloquear, repomos a entrada e
-            // o ecrã mostra a confirmação — se o utilizador confirmar, a
-            // continuação volta a fazer back (já com o guard desarmado)
+            // the browser already popped; if the guard blocks, we re-push the
+            // entry and the screen shows the confirmation — if the user
+            // confirms, the continuation performs back again (guard disarmed)
             if (typeof navGuard.current === 'function'
                 && navGuard.current(() => window.history.back())) {
                 try {
@@ -107,8 +107,8 @@ export function App() {
         return () => clearInterval(interval);
     }, [refreshStatus]);
 
-    // Tempo real: o SSE avisa quando há pedidos/mesas/sessão alterados,
-    // e as vistas recarregam via liveTick (o polling fica como fallback).
+    // Realtime: SSE signals order/table/session changes and the views
+    // reload via liveTick (polling stays as a fallback).
     const [liveTick, setLiveTick] = useState(0);
     useEffect(() => {
         if (!user) return;
@@ -142,7 +142,7 @@ export function App() {
         };
     }, [user, refreshStatus]);
 
-    // Valida a sessão guardada ao arrancar
+    // Validate the stored session on boot
     useEffect(() => {
         if (!getToken()) return;
         api('/user/me')
@@ -162,7 +162,7 @@ export function App() {
     };
 
     const goHome = () => {
-        // "Início" também respeita o guard; ao confirmar, segue para o início
+        // "Início" honors the guard too; on confirm, proceed to home
         if (typeof navGuard.current === 'function'
             && navGuard.current(() => go({name: 'home'}))) {
             return;

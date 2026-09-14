@@ -56,8 +56,8 @@ export const closeSession = async (req, res) => {
         return;
     }
 
-    // Pedidos de terminais por pagar bloqueiam o fecho; com force=true
-    // ficam anulados (venda perdida, auditável) e as mesas abertas fecham.
+    // Unpaid terminal orders block the close; with force=true they get
+    // cancelled (lost sale, auditable) and open tabs are closed.
     try {
         const pendingOrders = await db.orders.count({
             where: {sessionId: id, status: db.OrderStatus.SENT},

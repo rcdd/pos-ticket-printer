@@ -1,9 +1,9 @@
 import {EventEmitter} from 'events';
 
-// Bus interno de eventos de domínio. O SSE (/events) subscreve isto
-// para empurrar atualizações aos terminais e à caixa.
+// Internal domain event bus. The SSE endpoint (/events) subscribes to it
+// to push updates to the terminals and the register.
 const bus = new EventEmitter();
-bus.setMaxListeners(100); // vários terminais ligados em simultâneo
+bus.setMaxListeners(100); // several terminals connected at once
 
 export const EventTypes = Object.freeze({
     ORDER_CREATED: 'order.created',

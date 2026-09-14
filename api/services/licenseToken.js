@@ -5,8 +5,8 @@ export const SIGNATURE_LENGTH = 6;
 export const MILLIS_IN_DAY = 24 * 60 * 60 * 1000;
 const FEATURE_SEGMENT_MAX_LENGTH = 4;
 
-// Bitmask dos recursos licenciáveis. Bits desconhecidos são ignorados
-// para que licenças futuras continuem válidas em versões antigas.
+// Bitmask of licensable features. Unknown bits are ignored so that
+// future licenses remain valid on older app versions.
 export const FEATURES = Object.freeze({
     multi: 1 << 0,
 });
@@ -71,11 +71,11 @@ export const parseFeaturesSegment = (segment) => {
 };
 
 /**
- * Valida um código de licença contra o segredo (installation code).
+ * Validates a license code against the secret (installation code).
  *
- * Formatos aceites:
- *  - legado:  TENANT-EXP-ASSINATURA            (3 segmentos, sem funcionalidades extra)
- *  - atual:   TENANT-EXP-FEAT-ASSINATURA       (4 segmentos, FEAT = bitmask em base32)
+ * Accepted formats:
+ *  - legacy:  TENANT-EXP-SIGNATURE             (3 segments, no extra features)
+ *  - current: TENANT-EXP-FEAT-SIGNATURE        (4 segments, FEAT = base32 bitmask)
  */
 export const evaluateToken = (token, secret) => {
     if (!secret) {

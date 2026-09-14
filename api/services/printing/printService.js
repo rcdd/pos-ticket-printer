@@ -99,9 +99,9 @@ export async function listPrinters() {
     return await escpos.listPrinters();
 }
 
-// Montagem do trabalho completo, no mesmo esquema dos talões clássicos:
-// conteúdo → footer (data + avanços) → header da casa + corte. Ver nota
-// no orderRenderer sobre a folga cabeça↔guilhotina.
+// Full print-job assembly, following the classic tickets' scheme:
+// content → footer (date + feeds) → shop header + cut. See the note in
+// orderRenderer about the print-head↔cutter gap.
 export function buildOrderTicketJob({headers, ...content}) {
     return Buffer.concat([
         renderOrderTicketRaw(content),

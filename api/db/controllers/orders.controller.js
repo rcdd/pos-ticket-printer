@@ -27,8 +27,8 @@ export const getActiveSession = async (transaction = null) => {
     });
 };
 
-// Valida os itens do carrinho e resolve preço/nome no servidor.
-// Nunca confiamos em preços enviados pelo terminal.
+// Validates the cart items and resolves price/name server-side.
+// We never trust prices sent by the terminal.
 const resolveItems = async (rawItems) => {
     if (!Array.isArray(rawItems) || rawItems.length === 0) {
         const err = new Error("O pedido tem de conter pelo menos um item.");
@@ -98,9 +98,9 @@ const isRetryableDbError = (error) => {
     return code === 'ER_LOCK_DEADLOCK' || code === 'ER_LOCK_WAIT_TIMEOUT';
 };
 
-// Cria o pedido numa transação, atribuindo o número sequencial da sessão.
-// O lock na linha da sessão serializa a numeração entre terminais; o índice
-// único (sessionId, number) e o retry são a rede de segurança.
+// Creates the order in a transaction, assigning the session's sequential
+// number. The session-row lock serializes numbering across terminals; the
+// unique (sessionId, number) index and the retry are the safety net.
 const createOrderWithNumber = async ({sessionId, tableId, userId, note, clientRequestId, items}) => {
     let lastError = null;
     for (let attempt = 0; attempt < MAX_NUMBER_RETRIES; attempt += 1) {
@@ -143,7 +143,7 @@ export const create = async (req, res) => {
     try {
         const {tableId, note, clientRequestId} = req.body ?? {};
 
-        // Idempotência: um retry do terminal devolve o pedido já criado
+        // Idempotency: a terminal retry returns the already-created order
         if (clientRequestId) {
             const existing = await Order.findOne({
                 where: {clientRequestId},
@@ -206,7 +206,7 @@ export const create = async (req, res) => {
             printError: printResult.error,
         });
     } catch (error) {
-        // Corrida no clientRequestId (dois retries em simultâneo): devolve o existente
+        // clientRequestId race (two simultaneous retries): return the existing one
         if (isUniqueViolation(error) && req.body?.clientRequestId) {
             const existing = await Order.findOne({
                 where: {clientRequestId: req.body.clientRequestId},
@@ -218,7 +218,7 @@ export const create = async (req, res) => {
         }
         const status = error.statusCode ?? 500;
         if (status >= 500) {
-            console.error('[orders.create] erro:', error);
+            console.error('[orders.create] error:', error);
         }
         res.status(status).send({
             message: status >= 500 ? "Não foi possível criar o pedido." : error.message,
@@ -258,7 +258,7 @@ export const findAll = async (req, res) => {
         });
         res.send(orders);
     } catch (error) {
-        console.error('[orders.findAll] erro:', error);
+        console.error('[orders.findAll] error:', error);
         res.status(500).send({message: "Não foi possível obter os pedidos."});
     }
 };
@@ -271,14 +271,14 @@ export const findOne = async (req, res) => {
         }
         res.send(order);
     } catch (error) {
-        console.error('[orders.findOne] erro:', error);
+        console.error('[orders.findOne] error:', error);
         res.status(500).send({message: "Não foi possível obter o pedido."});
     }
 };
 
-// Aprovação de admin para anulações: ou o próprio utilizador autenticado é
-// admin, ou vêm credenciais de admin no corpo (fluxo do terminal, onde quem
-// está autenticado é o empregado).
+// Admin approval for cancellations: either the authenticated user is an
+// admin, or admin credentials come in the body (terminal flow, where the
+// authenticated user is the waiter).
 const resolveApprovingAdmin = async (req) => {
     if (req.user?.role === db.UserRoles.ADMIN) {
         const self = await db.users.findByPk(req.user.id);
@@ -307,8 +307,8 @@ const resolveApprovingAdmin = async (req) => {
     return admin;
 };
 
-// Anula itens de um pedido já enviado (aprovado por admin) e imprime
-// talão de anulação para a cozinha. Anular tudo anula o pedido.
+// Cancels items of an already-sent order (admin approved) and prints a
+// void ticket for the kitchen. Cancelling everything cancels the order.
 export const cancelItems = async (req, res) => {
     try {
         const admin = await resolveApprovingAdmin(req);
@@ -379,7 +379,7 @@ export const cancelItems = async (req, res) => {
     } catch (error) {
         const status = error.statusCode ?? 500;
         if (status >= 500) {
-            console.error('[orders.cancelItems] erro:', error);
+            console.error('[orders.cancelItems] error:', error);
         }
         res.status(status).send({
             message: status >= 500 ? "Não foi possível anular os itens." : error.message,
@@ -396,8 +396,8 @@ const parseDiscount = (raw) => {
 const validPaymentMethod = (method) =>
     ['cash', 'card', 'mbway', 'other'].includes(method);
 
-// Pagamento de um pedido avulso na caixa: converte o pedido numa invoice
-// normal (relatórios/tesouraria continuam a funcionar como sempre).
+// Payment of a standalone order at the register: converts the order into a
+// regular invoice (reports/cash management keep working as always).
 export const pay = async (req, res) => {
     try {
         const paymentMethod = req.body?.paymentMethod ?? 'cash';
@@ -460,7 +460,7 @@ export const pay = async (req, res) => {
             order: await Order.findByPk(result.order.id, {include: orderInclude}),
         });
     } catch (error) {
-        console.error('[orders.pay] erro:', error);
+        console.error('[orders.pay] error:', error);
         res.status(500).send({message: "Não foi possível registar o pagamento."});
     }
 };
@@ -483,12 +483,12 @@ export const reprint = async (req, res) => {
 
         res.send({printed: printResult.printed, printError: printResult.error});
     } catch (error) {
-        console.error('[orders.reprint] erro:', error);
+        console.error('[orders.reprint] error:', error);
         res.status(500).send({message: "Não foi possível reimprimir o pedido."});
     }
 };
 
-// Procura por número (na sessão ativa) — atalho da caixa "pagar pedido nº X"
+// Lookup by number (in the active session) — register shortcut "pay order #X"
 export const findByNumber = async (req, res) => {
     try {
         const number = Number(req.params.number);
@@ -508,7 +508,7 @@ export const findByNumber = async (req, res) => {
         }
         res.send(order);
     } catch (error) {
-        console.error('[orders.findByNumber] erro:', error);
+        console.error('[orders.findByNumber] error:', error);
         res.status(500).send({message: "Não foi possível obter o pedido."});
     }
 };

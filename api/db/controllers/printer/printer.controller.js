@@ -23,7 +23,7 @@ export const getPrinterList = async (req, res) => {
         }
         res.json(simpleList);
     } catch (err) {
-        console.error('[getPrinterList] erro:', err);
+        console.error('[getPrinterList] error:', err);
         res.status(500).send({message: 'Erro ao listar impressoras'});
     }
 };
@@ -38,8 +38,8 @@ export const printTicket = async (req, res) => {
         const printType = req.body.printType || 'totals';
         const openDrawer = req.body.openDrawer || false;
         const isTest = req.body.test || false;
-        // título opcional do bloco de totais (ex.: "Conta - Mesa 2A" nos
-        // recibos de pagamento); a venda direta mantém o "Pedido:" de sempre
+        // optional title for the totals block (e.g. "Conta - Mesa 2A" on
+        // payment receipts); direct sales keep the usual "Pedido:"
         const receiptTitle = typeof req.body.receiptTitle === 'string'
             ? req.body.receiptTitle.slice(0, 32)
             : undefined;
@@ -67,7 +67,7 @@ export const printTicket = async (req, res) => {
 
         res.send('OK');
     } catch (err) {
-        console.error('[printTicketRequest] erro:', err);
+        console.error('[printTicketRequest] error:', err);
         res.status(500).send({message: 'Erro a imprimir', detail: String(err?.message || err)});
     }
 };
@@ -99,7 +99,7 @@ export const printSessionSummary = async (req, res) => {
         });
         res.send('OK');
     } catch (err) {
-        console.error('[printSessionSummary] erro:', err);
+        console.error('[printSessionSummary] error:', err);
         res.status(500).send({message: 'Erro a imprimir', detail: String(err?.message || err)});
     }
 }

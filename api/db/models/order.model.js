@@ -11,7 +11,7 @@ export default (sequelize, Sequelize) => {
             primaryKey: true,
             autoIncrement: true
         },
-        // Número sequencial por sessão — é o que sai no talão (#042)
+        // Sequential number per session — what gets printed on the ticket (#042)
         number: {
             type: Sequelize.INTEGER,
             allowNull: false
@@ -44,7 +44,7 @@ export default (sequelize, Sequelize) => {
             values: Object.values(OrderStatus),
             defaultValue: OrderStatus.SENT
         },
-        // Soma dos itens ativos, em cêntimos (recalculada no servidor)
+        // Sum of active items, in cents (recomputed server-side)
         total: {
             type: Sequelize.INTEGER,
             allowNull: false,
@@ -66,7 +66,7 @@ export default (sequelize, Sequelize) => {
             type: Sequelize.STRING,
             allowNull: true
         },
-        // Idempotência: o terminal gera um UUID por envio; retries não duplicam pedidos
+        // Idempotency: the terminal generates a UUID per submit; retries never duplicate orders
         clientRequestId: {
             type: Sequelize.STRING(64),
             allowNull: true

@@ -1,4 +1,4 @@
-// Preços chegam da API em cêntimos (INTEGER)
+// Prices come from the API in cents (INTEGER)
 export const centsToEuros = (cents) => {
     const value = (Number(cents) || 0) / 100;
     return value.toLocaleString('pt-PT', {style: 'currency', currency: 'EUR'});

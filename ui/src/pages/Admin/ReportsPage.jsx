@@ -364,7 +364,7 @@ function ReportsPage() {
                 const list = await CashMovementService.getFromSession(viewSession.id);
                 const movements = Array.isArray(list) ? list : list?.data ?? [];
 
-                // faturas desta sessão (válidas)
+                // invoices for this session (valid ones)
                 const invOfSession = (invoices || []).filter(i => String(i.sessionId) === String(viewSession.id));
 
                 const aggregates = computeSessionAggregates(

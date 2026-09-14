@@ -61,7 +61,7 @@ export default function CartComponent({
         <TableContainer
             component={Paper}
             sx={{
-                // desconta o botão "Enviar p/ mesa" (48px + margem) quando existe
+                // subtract the "Enviar p/ mesa" button (48px + margin) when present
                 height: `calc(100vh - ${hasSendToTable ? 246 : 190}px)`,
                 overflow: 'auto',
                 borderRadius: 2,
@@ -139,7 +139,7 @@ export default function CartComponent({
                             {p.name}
                         </TableCell>
 
-                        {/* Preço */}
+                        {/* Price */}
                         <TableCell align="left">{eur.format((p.price ?? 0) / 100)}</TableCell>
 
                         {/* Total linha */}

@@ -1132,8 +1132,8 @@ FLUSH PRIVILEGES;
     }
     Write-Ok "DB/user prontos."
     $apiEnv = Join-Path $ScriptRoot "api/.env"
-    # JWT secret único por instalação (um valor fixo aqui seria público no repo
-    # e permitiria forjar tokens em qualquer cliente)
+    # Per-install JWT secret (a fixed value here would be public in the repo
+    # and would allow forging tokens on any customer install)
     $JwtSecret = New-RandomPassword 32
     $lines = @("DB_HOST=127.0.0.1", "DB_PORT=3306", "DB_USER=$DbUser", "DB_PASSWORD=$DbPass", "DB_NAME=$DbName", "JWT_SECRET=$JwtSecret")
     Set-Content -Path $apiEnv -Value $lines -Encoding ascii
@@ -1291,8 +1291,8 @@ if (Test-Path (Join-Path $terminalPath 'package.json'))
         Write-Ok "Terminal build already present."
     }
 
-    # Firewall: os telemoveis/tablets precisam de chegar a API (porta 9393)
-    # na rede privada. So e necessario para o modo multiposto.
+    # Firewall: phones/tablets need to reach the API (port 9393) on the
+    # private network. Only needed for multi-terminal mode.
     Write-Info "Configuring firewall rule for terminals (port 9393)..."
     try
     {

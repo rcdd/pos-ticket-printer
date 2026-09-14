@@ -32,8 +32,8 @@ class OrderService {
         return http.post(this.BASE_URL + `/order/${id}/reprint`);
     }
 
-    // body: {itemIds: [...]} ou {all: true}; + adminUsername/adminPassword
-    // quando quem chama não é admin
+    // body: {itemIds: [...]} or {all: true}; + adminUsername/adminPassword
+    // when the caller is not an admin
     cancelItems(id, body) {
         return http.post(this.BASE_URL + `/order/${id}/cancel-items`, body);
     }
@@ -54,12 +54,12 @@ class OrderService {
         return http.post(this.BASE_URL + `/table/${id}/close-empty`);
     }
 
-    // Estado público (sem auth): multiposto ativo? caixa aberta?
+    // Public status (no auth): multi-terminal active? register session open?
     getTerminalStatus() {
         return http.get(this.BASE_URL + "/system/terminal-status");
     }
 
-    // Info detalhada (admin): IPs/URLs dos terminais para o QR code
+    // Detailed info (admin): terminal IPs/URLs for the QR code
     getSystemInfo() {
         return http.get(this.BASE_URL + "/system/info");
     }

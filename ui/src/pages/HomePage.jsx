@@ -188,7 +188,7 @@ function HomePage() {
         loadLicenseStatus();
     }, [loadLicenseStatus]);
 
-    // Multiposto ativo? (licença + configuração) — mostra/esconde a página Pedidos
+    // Multi-terminal active? (license + setting) — shows/hides the Pedidos page
     React.useEffect(() => {
         if (!licenseValid) {
             setMultiActive(false);
@@ -385,8 +385,8 @@ function HomePage() {
         return () => window.removeEventListener('keydown', onKey);
     }, []);
 
-    // Sessão expirada (token JWT caducou por inatividade): em vez de deixar a
-    // app num limbo de erros, volta ao ecrã bloqueado e abre logo o login.
+    // Session expired (JWT lapsed through inactivity): instead of leaving the
+    // app in an error limbo, go back to the lock screen and open the login.
     React.useEffect(() => {
         const onSessionExpired = () => {
             AuthService.clearSession();

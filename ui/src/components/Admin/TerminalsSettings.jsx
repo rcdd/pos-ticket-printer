@@ -6,8 +6,8 @@ import QRCode from 'qrcode';
 import OrderService from '../../services/order.service';
 import {useToast} from '../Common/ToastProvider';
 
-// Configuração do modo multiposto + QR code de acesso para os terminais.
-// Efetivo = licença com multiposto E opção ativada.
+// Multi-terminal mode settings + access QR codes for the terminals.
+// Effective = license includes multi AND the option is enabled.
 export default function TerminalsSettings() {
     const {pushNetworkError, pushMessage} = useToast();
     const [info, setInfo] = useState(null);

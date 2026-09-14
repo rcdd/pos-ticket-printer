@@ -3,9 +3,9 @@ import {subscribe} from '../services/events.service.js';
 
 const router = Router();
 
-// Server-Sent Events: terminais e caixa recebem atualizações sem polling.
-// A autenticação vem em ?token= (o EventSource não permite headers) e é
-// validada pelo middleware authenticate montado antes desta rota.
+// Server-Sent Events: terminals and the register get updates without polling.
+// Authentication comes in ?token= (EventSource cannot set headers) and is
+// validated by the authenticate middleware mounted before this route.
 router.get('/events', (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
@@ -19,7 +19,7 @@ router.get('/events', (req, res) => {
         res.write(`event: ${event.type}\ndata: ${JSON.stringify(event.payload)}\n\n`);
     });
 
-    // keep-alive: alguns proxies/browsers fecham ligações silenciosas
+    // keep-alive: some proxies/browsers close silent connections
     const ping = setInterval(() => {
         res.write(': ping\n\n');
     }, 25000);

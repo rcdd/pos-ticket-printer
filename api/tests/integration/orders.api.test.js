@@ -2,11 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import 'dotenv/config';
 
-// Base de dados dedicada aos testes — nunca tocar na ptp_db de dev.
+// Dedicated test database — never touch the dev ptp_db.
 process.env.DB_NAME = 'ptp_test';
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret';
 
-const MULTI_TOKEN = 'DEMO-NR8-1-DEHJF2'; // fixture: secret PTP-TEST-CODE, expira 2031-01-01, multi
+const MULTI_TOKEN = 'DEMO-NR8-1-DEHJF2'; // fixture: secret PTP-TEST-CODE, expires 2031-01-01, multi
 const INSTALLATION_CODE = 'PTP-TEST-CODE';
 
 const canConnect = async () => {
@@ -27,9 +27,9 @@ const canConnect = async () => {
     }
 };
 
-test('API de pedidos e mesas (integração)', async (t) => {
+test('orders and tables API (integration)', async (t) => {
     if (!(await canConnect())) {
-        t.skip('MySQL de teste indisponível (arranque o container mysqldb).');
+        t.skip('Test MySQL unavailable (start the mysqldb container).');
         return;
     }
 
@@ -40,14 +40,14 @@ test('API de pedidos e mesas (integração)', async (t) => {
 
     await db.sequelize.sync({force: true});
 
-    // Licença multiposto: fixa o installation code e aplica o token de teste
+    // Multi-terminal license: pin the installation code and apply the test token
     await db.options.create({name: 'license_installation_code', value: INSTALLATION_CODE});
     await initLicenseState();
     const licenseRes = await request(app).post('/license/apply').send({code: MULTI_TOKEN});
     assert.equal(licenseRes.status, 200, JSON.stringify(licenseRes.body));
     assert.equal(licenseRes.body.features.multi, true);
 
-    // Primeiro utilizador (admin) + um empregado
+    // First user (admin) + one waiter
     const adminCreate = await request(app).post('/user/add')
         .send({username: 'chefe', password: 'segredo123', role: 'admin', name: 'Chefe'});
     assert.equal(adminCreate.status, 201, JSON.stringify(adminCreate.body));
@@ -67,19 +67,19 @@ test('API de pedidos e mesas (integração)', async (t) => {
     const waiterToken = waiterLogin.body.token;
     const authWaiter = (req) => req.set('Authorization', `Bearer ${waiterToken}`);
 
-    // Produtos e menu de teste (diretos à BD — não é o alvo destes testes)
+    // Test products and menu (straight into the DB — not what these tests target)
     const zone = await db.zones.create({name: 'Bar'});
     const beer = await db.products.create({name: 'Imperial', price: 150, zoneId: zone.id});
     const dish = await db.products.create({name: 'Francesinha', price: 950, zoneId: zone.id});
     const menu = await db.menus.create({name: 'Menu Almoço', price: 1200});
 
-    await t.test('multiposto desligado por omissão: criar pedido dá 403', async () => {
+    await t.test('multi-terminal off by default: creating an order gives 403', async () => {
         const res = await authWaiter(request(app).post('/order'))
             .send({items: [{productId: beer.id, quantity: 1}]});
         assert.equal(res.status, 403);
     });
 
-    await t.test('só admin liga o multiposto', async () => {
+    await t.test('only admin can enable multi-terminal', async () => {
         const forbidden = await authWaiter(request(app).post('/option/multi-terminal')).send({enabled: true});
         assert.equal(forbidden.status, 403);
 
@@ -88,7 +88,7 @@ test('API de pedidos e mesas (integração)', async (t) => {
         assert.equal(ok.body.enabled, true);
     });
 
-    await t.test('sem sessão de caixa aberta: criar pedido dá 409', async () => {
+    await t.test('no open register session: creating an order gives 409', async () => {
         const res = await authWaiter(request(app).post('/order'))
             .send({items: [{productId: beer.id, quantity: 1}]});
         assert.equal(res.status, 409);
@@ -102,14 +102,14 @@ test('API de pedidos e mesas (integração)', async (t) => {
 
     let firstOrderId = null;
 
-    await t.test('pedido avulso: cria, numera e calcula total no servidor', async () => {
+    await t.test('standalone order: created, numbered and totalled server-side', async () => {
         const res = await authWaiter(request(app).post('/order')).send({
             clientRequestId: 'req-0001',
             note: 'sem espuma',
             items: [
                 {productId: beer.id, quantity: 2},
                 {menuId: menu.id, quantity: 1},
-                // preço enviado pelo cliente é ignorado
+                // client-sent price is ignored
                 {productId: dish.id, quantity: 1, price: 1},
             ],
         });
@@ -125,7 +125,7 @@ test('API de pedidos e mesas (integração)', async (t) => {
         firstOrderId = order.id;
     });
 
-    await t.test('retry com o mesmo clientRequestId não duplica', async () => {
+    await t.test('retry with the same clientRequestId does not duplicate', async () => {
         const res = await authWaiter(request(app).post('/order')).send({
             clientRequestId: 'req-0001',
             items: [{productId: beer.id, quantity: 2}],
@@ -135,7 +135,7 @@ test('API de pedidos e mesas (integração)', async (t) => {
         assert.equal(res.body.order.id, firstOrderId);
     });
 
-    await t.test('itens inválidos são rejeitados com 400', async () => {
+    await t.test('invalid items are rejected with 400', async () => {
         for (const items of [
             [],
             [{quantity: 1}],
@@ -144,7 +144,7 @@ test('API de pedidos e mesas (integração)', async (t) => {
             [{productId: 99999, quantity: 1}],
         ]) {
             const res = await authWaiter(request(app).post('/order')).send({items});
-            assert.equal(res.status, 400, `esperava 400 para ${JSON.stringify(items)}`);
+            assert.equal(res.status, 400, `expected 400 for ${JSON.stringify(items)}`);
         }
     });
 
@@ -152,7 +152,7 @@ test('API de pedidos e mesas (integração)', async (t) => {
 
     let secondGroupId = null;
 
-    await t.test('mesas: nº físico + letra de grupo; mesma mesa cria grupo novo', async () => {
+    await t.test('tables: physical number + group letter; same table creates a new group', async () => {
         const auto = await authWaiter(request(app).post('/table')).send({});
         assert.equal(auto.status, 201);
         assert.equal(auto.body.number, '1');
@@ -164,27 +164,27 @@ test('API de pedidos e mesas (integração)', async (t) => {
         assert.equal(named.body.displayName, '12A');
         tableId = named.body.id;
 
-        // segundo grupo na mesma mesa física → letra seguinte, sem conflito
+        // second group at the same physical table → next letter, no conflict
         const second = await authWaiter(request(app).post('/table')).send({number: '12'});
         assert.equal(second.status, 201);
         assert.equal(second.body.letter, 'B');
         assert.equal(second.body.displayName, '12B');
         secondGroupId = second.body.id;
 
-        // consulta por nº físico devolve os grupos ordenados
+        // lookup by physical number returns the groups sorted
         const byNumber = await authWaiter(request(app).get('/tables/by-number/12'));
         assert.equal(byNumber.status, 200);
         assert.equal(byNumber.body.number, '12');
         assert.deepEqual(byNumber.body.tabs.map((tab) => tab.displayName), ['12A', '12B']);
-        // rastreabilidade: quem abriu a conta vem na resposta
+        // traceability: who opened the tab comes in the response
         assert.equal(byNumber.body.tabs[0].openedBy.username, 'joao');
 
-        // fecha já o grupo B (vazio) para não interferir nos testes seguintes
+        // close group B (empty) right away so it doesn't interfere with later tests
         const closed = await authWaiter(request(app).post(`/table/${secondGroupId}/close-empty`));
         assert.equal(closed.status, 200);
     });
 
-    await t.test('pedido associado a mesa acumula no total por pagar', async () => {
+    await t.test('order attached to a table accrues on the unpaid total', async () => {
         const res = await authWaiter(request(app).post('/order')).send({
             tableId,
             items: [{productId: dish.id, quantity: 2}],
@@ -203,7 +203,7 @@ test('API de pedidos e mesas (integração)', async (t) => {
         assert.equal(row.openOrders, 1);
     });
 
-    await t.test('pedido para mesa inexistente/fechada dá 400', async () => {
+    await t.test('order for a missing/closed table gives 400', async () => {
         const res = await authWaiter(request(app).post('/order')).send({
             tableId: 9999,
             items: [{productId: beer.id, quantity: 1}],
@@ -211,7 +211,7 @@ test('API de pedidos e mesas (integração)', async (t) => {
         assert.equal(res.status, 400);
     });
 
-    await t.test('listagem e pesquisa por número', async () => {
+    await t.test('listing and lookup by number', async () => {
         const list = await authWaiter(request(app).get('/orders?status=sent'));
         assert.equal(list.status, 200);
         assert.equal(list.body.length, 2);
@@ -224,7 +224,7 @@ test('API de pedidos e mesas (integração)', async (t) => {
         assert.equal(missing.status, 404);
     });
 
-    await t.test('criações concorrentes recebem números distintos', async () => {
+    await t.test('concurrent creations get distinct numbers', async () => {
         const results = await Promise.all(Array.from({length: 5}, (_, i) =>
             authWaiter(request(app).post('/order')).send({
                 clientRequestId: `conc-${i}`,
@@ -235,10 +235,10 @@ test('API de pedidos e mesas (integração)', async (t) => {
             assert.equal(r.status, 201, JSON.stringify(r.body));
             return r.body.order.number;
         });
-        assert.equal(new Set(numbers).size, numbers.length, `números repetidos: ${numbers}`);
+        assert.equal(new Set(numbers).size, numbers.length, `duplicate numbers: ${numbers}`);
     });
 
-    await t.test('fechar mesa: com pedidos por pagar dá 409, vazia fecha', async () => {
+    await t.test('closing a table: 409 with unpaid orders, empty one closes', async () => {
         const blocked = await authWaiter(request(app).post(`/table/${tableId}/close-empty`));
         assert.equal(blocked.status, 409);
 
@@ -248,22 +248,22 @@ test('API de pedidos e mesas (integração)', async (t) => {
         assert.equal(closed.body.status, 'closed');
     });
 
-    await t.test('nº de mesa tem de ser numérico; zeros à esquerda normalizam', async () => {
+    await t.test('table number must be numeric; leading zeros normalize', async () => {
         for (const bad of ['Esplanada', '12B', '0', '-3', '10000']) {
             const res = await authWaiter(request(app).post('/table')).send({number: bad});
-            assert.equal(res.status, 400, `esperava 400 para "${bad}"`);
+            assert.equal(res.status, 400, `expected 400 for "${bad}"`);
         }
         const badLookup = await authWaiter(request(app).get('/tables/by-number/abc'));
         assert.equal(badLookup.status, 400);
 
-        // "012" e "12" são a mesma mesa física
+        // "012" and "12" are the same physical table
         const padded = await authWaiter(request(app).post('/table')).send({number: '012'});
         assert.equal(padded.status, 201);
         assert.equal(padded.body.number, '12');
         await authWaiter(request(app).post(`/table/${padded.body.id}/close-empty`));
     });
 
-    await t.test('/system/info: admin vê estado multi, waiter não acede', async () => {
+    await t.test('/system/info: admin sees multi status, waiter has no access', async () => {
         const forbidden = await authWaiter(request(app).get('/system/info'));
         assert.equal(forbidden.status, 403);
 
@@ -274,7 +274,7 @@ test('API de pedidos e mesas (integração)', async (t) => {
         assert.equal(info.body.port, Number(process.env.NODE_DOCKER_PORT || 9393));
     });
 
-    await t.test('sem impressora configurada: pedido cria na mesma, printed=false', async () => {
+    await t.test('no printer configured: order still created, printed=false', async () => {
         const res = await authWaiter(request(app).post('/order')).send({
             clientRequestId: 'print-1',
             items: [{productId: beer.id, quantity: 1}],
@@ -285,7 +285,7 @@ test('API de pedidos e mesas (integração)', async (t) => {
         assert.equal(res.body.order.printedAt, null);
     });
 
-    await t.test('impressora inválida: pedido cria na mesma, com printError', async () => {
+    await t.test('invalid printer: order still created, with printError', async () => {
         await db.options.create({name: 'printer', value: 'ImpressoraFantasma'});
 
         const res = await authWaiter(request(app).post('/order')).send({
@@ -294,21 +294,21 @@ test('API de pedidos e mesas (integração)', async (t) => {
         });
         assert.equal(res.status, 201);
         assert.equal(res.body.printed, false);
-        assert.ok(res.body.printError, 'esperava mensagem de erro de impressão');
+        assert.ok(res.body.printError, 'expected a print error message');
         assert.equal(res.body.order.printedAt, null);
     });
 
-    await t.test('reimpressão: 404 para pedido inexistente, best-effort para existente', async () => {
+    await t.test('reprint: 404 for a missing order, best-effort for an existing one', async () => {
         const missing = await authWaiter(request(app).post('/order/99999/reprint'));
         assert.equal(missing.status, 404);
 
         const res = await authWaiter(request(app).post(`/order/${firstOrderId}/reprint`));
         assert.equal(res.status, 200);
-        assert.equal(res.body.printed, false); // não há impressora real nos testes
+        assert.equal(res.body.printed, false); // no real printer in tests
         assert.ok(res.body.printError);
     });
 
-    await t.test('desligar multiposto volta a bloquear criação (mas não leitura)', async () => {
+    await t.test('disabling multi-terminal blocks creation again (but not reads)', async () => {
         await authAdmin(request(app).post('/option/multi-terminal')).send({enabled: false});
 
         const blocked = await authWaiter(request(app).post('/order'))
@@ -321,7 +321,7 @@ test('API de pedidos e mesas (integração)', async (t) => {
         await authAdmin(request(app).post('/option/multi-terminal')).send({enabled: true});
     });
 
-    await t.test('pagar pedido: waiter não pode; admin paga com desconto e cria invoice', async () => {
+    await t.test('paying an order: waiter cannot; admin pays with discount and creates an invoice', async () => {
         const forbidden = await authWaiter(request(app).post(`/order/${firstOrderId}/pay`))
             .send({paymentMethod: 'cash'});
         assert.equal(forbidden.status, 403);
@@ -345,7 +345,7 @@ test('API de pedidos e mesas (integração)', async (t) => {
         assert.equal(again.status, 409);
     });
 
-    await t.test('pagar mesa: invoice única, pedidos pagos, mesa fechada', async () => {
+    await t.test('paying a table: single invoice, orders paid, table closed', async () => {
         const res = await authAdmin(request(app).post(`/table/${tableId}/pay`))
             .send({paymentMethod: 'cash'});
         assert.equal(res.status, 200, JSON.stringify(res.body));
@@ -362,14 +362,14 @@ test('API de pedidos e mesas (integração)', async (t) => {
         const openTables = await authAdmin(request(app).get('/tables'));
         assert.ok(!openTables.body.some((tbl) => tbl.id === tableId));
 
-        // letra reutilizada: 12A fechou, o próximo grupo da mesa 12 volta a ser A
+        // letter reuse: 12A closed, the next group at table 12 becomes A again
         const reopened = await authWaiter(request(app).post('/table')).send({number: '12'});
         assert.equal(reopened.status, 201);
         assert.equal(reopened.body.displayName, '12A');
         await authWaiter(request(app).post(`/table/${reopened.body.id}/close-empty`));
     });
 
-    await t.test('anulação de itens: exige aprovação de admin e recalcula o total', async () => {
+    await t.test('item cancellation: requires admin approval and recomputes the total', async () => {
         const created = await authWaiter(request(app).post('/order')).send({
             clientRequestId: 'cancel-1',
             items: [
@@ -382,22 +382,22 @@ test('API de pedidos e mesas (integração)', async (t) => {
         const beerItem = order.items.find((i) => i.productId === beer.id);
         const dishItem = order.items.find((i) => i.productId === dish.id);
 
-        // sem credenciais e sem ser admin → 401
+        // no credentials and not an admin → 401
         const noCreds = await authWaiter(request(app).post(`/order/${order.id}/cancel-items`))
             .send({itemIds: [beerItem.id]});
         assert.equal(noCreds.status, 401);
 
-        // credenciais erradas → 401
+        // wrong credentials → 401
         const badCreds = await authWaiter(request(app).post(`/order/${order.id}/cancel-items`))
             .send({itemIds: [beerItem.id], adminUsername: 'chefe', adminPassword: 'errada'});
         assert.equal(badCreds.status, 401);
 
-        // credenciais de não-admin → 403
+        // non-admin credentials → 403
         const notAdmin = await authWaiter(request(app).post(`/order/${order.id}/cancel-items`))
             .send({itemIds: [beerItem.id], adminUsername: 'joao', adminPassword: 'segredo123'});
         assert.equal(notAdmin.status, 403);
 
-        // aprovado pelo admin → item anulado, total recalculado, auditoria preenchida
+        // approved by the admin → item cancelled, total recomputed, audit fields filled
         const ok = await authWaiter(request(app).post(`/order/${order.id}/cancel-items`))
             .send({itemIds: [beerItem.id], adminUsername: 'chefe', adminPassword: 'segredo123'});
         assert.equal(ok.status, 200, JSON.stringify(ok.body));
@@ -408,7 +408,7 @@ test('API de pedidos e mesas (integração)', async (t) => {
         assert.equal(cancelledItem.cancelledById, adminUser.id);
         assert.ok(cancelledItem.cancelledAt);
 
-        // admin autenticado não precisa de credenciais; anular tudo anula o pedido
+        // an authenticated admin needs no credentials; cancelling everything cancels the order
         const rest = await authAdmin(request(app).post(`/order/${order.id}/cancel-items`))
             .send({itemIds: [dishItem.id]});
         assert.equal(rest.status, 200);
@@ -416,7 +416,7 @@ test('API de pedidos e mesas (integração)', async (t) => {
         assert.equal(rest.body.order.status, 'cancelled');
         assert.equal(rest.body.order.total, 0);
 
-        // pedido anulado não pode ser pago nem re-anulado
+        // a cancelled order can be neither paid nor re-cancelled
         const payCancelled = await authAdmin(request(app).post(`/order/${order.id}/pay`))
             .send({paymentMethod: 'cash'});
         assert.equal(payCancelled.status, 409);
@@ -425,7 +425,7 @@ test('API de pedidos e mesas (integração)', async (t) => {
         assert.equal(cancelAgain.status, 409);
     });
 
-    await t.test('anular tudo com all:true e recusar em pedidos pagos', async () => {
+    await t.test('cancel everything with all:true; refuse on paid orders', async () => {
         const paid = await authAdmin(request(app).post(`/order/${firstOrderId}/cancel-items`))
             .send({all: true});
         assert.equal(paid.status, 409);
@@ -440,7 +440,7 @@ test('API de pedidos e mesas (integração)', async (t) => {
         assert.equal(all.body.fullyCancelled, true);
     });
 
-    await t.test('SSE /events: exige token e entrega eventos em tempo real', async () => {
+    await t.test('SSE /events: requires a token and delivers events in realtime', async () => {
         const noToken = await request(app).get('/events');
         assert.equal(noToken.status, 401);
 
@@ -475,27 +475,27 @@ test('API de pedidos e mesas (integração)', async (t) => {
         }
     });
 
-    await t.test('rate-limit no login: 6ª tentativa falhada dá 429', async () => {
+    await t.test('login rate limit: 6th failed attempt gives 429', async () => {
         for (let i = 0; i < 5; i += 1) {
             const res = await request(app).post('/user/login')
                 .send({username: 'atacante', password: `errada-${i}`});
-            assert.equal(res.status, 404); // utilizador não existe
+            assert.equal(res.status, 404); // user does not exist
         }
         const blocked = await request(app).post('/user/login')
             .send({username: 'atacante', password: 'errada-6'});
         assert.equal(blocked.status, 429);
         assert.ok(blocked.headers['retry-after']);
 
-        // outros utilizadores não são afetados (chave por IP+username)
+        // other users are unaffected (key is IP+username)
         const ok = await request(app).post('/user/login')
             .send({username: 'joao', password: 'segredo123'});
         assert.equal(ok.status, 200);
     });
 
-    await t.test('fecho de sessão: bloqueia com pendentes; force anula e fecha mesas', async () => {
+    await t.test('session close: blocks with pending orders; force cancels them and closes tables', async () => {
         const pendingBefore = await db.orders.count({where: {sessionId, status: 'sent'}});
         const cancelledBefore = await db.orders.count({where: {sessionId, status: 'cancelled'}});
-        assert.ok(pendingBefore > 0, 'devia haver pedidos por pagar neste ponto');
+        assert.ok(pendingBefore > 0, 'there should be unpaid orders at this point');
 
         const blocked = await authAdmin(request(app).post(`/session/close/${sessionId}`))
             .send({userId: adminUser.id, finalAmount: 9000});
@@ -518,7 +518,7 @@ test('API de pedidos e mesas (integração)', async (t) => {
         assert.equal(active.status, 404);
     });
 
-    assert.ok(sessionId, 'sessão de teste criada');
+    assert.ok(sessionId, 'test session created');
 
     await db.sequelize.close();
 });
