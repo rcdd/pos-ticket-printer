@@ -32,7 +32,11 @@ function PrinterPage() {
     const [saving, setSaving] = useState(false);
     const [testing, setTesting] = useState(false);
 
-    const [printers, setPrinters] = useState([]);
+    // Printer list is loaded lazily (only when the select is opened): on
+    // Windows it spawns a PowerShell `Get-Printer` that takes seconds, and it
+    // was slowing down the whole settings page on every visit.
+    const [printers, setPrinters] = useState(null); // null = not fetched yet
+    const [printersLoading, setPrintersLoading] = useState(false);
     const [printer, setPrinter] = useState("");
     const [printType, setPrintType] = useState("totals");
     const [openDrawer, setOpenDrawer] = useState(false);
@@ -53,8 +57,7 @@ function PrinterPage() {
         (async () => {
             try {
                 setLoading(true);
-                const [listRes, printerRes, typeRes, headersRes, openDrawerRes] = await Promise.all([
-                    PrinterService.getList(),
+                const [printerRes, typeRes, headersRes, openDrawerRes] = await Promise.all([
                     OptionService.getPrinter(),
                     OptionService.getPrintType(),
                     OptionService.getHeaders(),
@@ -63,7 +66,6 @@ function PrinterPage() {
 
                 if (!mounted) return;
 
-                setPrinters(listRes.data || []);
                 setPrinter(printerRes?.data?.name ?? "");
                 setPrintType(typeRes?.data || "totals");
                 setFirstLine(headersRes?.data?.firstLine || "");
@@ -81,6 +83,20 @@ function PrinterPage() {
             mounted = false;
         };
     }, [pushNetworkError]);
+
+    const loadPrinters = useCallback(async () => {
+        if (printers !== null || printersLoading) return;
+        setPrintersLoading(true);
+        try {
+            const res = await PrinterService.getList();
+            setPrinters(res.data || []);
+        } catch (error) {
+            pushNetworkError(error, {title: "Não foi possível obter a lista de impressoras"});
+            // keep null so the next open retries
+        } finally {
+            setPrintersLoading(false);
+        }
+    }, [printers, printersLoading, pushNetworkError]);
 
     const onChangePrinter = async (event) => {
         const value = event.target.value;
@@ -176,11 +192,34 @@ function PrinterPage() {
         }
     };
 
-    const printerMenu = useMemo(() => printers.map((p) => (
-        <MenuItem key={p.systemName} value={p.systemName}>
-            {p.name}
-        </MenuItem>
-    )), [printers]);
+    const printerMenu = useMemo(() => {
+        const list = printers ?? [];
+        const items = [];
+        // configured printer always renderable, even before the list loads
+        // (also covers a saved printer that is currently offline/removed)
+        if (printer && !list.some((p) => p.systemName === printer)) {
+            items.push(
+                <MenuItem key="__current__" value={printer}>
+                    {printer}{printers !== null ? " (não encontrada)" : ""}
+                </MenuItem>
+            );
+        }
+        if (printersLoading) {
+            items.push(
+                <MenuItem key="__loading__" value="__loading__" disabled>
+                    <CircularProgress size={16} sx={{mr: 1}}/> A procurar impressoras…
+                </MenuItem>
+            );
+        }
+        for (const p of list) {
+            items.push(
+                <MenuItem key={p.systemName} value={p.systemName}>
+                    {p.name}
+                </MenuItem>
+            );
+        }
+        return items;
+    }, [printers, printersLoading, printer]);
 
     return (
         <Stack spacing={3}>
@@ -207,6 +246,7 @@ function PrinterPage() {
                                     id="printer-select"
                                     label="Impressora"
                                     value={printer}
+                                    onOpen={loadPrinters}
                                     onChange={onChangePrinter}
                                 >
                                     {printerMenu}

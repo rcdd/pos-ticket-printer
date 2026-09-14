@@ -144,15 +144,19 @@ export default function SessionPage({ onCloseSession }) {
             openDrawer: true
         };
 
-        await PrinterService.printSessionSummary(sessionPayload).catch((error) => {
-            console.error("Erro ao imprimir o resumo da sessão:", error);
-            pushNetworkError(error, { title: "Não foi possível imprimir o resumo da sessão" });
-        });
-
         const payload = {
             userId: user.id,
             closingAmount: finalCashValueCents,
             notes,
+        };
+
+        // The summary ticket must only print when the session actually closes —
+        // never when the close is refused (unpaid orders) or the user backs out.
+        const printSummary = async () => {
+            await PrinterService.printSessionSummary(sessionPayload).catch((error) => {
+                console.error("Erro ao imprimir o resumo da sessão:", error);
+                pushNetworkError(error, { title: "Não foi possível imprimir o resumo da sessão" });
+            });
         };
 
         const finishClose = () => {
@@ -167,6 +171,7 @@ export default function SessionPage({ onCloseSession }) {
 
         try {
             await SessionService.close(session.id, payload);
+            await printSummary();
             finishClose();
         } catch (error) {
             // Unpaid terminal orders: ask for confirmation to cancel them
@@ -174,6 +179,7 @@ export default function SessionPage({ onCloseSession }) {
                 setPendingForceClose({
                     count: error.response.data.pendingOrders,
                     payload,
+                    printSummary,
                     finishClose,
                 });
                 return;
@@ -187,6 +193,7 @@ export default function SessionPage({ onCloseSession }) {
         if (!pendingForceClose) return;
         try {
             await SessionService.close(session.id, { ...pendingForceClose.payload, force: true });
+            await pendingForceClose.printSummary();
             pendingForceClose.finishClose();
         } catch (error) {
             setPendingForceClose(null);
