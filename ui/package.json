@@ -38,7 +38,9 @@
     "yaml": "^2.8.0"
   },
   "overrides": {
-    "nth-check": "2.1.1"
+    "nth-check": "2.1.1",
+    "websocket-driver": "0.7.5",
+    "shell-quote": "1.8.4"
   },
   "devDependencies": {
     "@babel/plugin-proposal-private-property-in-object": "^7.21.11"

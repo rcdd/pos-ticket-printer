@@ -267,11 +267,14 @@ function Sync-Into
     }
 }
 
+# Removes node_modules only. The repo's package-lock.json is kept ON PURPOSE:
+# Npm-Install-And-Build then runs `npm ci`, which installs the exact dependency
+# set that was tested upstream, instead of re-resolving version ranges on the
+# client machine (which used to pull untested versions on every update).
 function Reset-NpmArtifacts
 {
     param([string]$projPath)
 
-    $lockFile = Join-Path $projPath 'package-lock.json'
     $nodeModules = Join-Path $projPath 'node_modules'
 
     if (Test-Path $nodeModules)
@@ -284,19 +287,6 @@ function Reset-NpmArtifacts
         catch
         {
             throw "Falha ao remover node_modules em $projPath : $($_.Exception.Message)"
-        }
-    }
-
-    if (Test-Path $lockFile)
-    {
-        Write-Host "A remover package-lock.json ($projPath)"
-        try
-        {
-            Remove-Item -Path $lockFile -Force -ErrorAction Stop
-        }
-        catch
-        {
-            throw ( "Falha ao remover package-lock.json em $projPath : $_.Exception.Message" )
         }
     }
 }
