@@ -11,6 +11,10 @@ class PrinterService {
         return http.post(this.BASE_URL + "/printer/print-ticket", data);
     }
 
+    testDrawer() {
+        return http.post(this.BASE_URL + "/printer/test-drawer");
+    }
+
     printSessionSummary(data) {
         return http.post(this.BASE_URL + "/printer/print-session", data);
     }

@@ -190,6 +190,13 @@ export async function listPrinters() {
     return await escpos.listPrinters();
 }
 
+// Drawer kick only — used by the settings "test drawer" button to validate
+// the configured pin without printing anything.
+export async function kickDrawer({printerName, profile}) {
+    applyProfile(profile);
+    await escpos.printRawByName(printerName, openCashDrawer(), 'POS Drawer Kick');
+}
+
 // Full order/void ticket jobs. In legacy mode the header (+cut) trails the
 // content — the house scheme; in standard mode the header opens the ticket.
 export function buildOrderTicketJob({headers, profile, ...content}) {

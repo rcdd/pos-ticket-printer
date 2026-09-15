@@ -2,7 +2,7 @@ import db from '../../index.js';
 
 const Option = db.options;
 
-import {listPrinters, printTicketRequest, printSessionRequest} from '../../../services/printing/printService.js';
+import {listPrinters, printTicketRequest, printSessionRequest, kickDrawer} from '../../../services/printing/printService.js';
 import {getPrintProfileVariable} from '../options.controller.js';
 
 export const getPrintName = async () => {
@@ -71,6 +71,21 @@ export const printTicket = async (req, res) => {
     } catch (err) {
         console.error('[printTicketRequest] error:', err);
         res.status(500).send({message: 'Erro a imprimir', detail: String(err?.message || err)});
+    }
+};
+
+// "Testar gaveta": envia apenas o comando de abertura, sem imprimir nada
+export const testDrawer = async (req, res) => {
+    try {
+        const printerName = await getPrintName().catch(() => null);
+        if (!printerName) {
+            return res.status(404).send({message: 'Impressora não definida.'});
+        }
+        await kickDrawer({printerName, profile: await getPrintProfileVariable()});
+        res.send('OK');
+    } catch (err) {
+        console.error('[testDrawer] error:', err);
+        res.status(500).send({message: 'Não foi possível abrir a gaveta.', detail: String(err?.message || err)});
     }
 };
 

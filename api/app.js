@@ -216,6 +216,7 @@ app.use(eventsRoutes);
 
 // POS/runtime endpoints (authenticated)
 app.get('/printer/list', printer.getPrinterList);
+app.post('/printer/test-drawer', printer.testDrawer);
 
 app.post('/printer/print-ticket', async (req, res) => {
     const printNameOption = await options.getPrinterVariable();

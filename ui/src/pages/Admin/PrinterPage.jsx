@@ -19,6 +19,7 @@ import TuneIcon from "@mui/icons-material/Tune";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import LoadingButton from "@mui/lab/LoadingButton";
 import PrintRoundedIcon from "@mui/icons-material/PrintRounded";
+import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
 
 import TextFieldKeyboard from "../../components/Common/TextFieldKeyboard";
 import PrinterService from "../../services/printer.service";
@@ -34,6 +35,7 @@ function PrinterPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [testing, setTesting] = useState(false);
+    const [testingDrawer, setTestingDrawer] = useState(false);
 
     // Printer list is loaded lazily (only when the select is opened): on
     // Windows it spawns a PowerShell `Get-Printer` that takes seconds, and it
@@ -234,6 +236,18 @@ function PrinterPage() {
     }, [persistProfile]);
 
     useEffect(() => () => clearTimeout(profileDebounce.current), []);
+
+    const handleTestDrawer = async () => {
+        try {
+            setTestingDrawer(true);
+            await PrinterService.testDrawer();
+            pushMessage("success", "Comando de abertura enviado — a gaveta deve ter aberto.");
+        } catch (error) {
+            pushNetworkError(error, {title: "Não foi possível abrir a gaveta"});
+        } finally {
+            setTestingDrawer(false);
+        }
+    };
 
     const handleTestPrint = async () => {
         try {
@@ -582,15 +596,25 @@ function PrinterPage() {
 
             <Divider/>
 
-            <LoadingButton
-                onClick={handleTestPrint}
-                loading={testing}
-                variant="contained"
-                startIcon={<PrintRoundedIcon/>}
-                sx={{alignSelf: {xs: "stretch", sm: "flex-start"}}}
-            >
-                Testar impressão
-            </LoadingButton>
+            <Stack direction={{xs: "column", sm: "row"}} spacing={1.5}
+                   sx={{alignSelf: {xs: "stretch", sm: "flex-start"}}}>
+                <LoadingButton
+                    onClick={handleTestPrint}
+                    loading={testing}
+                    variant="contained"
+                    startIcon={<PrintRoundedIcon/>}
+                >
+                    Testar impressão
+                </LoadingButton>
+                <LoadingButton
+                    onClick={handleTestDrawer}
+                    loading={testingDrawer}
+                    variant="outlined"
+                    startIcon={<PointOfSaleIcon/>}
+                >
+                    Testar gaveta
+                </LoadingButton>
+            </Stack>
         </Stack>
     );
 }
