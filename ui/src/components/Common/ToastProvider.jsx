@@ -1,5 +1,5 @@
 // useErrorToast.jsx
-import React, {createContext, useCallback, useContext, useMemo, useRef, useState} from 'react';
+import React, {createContext, useCallback, useContext, useEffect, useMemo, useRef, useState} from 'react';
 import AlertSnackbar from "./AlertSnackbar";
 
 // Shape of a toast item
@@ -25,6 +25,15 @@ export function ToastProvider({
         setTimeout(showNext, 50);
     }, [showNext]);
 
+    // currentRef keeps push() identity-stable: depending on `current` state
+    // recreated every push* callback on each toast, which re-triggered any
+    // consumer useEffect that listed them as dependencies (remounting UI
+    // subtrees mid-interaction — see PrinterPage bug, 2026-09-15).
+    const currentRef = useRef(null);
+    useEffect(() => {
+        currentRef.current = current;
+    }, [current]);
+
     const push = useCallback(
         ({type, error, title, onRetry, autoHideDuration, anchorOrigin} = {}) => {
             const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -39,9 +48,9 @@ export function ToastProvider({
                 anchorOrigin: anchorOrigin,
             });
             // if nothing being shown, start
-            if (!current) showNext();
+            if (!currentRef.current) showNext();
         },
-        [current, defaultTitle, defaultAutoHideDuration, showNext]
+        [defaultTitle, defaultAutoHideDuration, showNext]
     );
 
     // Convenience helpers
