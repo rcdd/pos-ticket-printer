@@ -166,6 +166,32 @@ function Write-Err
     } Write-Host "[ERROR] $m" -ForegroundColor Red
 }
 
+# Polls an HTTP endpoint until it answers (or times out). Used to make sure
+# the API is actually ready before opening the kiosk browser — on a fresh
+# install the first boot creates the whole DB schema and takes a while;
+# opening the UI too early showed a license error until the user refreshed.
+function Wait-HttpReady
+{
+    param([string]$Url, [int]$TimeoutSec = 90)
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    while ($sw.Elapsed.TotalSeconds -lt $TimeoutSec)
+    {
+        try
+        {
+            $resp = Invoke-WebRequest -UseBasicParsing -Uri $Url -TimeoutSec 3
+            if ($resp.StatusCode -ge 200 -and $resp.StatusCode -lt 500)
+            {
+                return $true
+            }
+        }
+        catch
+        {
+        }
+        Start-Sleep -Milliseconds 700
+    }
+    return $false
+}
+
 function Test-Admin
 {
     $id = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -373,6 +399,25 @@ try
 
     & $Pm2Cmd start "php" --name pma-pos --cwd "$ScriptRoot\phpmyadmin" -- -S localhost:8080 | Out-Null
     Write-Ok "phpMyAdmin at http://localhost:8080"
+
+    # --- Wait for services before opening the kiosk ---
+    if ($useSplash)
+    {
+        Set-SplashText "Waiting for services to be ready..."
+    }
+    Write-Info "Waiting for API to be ready (first boot may take a while)..."
+    if (Wait-HttpReady -Url 'http://localhost:9393/health' -TimeoutSec 120)
+    {
+        Write-Ok "API is ready."
+    }
+    else
+    {
+        Write-Warn "API did not answer within 120s; opening the UI anyway (refresh if needed). Check: pm2 logs api-pos"
+    }
+    if (-not (Wait-HttpReady -Url 'http://localhost:3000' -TimeoutSec 30))
+    {
+        Write-Warn "UI static server did not answer within 30s."
+    }
 
     # --- Edge in kiosk mode ---
     if ($useSplash)

@@ -146,15 +146,35 @@ function HomePage() {
         }
     }, [licenseValid, login]);
 
+    // If the API is still booting (fresh install / machine startup), keep
+    // retrying in the background instead of leaving the operator stuck on a
+    // license error until they refresh manually.
+    const licenseRetryRef = React.useRef({attempts: 0, timer: null});
+
     const loadLicenseStatus = React.useCallback(async () => {
         setCheckingLicense(true);
         try {
             const {data} = await LicenseService.getStatus();
+            licenseRetryRef.current.attempts = 0;
             setLicenseInfo(data);
             setLicenseModalOpen(!data?.valid);
             setShouldAutoPromptLogin(false);
         } catch (error) {
             console.error("Erro ao verificar licença:", error?.response || error);
+            const retry = licenseRetryRef.current;
+            if (retry.attempts < 15) {
+                retry.attempts += 1;
+                clearTimeout(retry.timer);
+                retry.timer = setTimeout(() => loadLicenseStatus(), 2000);
+                setLicenseInfo({
+                    valid: false,
+                    status: 'connecting',
+                    message: 'A ligar ao servidor… aguarde uns segundos.',
+                });
+                setLicenseModalOpen(true);
+                setShouldAutoPromptLogin(false);
+                return;
+            }
             const fallback = {
                 valid: false,
                 status: 'error',
@@ -167,6 +187,8 @@ function HomePage() {
             setCheckingLicense(false);
         }
     }, [setOpenCloseModal]);
+
+    React.useEffect(() => () => clearTimeout(licenseRetryRef.current.timer), []);
 
     const checkOnboardingStatus = React.useCallback(async () => {
         setCheckingUsers(true);
