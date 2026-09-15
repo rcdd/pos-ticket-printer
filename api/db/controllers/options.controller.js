@@ -13,6 +13,13 @@ const optionVirtualKeyboard = 'virtual_keyboard_enabled';
 const optionFavorites = 'pos_favorites_enabled';
 const optionFavoritesCount = 'pos_favorites_count';
 const optionMultiTerminal = 'multi_terminal_enabled';
+const optionPrinterLegacyCut = 'printer_legacy_cut';
+const optionPrinterFeedLines = 'printer_feed_lines';
+const optionPrinterCutMode = 'printer_cut_mode';
+const optionPrinterPaperWidth = 'printer_paper_width';
+const optionPrinterCodepage = 'printer_codepage';
+const optionPrinterDrawerPin = 'printer_drawer_pin';
+const optionPrinterFontSmall = 'printer_font_small';
 
 export const readOnboardingStatus = async () => {
     const existing = await Option.findOne({where: {name: optionOnboarding}});
@@ -113,6 +120,101 @@ export const writeMultiTerminalSetting = async (enabled) => {
         await Option.create({name: optionMultiTerminal, value});
     }
     return enabled;
+};
+
+// Print profile: how tickets are laid out and cut. Legacy (default) keeps the
+// historical scheme for printers with a head↔cutter gap; standard prints the
+// header first and feeds before cutting; cutMode 'auto' means the printer has
+// its own end-of-job auto-cutter, so we send no cut command and each ticket
+// goes out as a separate print job.
+const readOptionValue = async (name) => {
+    const row = await Option.findOne({where: {name}});
+    return row?.value ?? null;
+};
+
+const writeOptionValue = async (name, value) => {
+    const existing = await Option.findOne({where: {name}});
+    if (existing) {
+        await existing.update({value: String(value)});
+    } else {
+        await Option.create({name, value: String(value)});
+    }
+};
+
+export const getPrintProfileVariable = async () => {
+    const [legacyRaw, feedRaw, cutRaw, widthRaw, codepageRaw, pinRaw, fontRaw] = await Promise.all([
+        readOptionValue(optionPrinterLegacyCut),
+        readOptionValue(optionPrinterFeedLines),
+        readOptionValue(optionPrinterCutMode),
+        readOptionValue(optionPrinterPaperWidth),
+        readOptionValue(optionPrinterCodepage),
+        readOptionValue(optionPrinterDrawerPin),
+        readOptionValue(optionPrinterFontSmall),
+    ]);
+
+    const feedParsed = parseInt(feedRaw ?? '', 10);
+    return {
+        // 'trailing' = header printed at the end, before the cut (old printers
+        // with a head↔cutter gap — the historical scheme); 'top' = normal layout
+        headerPosition: parseBoolean(legacyRaw, true) ? 'trailing' : 'top',
+        cutMode: cutRaw === 'auto' ? 'auto' : 'command',
+        feedLines: Number.isFinite(feedParsed) ? Math.max(0, Math.min(12, feedParsed)) : 4,
+        paperWidth: widthRaw === '58' ? 58 : 80,
+        codepage: ['cp858', 'cp850'].includes(codepageRaw) ? codepageRaw : 'cp1252',
+        drawerPin: pinRaw === '5' ? 5 : 2,
+        fontSmall: parseBoolean(fontRaw, false),
+    };
+};
+
+export const getPrintProfile = async (req, res) => {
+    try {
+        res.send(await getPrintProfileVariable());
+    } catch (error) {
+        console.error('Error reading print profile:', error);
+        res.status(500).send({message: "Não foi possível obter o perfil de impressão."});
+    }
+};
+
+export const setPrintProfile = async (req, res) => {
+    try {
+        const body = req.body ?? {};
+        if (!['trailing', 'top'].includes(body.headerPosition)) {
+            return res.status(400).send({message: "headerPosition tem de ser 'trailing' ou 'top'."});
+        }
+        const feedLines = parseInt(body.feedLines, 10);
+        if (!Number.isFinite(feedLines) || feedLines < 0 || feedLines > 12) {
+            return res.status(400).send({message: "O avanço antes do corte tem de estar entre 0 e 12 linhas."});
+        }
+        if (![80, 58].includes(Number(body.paperWidth))) {
+            return res.status(400).send({message: "A largura do papel tem de ser 80 ou 58 (mm)."});
+        }
+        if (!['cp1252', 'cp858', 'cp850'].includes(body.codepage)) {
+            return res.status(400).send({message: "Codepage inválido."});
+        }
+        if (![2, 5].includes(Number(body.drawerPin))) {
+            return res.status(400).send({message: "O pino da gaveta tem de ser 2 ou 5."});
+        }
+        const fontSmall = parseBoolean(body.fontSmall, null);
+        if (fontSmall === null) {
+            return res.status(400).send({message: "fontSmall é obrigatório (verdadeiro/falso)."});
+        }
+        const cutMode = body.cutMode === 'auto' ? 'auto' : 'command';
+
+        await Promise.all([
+            writeOptionValue(optionPrinterLegacyCut, body.headerPosition === 'trailing' ? 'true' : 'false'),
+            writeOptionValue(optionPrinterFeedLines, feedLines),
+            writeOptionValue(optionPrinterCutMode, cutMode),
+            writeOptionValue(optionPrinterPaperWidth, Number(body.paperWidth)),
+            writeOptionValue(optionPrinterCodepage, body.codepage),
+            writeOptionValue(optionPrinterDrawerPin, Number(body.drawerPin)),
+            writeOptionValue(optionPrinterFontSmall, fontSmall ? 'true' : 'false'),
+        ]);
+
+        res.send(await getPrintProfileVariable());
+    } catch (error) {
+        console.error('Error saving print profile:', error);
+        res.status(500).send({message: "Não foi possível guardar o perfil de impressão."});
+    }
 };
 
 export const getMultiTerminal = async (req, res) => {

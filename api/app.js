@@ -298,6 +298,8 @@ app.post("/option/set-open-drawer", (req, res) => {
 
 app.get("/option/get-open-drawer", options.getOpenDrawer);
 app.post("/option/virtual-keyboard", options.setVirtualKeyboard);
+app.get("/option/print-profile", options.getPrintProfile);
+app.post("/option/print-profile", options.setPrintProfile);
 app.get("/option/multi-terminal", options.getMultiTerminal);
 app.post("/option/multi-terminal", requireRole(UserRoles.ADMIN), options.setMultiTerminal);
 app.get("/option/favorites", options.getFavoritesSettings);

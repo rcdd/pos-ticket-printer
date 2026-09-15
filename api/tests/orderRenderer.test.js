@@ -83,6 +83,77 @@ test('renderers do not cut paper — the cut belongs to the full job', () => {
     }
 });
 
+test('standard profile: header opens the ticket, feed before a single cut', () => {
+    const profile = {headerPosition: 'top', feedLines: 5, cutMode: 'command'};
+    const buf = buildOrderTicketJob({
+        headers: HEADERS, profile,
+        number: 9, tableNumber: '3A', items: [{quantity: 1, nameSnapshot: 'Sopa'}],
+    });
+    const text = asText(buf);
+
+    const headerIdx = text.indexOf('Festa da Aldeia');
+    const contentIdx = text.indexOf('Sopa');
+    assert.ok(headerIdx >= 0 && headerIdx < contentIdx, 'header must come BEFORE the content');
+    assert.ok(buf.includes(FULL_CUT), 'cut command present in command mode');
+    // feed lines right before the cut
+    const cutIdx = buf.indexOf(FULL_CUT);
+    const before = buf.subarray(cutIdx - 5, cutIdx);
+    assert.deepEqual([...before], [0x0A, 0x0A, 0x0A, 0x0A, 0x0A], '5 feed lines before the cut');
+});
+
+test('standard profile with auto-cut: no cut command in the job', () => {
+    const profile = {headerPosition: 'top', feedLines: 4, cutMode: 'auto'};
+    const buf = buildOrderVoidJob({
+        headers: HEADERS, profile,
+        number: 9, tableNumber: '3A', items: [{quantity: 1, nameSnapshot: 'Sopa'}],
+    });
+    assert.ok(!buf.includes(FULL_CUT), 'auto mode must not embed cut commands');
+    assert.match(asText(buf), /Festa da Aldeia[\s\S]*Sopa/);
+});
+
+test('paper width switches the separator line (80mm=48 cols, 58mm=32 cols)', () => {
+    const base = {headers: HEADERS, number: 1, tableNumber: '1A', items: [{quantity: 1, nameSnapshot: 'X'}]};
+
+    const wide = asText(buildOrderTicketJob({...base, profile: {paperWidth: 80}}));
+    assert.ok(wide.includes('_'.repeat(48)), '48-column separator on 80mm');
+
+    const narrow = asText(buildOrderTicketJob({...base, profile: {paperWidth: 58}}));
+    assert.ok(narrow.includes('_'.repeat(32)), '32-column separator on 58mm');
+    assert.ok(!narrow.includes('_'.repeat(48)), 'no 48-column line on 58mm');
+});
+
+test('codepage cp858 selects ESC t 19 and encodes € as 0xD5', () => {
+    const buf = buildOrderTicketJob({
+        headers: HEADERS, profile: {codepage: 'cp858'},
+        number: 1, tableNumber: '1A', items: [{quantity: 1, nameSnapshot: 'Menu 5€'}],
+    });
+    assert.ok(buf.includes(Buffer.from([0x1B, 0x74, 19])), 'ESC t 19 (PC858 table)');
+    assert.ok(buf.includes(Buffer.from([0xD5])), '€ encoded as 0xD5');
+
+    // default cp1252: ESC t 16 and € as 0x80
+    const def = buildOrderTicketJob({
+        headers: HEADERS, number: 1, tableNumber: '1A', items: [{quantity: 1, nameSnapshot: '5€'}],
+    });
+    assert.ok(def.includes(Buffer.from([0x1B, 0x74, 16])));
+    assert.ok(def.includes(Buffer.from([0x80])));
+});
+
+test('small font sends ESC M 1; drawer pin 5 changes the kick byte', async () => {
+    const small = buildOrderTicketJob({
+        headers: HEADERS, profile: {fontSmall: true},
+        number: 1, tableNumber: '1A', items: [{quantity: 1, nameSnapshot: 'X'}],
+    });
+    assert.ok(small.includes(Buffer.from([0x1B, 0x4D, 1])), 'Font B selected');
+    assert.ok(small.includes(Buffer.from('_'.repeat(64))), '64 columns with Font B on 80mm');
+
+    const {configurePrint, openCashDrawer, resetPrintSettings} = await import('../services/printing/printCommands.js');
+    configurePrint({drawerPin: 5});
+    assert.deepEqual([...openCashDrawer()], [0x1B, 0x70, 0x01, 0x19, 0xFA]);
+    configurePrint({drawerPin: 2});
+    assert.deepEqual([...openCashDrawer()], [0x1B, 0x70, 0x00, 0x19, 0xFA]);
+    resetPrintSettings();
+});
+
 test('full job follows the house scheme: content → date → header + cut at the end', () => {
     for (const buf of [
         buildOrderTicketJob({headers: HEADERS, number: 9, tableNumber: '3A', items: [{quantity: 1, nameSnapshot: 'Sopa'}]}),

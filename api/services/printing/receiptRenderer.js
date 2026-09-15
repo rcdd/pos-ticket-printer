@@ -17,7 +17,9 @@ export function initPrinter() {
     return Buffer.concat(parts);
 }
 
-export function renderHeaderRaw(headers) {
+// Header block only (no cut) — used by the standard (modern-printer) layout
+// where the header goes at the TOP of the ticket.
+export function renderHeaderContentRaw(headers) {
     const parts = [];
     parts.push(escInit());
     parts.push(escSelectCodepage());
@@ -28,8 +30,17 @@ export function renderHeaderRaw(headers) {
     parts.push(bold(0));
     parts.push(horizontalLine());
     parts.push(align(0)); // left
-    parts.push(fullCut());
     return Buffer.concat(parts);
+}
+
+// Legacy layout: header + cut printed at the END of the job, so on printers
+// with a head↔cutter gap it lands after the blade and becomes the top of the
+// NEXT ticket. Kept byte-for-byte for existing installations.
+export function renderHeaderRaw(headers) {
+    return Buffer.concat([
+        renderHeaderContentRaw(headers),
+        fullCut(),
+    ]);
 }
 
 export function renderItemTicketRaw(productName) {

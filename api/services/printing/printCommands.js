@@ -1,5 +1,45 @@
 import iconv from "iconv-lite";
 
+// ---------------------------------------------------------------------------
+// Printer settings (codepage, paper width, font, drawer pin) are applied via
+// configurePrint() by printService right before a print job is assembled.
+// Job assembly is fully synchronous, so a module-level setting is safe —
+// there is no await between configurePrint() and the buffer being built.
+// ---------------------------------------------------------------------------
+export const CODEPAGES = Object.freeze({
+    cp1252: {escT: 16, encoding: 'cp1252'}, // Windows-1252 (western, default)
+    cp858: {escT: 19, encoding: 'cp858'},   // PC858 (PC850 + € at 0xD5)
+    cp850: {escT: 2, encoding: 'cp850'},    // PC850 (no €)
+});
+
+// characters per line: paper width × font (A = normal, B = small)
+const COLUMNS = Object.freeze({
+    80: {A: 48, B: 64},
+    58: {A: 32, B: 42},
+});
+
+const DEFAULT_SETTINGS = Object.freeze({
+    codepage: 'cp1252',
+    paperWidth: 80,
+    fontSmall: false,
+    drawerPin: 2,
+});
+
+let settings = {...DEFAULT_SETTINGS};
+
+export function configurePrint(next = {}) {
+    settings = {...DEFAULT_SETTINGS, ...next};
+    if (!CODEPAGES[settings.codepage]) settings.codepage = DEFAULT_SETTINGS.codepage;
+    if (!COLUMNS[settings.paperWidth]) settings.paperWidth = DEFAULT_SETTINGS.paperWidth;
+}
+
+export function resetPrintSettings() {
+    settings = {...DEFAULT_SETTINGS};
+}
+
+const currentColumns = () =>
+    COLUMNS[settings.paperWidth][settings.fontSmall ? 'B' : 'A'];
+
 export function escInit() {
     return Buffer.from([0x1B, 0x40]);
 }           // ESC @
@@ -31,7 +71,7 @@ export function sizeNormal() {
 }
 
 export function textPrint(s) {
-    return iconv.encode((s ?? ''), 'cp1252');
+    return iconv.encode((s ?? ''), CODEPAGES[settings.codepage].encoding);
 }
 
 export function textPrintLine(s) {
@@ -42,8 +82,15 @@ export function newLine() {
     return Buffer.from([0x0A]);
 }
 
+// n blank lines — used in standard cut mode to push the last printed line
+// past the cutter blade (head↔cutter gap varies per printer model)
+export function feed(n) {
+    const count = Math.max(0, Math.min(24, Number(n) || 0));
+    return Buffer.alloc(count, 0x0A);
+}
+
 export function horizontalLine() {
-    return textPrintLine('________________________________________________');
+    return textPrintLine('_'.repeat(currentColumns()));
 }
 
 export function partialCut() {
@@ -54,10 +101,16 @@ export function fullCut() {
     return Buffer.from([0x1B, 0x6D, 0x00]);
 }
 
+// codepage table + font (ESC M: 0 = Font A, 1 = Font B/small) — sent right
+// after ESC @ by every renderer's setup block
 export function escSelectCodepage() {
-    return Buffer.from([0x1B, 0x74, 16]);
+    return Buffer.from([
+        0x1B, 0x74, CODEPAGES[settings.codepage].escT,
+        0x1B, 0x4D, settings.fontSmall ? 1 : 0,
+    ]);
 }
 
+// drawer kick: pin 2 (most drawers) or pin 5
 export function openCashDrawer() {
-    return Buffer.from([0x1B, 0x70, 0x00, 0x19, 0xFA]);
+    return Buffer.from([0x1B, 0x70, settings.drawerPin === 5 ? 0x01 : 0x00, 0x19, 0xFA]);
 }

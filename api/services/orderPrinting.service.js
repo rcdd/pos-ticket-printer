@@ -1,5 +1,5 @@
 import {printOrderTicket, printOrderVoid} from './printing/printService.js';
-import {getPrinterVariable, getHeadersVariable} from '../db/controllers/options.controller.js';
+import {getPrinterVariable, getHeadersVariable, getPrintProfileVariable} from '../db/controllers/options.controller.js';
 
 // Printing is best-effort: the order is already saved by the time this runs.
 // A printer failure returns {printed:false, error} and the terminal offers
@@ -18,6 +18,7 @@ export async function tryPrintOrderTicket(order, {reprint = false} = {}) {
         await printOrderTicket({
             printerName,
             headers: await getHeadersVariable(),
+            profile: await getPrintProfileVariable(),
             number: order.number,
             tableNumber: order.table ? (order.table.displayName || order.table.number) : null,
             items: activeItems(order),
@@ -43,6 +44,7 @@ export async function tryPrintOrderVoid(order, cancelledItems, approvedByName) {
         await printOrderVoid({
             printerName,
             headers: await getHeadersVariable(),
+            profile: await getPrintProfileVariable(),
             number: order.number,
             tableNumber: order.table ? (order.table.displayName || order.table.number) : null,
             items: cancelledItems,

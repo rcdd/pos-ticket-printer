@@ -4,6 +4,7 @@ import {
     Box,
     Divider,
     FormControl,
+    FormControlLabel,
     FormHelperText,
     InputLabel,
     MenuItem,
@@ -14,6 +15,8 @@ import {
     Typography,
     CircularProgress,
 } from "@mui/material";
+import TuneIcon from "@mui/icons-material/Tune";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import LoadingButton from "@mui/lab/LoadingButton";
 import PrintRoundedIcon from "@mui/icons-material/PrintRounded";
 
@@ -41,6 +44,21 @@ function PrinterPage() {
     const [printType, setPrintType] = useState("totals");
     const [openDrawer, setOpenDrawer] = useState(false);
 
+    // advanced panel: plain controlled show/hide (no MUI Collapse — it was a
+    // red herring during the remount bug, but conditional render is simpler)
+    const [advancedOpen, setAdvancedOpen] = useState(false);
+
+    // print profile: independent hardware options (layout, cut, width, charset…)
+    const [profile, setProfile] = useState({
+        headerPosition: "trailing",
+        cutMode: "command",
+        feedLines: 4,
+        paperWidth: 80,
+        codepage: "cp1252",
+        drawerPin: 2,
+        fontSmall: false,
+    });
+
     const [firstLine, setFirstLine] = useState("");
     const [secondLine, setSecondLine] = useState("");
     const [firstErr, setFirstErr] = useState(false);
@@ -57,15 +75,17 @@ function PrinterPage() {
         (async () => {
             try {
                 setLoading(true);
-                const [printerRes, typeRes, headersRes, openDrawerRes] = await Promise.all([
+                const [printerRes, typeRes, headersRes, openDrawerRes, profileRes] = await Promise.all([
                     OptionService.getPrinter(),
                     OptionService.getPrintType(),
                     OptionService.getHeaders(),
                     OptionService.getOpenDrawer(),
+                    OptionService.getPrintProfile(),
                 ]);
 
                 if (!mounted) return;
 
+                if (profileRes?.data) setProfile(profileRes.data);
                 setPrinter(printerRes?.data?.name ?? "");
                 setPrintType(typeRes?.data || "totals");
                 setFirstLine(headersRes?.data?.firstLine || "");
@@ -82,7 +102,10 @@ function PrinterPage() {
         return () => {
             mounted = false;
         };
-    }, [pushNetworkError]);
+        // mount-only: re-running this refetch swaps the controls for the
+        // loading spinner and unmounts them mid-interaction
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const loadPrinters = useCallback(async () => {
         if (printers !== null || printersLoading) return;
@@ -174,6 +197,44 @@ function PrinterPage() {
         }
     };
 
+    // Optimistic profile updates done right:
+    // - the UI state is the source of truth and is NEVER overwritten by a
+    //   success response (stale responses used to clobber newer clicks);
+    // - rapid clicks are coalesced by a debounce into one save;
+    // - a sequence guard ignores outcomes of superseded saves;
+    // - on error we reconcile once with the server state.
+    const profileRef = useRef(profile);
+    profileRef.current = profile;
+    const profileSaveSeq = useRef(0);
+    const profileDebounce = useRef(null);
+
+    const persistProfile = useCallback(async () => {
+        const seq = ++profileSaveSeq.current;
+        const snapshot = profileRef.current;
+        try {
+            await OptionService.setPrintProfile(snapshot);
+            if (seq === profileSaveSeq.current) {
+                pushMessage("success", "Perfil de impressão atualizado.");
+            }
+        } catch (error) {
+            if (seq !== profileSaveSeq.current) return; // superseded — ignore
+            pushNetworkError(error, {title: "Não foi possível guardar o perfil de impressão"});
+            try {
+                const {data} = await OptionService.getPrintProfile();
+                if (data && seq === profileSaveSeq.current) setProfile(data);
+            } catch {
+            }
+        }
+    }, [pushMessage, pushNetworkError]);
+
+    const updateProfile = useCallback((patch) => {
+        setProfile((prev) => ({...prev, ...patch}));
+        clearTimeout(profileDebounce.current);
+        profileDebounce.current = setTimeout(persistProfile, 400);
+    }, [persistProfile]);
+
+    useEffect(() => () => clearTimeout(profileDebounce.current), []);
+
     const handleTestPrint = async () => {
         try {
             setTesting(true);
@@ -242,6 +303,7 @@ function PrinterPage() {
                             <FormControl fullWidth disabled={saving}>
                                 <InputLabel id="printer-select-label">Impressora</InputLabel>
                                 <Select
+                                    MenuProps={{disableScrollLock: true}}
                                     labelId="printer-select-label"
                                     id="printer-select"
                                     label="Impressora"
@@ -259,6 +321,7 @@ function PrinterPage() {
                             <FormControl fullWidth disabled={saving}>
                                 <InputLabel id="print-type-select-label">Tipo de impressão</InputLabel>
                                 <Select
+                                    MenuProps={{disableScrollLock: true}}
                                     labelId="print-type-select-label"
                                     id="print-type-select"
                                     label="Tipo de impressão"
@@ -273,6 +336,182 @@ function PrinterPage() {
                                     Decide se imprime apenas o resumo final, cada bilhete individual, ou ambos.
                                 </FormHelperText>
                             </FormControl>
+
+                            <Paper variant="outlined" sx={{borderRadius: 1}}>
+                                <Box
+                                    onClick={() => setAdvancedOpen((open) => !open)}
+                                    sx={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 1,
+                                        p: 2,
+                                        cursor: "pointer",
+                                        userSelect: "none",
+                                        "&:hover": {bgcolor: "action.hover"},
+                                    }}
+                                >
+                                    <TuneIcon fontSize="small" color="action"/>
+                                    <Box sx={{flex: 1}}>
+                                        <Typography variant="subtitle1" fontWeight={700}>
+                                            Definições avançadas da impressora
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary">
+                                            Configura-se uma vez, ao instalar a impressora. Valide sempre com
+                                            "Testar impressão".
+                                        </Typography>
+                                    </Box>
+                                    <ExpandMoreIcon sx={{
+                                        transform: advancedOpen ? "rotate(180deg)" : "none",
+                                        transition: "transform 150ms",
+                                        color: "text.secondary",
+                                    }}/>
+                                </Box>
+                                {advancedOpen && (
+                                <Box sx={{px: 2, pb: 2}}>
+                                    <Stack spacing={2}>
+                                        <FormControlLabel
+                                            control={
+                                                <Switch
+                                                    checked={profile.headerPosition === "trailing"}
+                                                    onChange={(e) => updateProfile({headerPosition: e.target.checked ? "trailing" : "top"})}
+                                                    disabled={saving}
+                                                />
+                                            }
+                                            label={
+                                                <Box>
+                                                    <Typography variant="subtitle2">
+                                                        Cabeçalho no fim, antes do corte (impressoras antigas)
+                                                    </Typography>
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        Compensa a folga entre a cabeça e a guilhotina — o cabeçalho
+                                                        vira o topo do talão seguinte. Desligado: cabeçalho no topo.
+                                                    </Typography>
+                                                </Box>
+                                            }
+                                        />
+
+                                        <FormControlLabel
+                                            control={
+                                                <Switch
+                                                    checked={profile.cutMode === "auto"}
+                                                    onChange={(e) => updateProfile({cutMode: e.target.checked ? "auto" : "command"})}
+                                                    disabled={saving}
+                                                />
+                                            }
+                                            label={
+                                                <Box>
+                                                    <Typography variant="subtitle2">
+                                                        A impressora corta sozinha (auto-cut)
+                                                    </Typography>
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        Ligue se sair um corte a mais no fim de cada talão.
+                                                    </Typography>
+                                                </Box>
+                                            }
+                                        />
+
+                                        <FormControlLabel
+                                            control={
+                                                <Switch
+                                                    checked={profile.fontSmall}
+                                                    onChange={(e) => updateProfile({fontSmall: e.target.checked})}
+                                                    disabled={saving}
+                                                />
+                                            }
+                                            label={
+                                                <Box>
+                                                    <Typography variant="subtitle2">Fonte pequena (Font B)</Typography>
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        Mais colunas por linha — útil em papel de 58 mm ou talões longos.
+                                                    </Typography>
+                                                </Box>
+                                            }
+                                        />
+
+                                        {profile.cutMode === "auto" && profile.headerPosition === "trailing" && (
+                                            <Alert severity="warning">
+                                                Combinação não recomendada: com auto-cut, desligue o "cabeçalho no fim"
+                                                — senão o cabeçalho sai no fundo do próprio talão.
+                                            </Alert>
+                                        )}
+
+                                        <Box sx={{
+                                            display: "grid",
+                                            gridTemplateColumns: {xs: "1fr", md: "1fr 1fr"},
+                                            gap: 2,
+                                        }}>
+                                            <FormControl disabled={saving}>
+                                                <InputLabel id="feed-lines-label">Avanço antes do corte</InputLabel>
+                                                <Select
+                                    MenuProps={{disableScrollLock: true}}
+                                                    labelId="feed-lines-label"
+                                                    label="Avanço antes do corte"
+                                                    value={profile.feedLines}
+                                                    onChange={(e) => updateProfile({feedLines: Number(e.target.value)})}
+                                                >
+                                                    {[0, 1, 2, 3, 4, 5, 6, 8, 10, 12].map((n) => (
+                                                        <MenuItem key={n} value={n}>{n} linha(s)</MenuItem>
+                                                    ))}
+                                                </Select>
+                                                <FormHelperText>
+                                                    Aumente se a última linha ficar cortada; diminua para poupar papel.
+                                                </FormHelperText>
+                                            </FormControl>
+
+                                            <FormControl disabled={saving}>
+                                                <InputLabel id="paper-width-label">Largura do papel</InputLabel>
+                                                <Select
+                                    MenuProps={{disableScrollLock: true}}
+                                                    labelId="paper-width-label"
+                                                    label="Largura do papel"
+                                                    value={profile.paperWidth}
+                                                    onChange={(e) => updateProfile({paperWidth: Number(e.target.value)})}
+                                                >
+                                                    <MenuItem value={80}>80 mm (48 colunas)</MenuItem>
+                                                    <MenuItem value={58}>58 mm (32 colunas)</MenuItem>
+                                                </Select>
+                                                <FormHelperText>Largura do rolo de papel térmico.</FormHelperText>
+                                            </FormControl>
+
+                                            <FormControl disabled={saving}>
+                                                <InputLabel id="codepage-label">Codificação de caracteres</InputLabel>
+                                                <Select
+                                    MenuProps={{disableScrollLock: true}}
+                                                    labelId="codepage-label"
+                                                    label="Codificação de caracteres"
+                                                    value={profile.codepage}
+                                                    onChange={(e) => updateProfile({codepage: e.target.value})}
+                                                >
+                                                    <MenuItem value="cp1252">Ocidental — CP1252 (padrão)</MenuItem>
+                                                    <MenuItem value="cp858">PC858 (com €)</MenuItem>
+                                                    <MenuItem value="cp850">PC850</MenuItem>
+                                                </Select>
+                                                <FormHelperText>
+                                                    Mude se os acentos ou o símbolo € saírem trocados no papel.
+                                                </FormHelperText>
+                                            </FormControl>
+
+                                            <FormControl disabled={saving}>
+                                                <InputLabel id="drawer-pin-label">Pino da gaveta</InputLabel>
+                                                <Select
+                                    MenuProps={{disableScrollLock: true}}
+                                                    labelId="drawer-pin-label"
+                                                    label="Pino da gaveta"
+                                                    value={profile.drawerPin}
+                                                    onChange={(e) => updateProfile({drawerPin: Number(e.target.value)})}
+                                                >
+                                                    <MenuItem value={2}>Pino 2 (mais comum)</MenuItem>
+                                                    <MenuItem value={5}>Pino 5</MenuItem>
+                                                </Select>
+                                                <FormHelperText>
+                                                    Mude se a gaveta de dinheiro não abrir com o comando.
+                                                </FormHelperText>
+                                            </FormControl>
+                                        </Box>
+                                    </Stack>
+                                </Box>
+                                )}
+                            </Paper>
 
                             <Stack direction="row" alignItems="center" spacing={1}>
                                 <Switch

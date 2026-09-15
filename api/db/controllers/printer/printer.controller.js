@@ -3,6 +3,7 @@ import db from '../../index.js';
 const Option = db.options;
 
 import {listPrinters, printTicketRequest, printSessionRequest} from '../../../services/printing/printService.js';
+import {getPrintProfileVariable} from '../options.controller.js';
 
 export const getPrintName = async () => {
     const opt = await Option.findOne({where: {name: 'printer'}});
@@ -62,7 +63,8 @@ export const printTicket = async (req, res) => {
             printType,
             openDrawer,
             isTest,
-            receiptTitle
+            receiptTitle,
+            profile: await getPrintProfileVariable()
         });
 
         res.send('OK');
@@ -95,7 +97,8 @@ export const printSessionSummary = async (req, res) => {
             printerName,
             headers,
             sessionData: req.body,
-            openDrawer
+            openDrawer,
+            profile: await getPrintProfileVariable()
         });
         res.send('OK');
     } catch (err) {
