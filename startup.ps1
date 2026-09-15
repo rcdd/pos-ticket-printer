@@ -424,19 +424,29 @@ try
     {
         Set-SplashText "Launching interface..."
     }
-    $edge = "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe"
-    if (-not (Test-Path $edge))
+    # kiosk browser: Edge preferred, Chrome as fallback (same flags)
+    $kioskBrowser = $null
+    foreach ($candidate in @(
+        "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe",
+        "${env:ProgramFiles}\Microsoft\Edge\Application\msedge.exe",
+        "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe",
+        "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
+    ))
     {
-        $edge = "${env:ProgramFiles}\Microsoft\Edge\Application\msedge.exe"
+        if (Test-Path $candidate)
+        {
+            $kioskBrowser = $candidate
+            break
+        }
     }
-    if (Test-Path $edge)
+    if ($kioskBrowser)
     {
-        Write-Info "Launching Edge in kiosk mode..."
-        Start-Process $edge "--app=http://localhost:3000 --kiosk"
+        Write-Info "Launching kiosk browser: $kioskBrowser"
+        Start-Process $kioskBrowser "--app=http://localhost:3000 --kiosk"
     }
     else
     {
-        Write-Warn "Microsoft Edge não encontrado. Abra manualmente: http://localhost:3000"
+        Write-Warn "Nem Edge nem Chrome encontrados. Abra manualmente: http://localhost:3000"
     }
 
     if ($useSplash)

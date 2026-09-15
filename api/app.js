@@ -21,7 +21,7 @@ import {authenticate, optionalAuthenticate} from "./middleware/auth.js";
 import {requireRole} from "./middleware/authorization.js";
 import {enforceLicense} from "./services/license.service.js";
 import {AUTH_EXPIRES_HEADER, AUTH_TOKEN_HEADER} from "./services/token.service.js";
-import systemRoutes, {terminalStatus} from "./routes/system.routes.js";
+import systemRoutes, {terminalStatus, closeKiosk} from "./routes/system.routes.js";
 import ordersRoutes from "./routes/orders.routes.js";
 import eventsRoutes from "./routes/events.routes.js";
 import {loginRateLimit} from "./middleware/rateLimit.js";
@@ -174,6 +174,9 @@ app.get('/terminal/*', (req, res) => {
 // Public status for the terminals (no auth, no license required)
 app.get('/system/terminal-status', terminalStatus);
 
+// Close the kiosk browser — public but restricted to localhost requests
+app.post('/system/close-kiosk', closeKiosk);
+
 // License endpoints (public)
 app.get("/license/status", license.status);
 app.post("/license/apply", license.activate);
@@ -186,6 +189,7 @@ const licenseBypassPaths = new Set([
     "/option/virtual-keyboard",
     "/option/onboarding-status",
     "/system/terminal-status",
+    "/system/close-kiosk",
 ]);
 
 app.use(async (req, res, next) => {

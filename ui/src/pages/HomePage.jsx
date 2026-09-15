@@ -287,8 +287,15 @@ function HomePage() {
         setOpen(false);
     };
 
-    const doCloseWindow = React.useCallback(() => {
+    const doCloseWindow = React.useCallback(async () => {
         setOpenCloseModal(false);
+        // the kiosk browser blocks window.close(); the local API kills Edge
+        try {
+            await OrderService.closeKiosk();
+        } catch (error) {
+            console.warn("Server-side close unavailable:", error?.response?.data || error);
+        }
+        // fallback (dev / script-opened windows)
         window.opener = null;
         window.open("", "_self");
         window.close();

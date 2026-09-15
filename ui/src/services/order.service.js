@@ -55,6 +55,11 @@ class OrderService {
     }
 
     // Public status (no auth): multi-terminal active? register session open?
+    // Closes the kiosk (only works when called from the POS machine itself)
+    closeKiosk() {
+        return http.post(this.BASE_URL + "/system/close-kiosk");
+    }
+
     getTerminalStatus() {
         return http.get(this.BASE_URL + "/system/terminal-status");
     }

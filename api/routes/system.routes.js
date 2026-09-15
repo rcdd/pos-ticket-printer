@@ -1,5 +1,6 @@
 import {Router} from 'express';
 import os from 'os';
+import {execFile} from 'child_process';
 import db from '../db/index.js';
 import {ensureLicenseState} from '../services/license.service.js';
 import {readMultiTerminalSetting} from '../db/controllers/options.controller.js';
@@ -7,6 +8,29 @@ import {requireRole} from '../middleware/authorization.js';
 import {UserRoles} from '../db/models/user.model.js';
 
 const router = Router();
+
+// Closes the kiosk browser on the POS machine itself. window.close() is
+// blocked by browsers for windows they didn't open via script, so the UI's
+// "Fechar aplicação" button asks the local API to kill Edge instead.
+// Localhost-only: the kiosk can close itself; phones on the LAN cannot.
+export const closeKiosk = (req, res) => {
+    const ip = String(req.ip || '');
+    const isLocal = ip === '127.0.0.1' || ip === '::1' || ip.endsWith(':127.0.0.1');
+    if (!isLocal) {
+        return res.status(403).send({message: 'Apenas o próprio terminal pode fechar a aplicação.'});
+    }
+    if (process.platform !== 'win32') {
+        return res.status(501).send({message: 'Fecho automático só disponível no Windows.'});
+    }
+    res.send('OK');
+    // respond first — the kill takes down the window that made this request.
+    // Kiosk may run on Edge or Chrome; kill whichever exists (errors ignored).
+    setTimeout(() => {
+        for (const image of ['msedge.exe', 'chrome.exe']) {
+            execFile('taskkill', ['/F', '/IM', image], {windowsHide: true}, () => {});
+        }
+    }, 300);
+};
 
 // Lightweight public endpoint: tells the terminals whether they can work
 // (multi-terminal active + register session open), without exposing sensitive data.
