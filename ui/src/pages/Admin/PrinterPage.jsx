@@ -55,7 +55,7 @@ function PrinterPage() {
         headerPosition: "trailing",
         cutMode: "command",
         feedLines: 4,
-        paperWidth: 80,
+        columns: 48,
         codepage: "cp1252",
         drawerPin: 2,
         fontSmall: false,
@@ -473,18 +473,29 @@ function PrinterPage() {
                                             </FormControl>
 
                                             <FormControl disabled={saving}>
-                                                <InputLabel id="paper-width-label">Largura do papel</InputLabel>
+                                                <InputLabel id="columns-label">Largura do talão (colunas)</InputLabel>
                                                 <Select
                                     MenuProps={{disableScrollLock: true}}
-                                                    labelId="paper-width-label"
-                                                    label="Largura do papel"
-                                                    value={profile.paperWidth}
-                                                    onChange={(e) => updateProfile({paperWidth: Number(e.target.value)})}
+                                                    labelId="columns-label"
+                                                    label="Largura do talão (colunas)"
+                                                    value={profile.columns}
+                                                    onChange={(e) => updateProfile({columns: Number(e.target.value)})}
                                                 >
-                                                    <MenuItem value={80}>80 mm (48 colunas)</MenuItem>
-                                                    <MenuItem value={58}>58 mm (32 colunas)</MenuItem>
+                                                    <MenuItem value={48}>48 colunas — 80 mm (padrão)</MenuItem>
+                                                    <MenuItem value={46}>46 colunas</MenuItem>
+                                                    <MenuItem value={44}>44 colunas — 80 mm compacto</MenuItem>
+                                                    <MenuItem value={42}>42 colunas — 80 mm compacto</MenuItem>
+                                                    <MenuItem value={40}>40 colunas</MenuItem>
+                                                    <MenuItem value={36}>36 colunas</MenuItem>
+                                                    <MenuItem value={34}>34 colunas</MenuItem>
+                                                    <MenuItem value={32}>32 colunas — 58 mm (padrão)</MenuItem>
+                                                    <MenuItem value={30}>30 colunas</MenuItem>
+                                                    <MenuItem value={28}>28 colunas</MenuItem>
                                                 </Select>
-                                                <FormHelperText>Largura do rolo de papel térmico.</FormHelperText>
+                                                <FormHelperText>
+                                                    Se a linha separadora quebrar em duas, reduza; se ficar curta,
+                                                    aumente. Varia por modelo de impressora.
+                                                </FormHelperText>
                                             </FormControl>
 
                                             <FormControl disabled={saving}>

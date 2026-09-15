@@ -111,15 +111,14 @@ test('standard profile with auto-cut: no cut command in the job', () => {
     assert.match(asText(buf), /Festa da Aldeia[\s\S]*Sopa/);
 });
 
-test('paper width switches the separator line (80mm=48 cols, 58mm=32 cols)', () => {
+test('configured columns set the separator line length exactly', () => {
     const base = {headers: HEADERS, number: 1, tableNumber: '1A', items: [{quantity: 1, nameSnapshot: 'X'}]};
 
-    const wide = asText(buildOrderTicketJob({...base, profile: {paperWidth: 80}}));
-    assert.ok(wide.includes('_'.repeat(48)), '48-column separator on 80mm');
-
-    const narrow = asText(buildOrderTicketJob({...base, profile: {paperWidth: 58}}));
-    assert.ok(narrow.includes('_'.repeat(32)), '32-column separator on 58mm');
-    assert.ok(!narrow.includes('_'.repeat(48)), 'no 48-column line on 58mm');
+    for (const columns of [48, 42, 32]) {
+        const text = asText(buildOrderTicketJob({...base, profile: {columns}}));
+        assert.ok(text.includes('_'.repeat(columns)), `${columns}-column separator present`);
+        assert.ok(!text.includes('_'.repeat(columns + 1)), `separator never exceeds ${columns} columns`);
+    }
 });
 
 test('codepage cp858 selects ESC t 19 and encodes € as 0xD5', () => {
@@ -144,7 +143,7 @@ test('small font sends ESC M 1; drawer pin 5 changes the kick byte', async () =>
         number: 1, tableNumber: '1A', items: [{quantity: 1, nameSnapshot: 'X'}],
     });
     assert.ok(small.includes(Buffer.from([0x1B, 0x4D, 1])), 'Font B selected');
-    assert.ok(small.includes(Buffer.from('_'.repeat(64))), '64 columns with Font B on 80mm');
+    assert.ok(small.includes(Buffer.from('_'.repeat(64))), '64 columns with Font B at 48-column base');
 
     const {configurePrint, openCashDrawer, resetPrintSettings} = await import('../services/printing/printCommands.js');
     configurePrint({drawerPin: 5});

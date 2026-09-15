@@ -20,7 +20,7 @@ export const DEFAULT_PRINT_PROFILE = Object.freeze({
     headerPosition: 'trailing', // 'trailing' (old printers, header before the cut) | 'top'
     cutMode: 'command',         // 'command' | 'auto' (printer's own end-of-job cutter)
     feedLines: 4,
-    paperWidth: 80,             // 80 | 58 (mm)
+    columns: 48,                // Font A characters per line (printer-specific)
     codepage: 'cp1252',         // 'cp1252' | 'cp858' | 'cp850'
     drawerPin: 2,               // 2 | 5
     fontSmall: false,
@@ -33,7 +33,7 @@ const applyProfile = (profile) => {
     const prof = {...DEFAULT_PRINT_PROFILE, ...(profile ?? {})};
     configurePrint({
         codepage: prof.codepage,
-        paperWidth: prof.paperWidth,
+        columns: prof.columns,
         fontSmall: prof.fontSmall,
         drawerPin: prof.drawerPin,
     });

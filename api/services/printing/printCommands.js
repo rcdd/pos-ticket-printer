@@ -12,15 +12,12 @@ export const CODEPAGES = Object.freeze({
     cp850: {escT: 2, encoding: 'cp850'},    // PC850 (no €)
 });
 
-// characters per line: paper width × font (A = normal, B = small)
-const COLUMNS = Object.freeze({
-    80: {A: 48, B: 64},
-    58: {A: 32, B: 42},
-});
-
+// Characters per line vary per printer MODEL, not just paper width (plenty of
+// 80mm printers are 42/44 columns) — so the column count is configured
+// explicitly. Font B (small) fits ~4/3 of the Font A columns.
 const DEFAULT_SETTINGS = Object.freeze({
     codepage: 'cp1252',
-    paperWidth: 80,
+    columns: 48, // Font A characters per line
     fontSmall: false,
     drawerPin: 2,
 });
@@ -30,7 +27,8 @@ let settings = {...DEFAULT_SETTINGS};
 export function configurePrint(next = {}) {
     settings = {...DEFAULT_SETTINGS, ...next};
     if (!CODEPAGES[settings.codepage]) settings.codepage = DEFAULT_SETTINGS.codepage;
-    if (!COLUMNS[settings.paperWidth]) settings.paperWidth = DEFAULT_SETTINGS.paperWidth;
+    const cols = Number(settings.columns);
+    settings.columns = Number.isFinite(cols) ? Math.max(24, Math.min(64, Math.floor(cols))) : DEFAULT_SETTINGS.columns;
 }
 
 export function resetPrintSettings() {
@@ -38,7 +36,7 @@ export function resetPrintSettings() {
 }
 
 const currentColumns = () =>
-    COLUMNS[settings.paperWidth][settings.fontSmall ? 'B' : 'A'];
+    settings.fontSmall ? Math.round(settings.columns * 4 / 3) : settings.columns;
 
 export function escInit() {
     return Buffer.from([0x1B, 0x40]);

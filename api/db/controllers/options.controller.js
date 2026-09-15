@@ -16,7 +16,8 @@ const optionMultiTerminal = 'multi_terminal_enabled';
 const optionPrinterLegacyCut = 'printer_legacy_cut';
 const optionPrinterFeedLines = 'printer_feed_lines';
 const optionPrinterCutMode = 'printer_cut_mode';
-const optionPrinterPaperWidth = 'printer_paper_width';
+const optionPrinterPaperWidth = 'printer_paper_width'; // legacy (80/58) — migrated to columns
+const optionPrinterColumns = 'printer_columns';
 const optionPrinterCodepage = 'printer_codepage';
 const optionPrinterDrawerPin = 'printer_drawer_pin';
 const optionPrinterFontSmall = 'printer_font_small';
@@ -142,11 +143,12 @@ const writeOptionValue = async (name, value) => {
 };
 
 export const getPrintProfileVariable = async () => {
-    const [legacyRaw, feedRaw, cutRaw, widthRaw, codepageRaw, pinRaw, fontRaw] = await Promise.all([
+    const [legacyRaw, feedRaw, cutRaw, widthRaw, columnsRaw, codepageRaw, pinRaw, fontRaw] = await Promise.all([
         readOptionValue(optionPrinterLegacyCut),
         readOptionValue(optionPrinterFeedLines),
         readOptionValue(optionPrinterCutMode),
         readOptionValue(optionPrinterPaperWidth),
+        readOptionValue(optionPrinterColumns),
         readOptionValue(optionPrinterCodepage),
         readOptionValue(optionPrinterDrawerPin),
         readOptionValue(optionPrinterFontSmall),
@@ -159,7 +161,12 @@ export const getPrintProfileVariable = async () => {
         headerPosition: parseBoolean(legacyRaw, true) ? 'trailing' : 'top',
         cutMode: cutRaw === 'auto' ? 'auto' : 'command',
         feedLines: Number.isFinite(feedParsed) ? Math.max(0, Math.min(12, feedParsed)) : 4,
-        paperWidth: widthRaw === '58' ? 58 : 80,
+        // explicit columns; falls back to the legacy width option (80→48, 58→32)
+        columns: (() => {
+            const parsed = parseInt(columnsRaw ?? '', 10);
+            if (Number.isFinite(parsed)) return Math.max(24, Math.min(64, parsed));
+            return widthRaw === '58' ? 32 : 48;
+        })(),
         codepage: ['cp858', 'cp850'].includes(codepageRaw) ? codepageRaw : 'cp1252',
         drawerPin: pinRaw === '5' ? 5 : 2,
         fontSmall: parseBoolean(fontRaw, false),
@@ -185,8 +192,9 @@ export const setPrintProfile = async (req, res) => {
         if (!Number.isFinite(feedLines) || feedLines < 0 || feedLines > 12) {
             return res.status(400).send({message: "O avanço antes do corte tem de estar entre 0 e 12 linhas."});
         }
-        if (![80, 58].includes(Number(body.paperWidth))) {
-            return res.status(400).send({message: "A largura do papel tem de ser 80 ou 58 (mm)."});
+        const columns = parseInt(body.columns, 10);
+        if (!Number.isFinite(columns) || columns < 24 || columns > 64) {
+            return res.status(400).send({message: "As colunas por linha têm de estar entre 24 e 64."});
         }
         if (!['cp1252', 'cp858', 'cp850'].includes(body.codepage)) {
             return res.status(400).send({message: "Codepage inválido."});
@@ -204,7 +212,7 @@ export const setPrintProfile = async (req, res) => {
             writeOptionValue(optionPrinterLegacyCut, body.headerPosition === 'trailing' ? 'true' : 'false'),
             writeOptionValue(optionPrinterFeedLines, feedLines),
             writeOptionValue(optionPrinterCutMode, cutMode),
-            writeOptionValue(optionPrinterPaperWidth, Number(body.paperWidth)),
+            writeOptionValue(optionPrinterColumns, columns),
             writeOptionValue(optionPrinterCodepage, body.codepage),
             writeOptionValue(optionPrinterDrawerPin, Number(body.drawerPin)),
             writeOptionValue(optionPrinterFontSmall, fontSmall ? 'true' : 'false'),
