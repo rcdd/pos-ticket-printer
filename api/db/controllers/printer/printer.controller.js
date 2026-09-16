@@ -2,8 +2,10 @@ import db from '../../index.js';
 
 const Option = db.options;
 
-import {listPrinters, printTicketRequest, printSessionRequest, kickDrawer} from '../../../services/printing/printService.js';
-import {getPrintProfileVariable} from '../options.controller.js';
+import {
+    listPrinters, printTicketRequest, printSessionRequest, kickDrawer, printOrderTicket,
+} from '../../../services/printing/printService.js';
+import {getPrintProfileVariable, getHeadersVariable} from '../options.controller.js';
 
 export const getPrintName = async () => {
     const opt = await Option.findOne({where: {name: 'printer'}});
@@ -86,6 +88,65 @@ export const testDrawer = async (req, res) => {
     } catch (err) {
         console.error('[testDrawer] error:', err);
         res.status(500).send({message: 'Não foi possível abrir a gaveta.', detail: String(err?.message || err)});
+    }
+};
+
+// "Imprimir exemplo" of the ticket layout settings: prints one sample of the
+// requested ticket type with the CURRENT profile + layout, using fixed sample
+// data — lets the user tune text sizes on-site without creating real orders.
+export const printLayoutSample = async (req, res) => {
+    try {
+        const ticketType = req.body?.ticketType;
+        const printerName = await getPrintName().catch(() => null);
+        if (!printerName) {
+            return res.status(404).send({message: 'Impressora não definida.'});
+        }
+        const headers = await getHeadersVariable();
+        const profile = await getPrintProfileVariable();
+        const sampleItems = [
+            {name: 'Imperial', quantity: 2},
+            {name: 'Bifana', quantity: 1},
+        ];
+
+        if (ticketType === 'item') {
+            await printTicketRequest({
+                printerName, headers, profile,
+                items: [{name: 'Produto Exemplo', quantity: 1}],
+                totalAmount: 0, printType: 'tickets', openDrawer: false,
+            });
+        } else if (ticketType === 'totals') {
+            await printTicketRequest({
+                printerName, headers, profile,
+                items: sampleItems, totalAmount: 5.9,
+                printType: 'totals', openDrawer: false,
+            });
+        } else if (ticketType === 'order') {
+            await printOrderTicket({
+                printerName, headers, profile,
+                number: 123, tableNumber: '12A',
+                items: sampleItems.map((it) => ({quantity: it.quantity, nameSnapshot: it.name})),
+                waiterName: 'Exemplo',
+            });
+        } else if (ticketType === 'session') {
+            const now = new Date().toISOString();
+            await printSessionRequest({
+                printerName, headers, profile, openDrawer: false,
+                sessionData: {
+                    sessionId: 0, openedAt: now, closedAt: now,
+                    userOpen: 'Exemplo', userClose: 'Exemplo',
+                    products: sampleItems.map((it) => ({...it, total: it.quantity * 150})),
+                    discountedProducts: [], payments: [{method: 'cash', amount: 450}],
+                    cashMovements: [], totalSales: 2,
+                    initialAmount: 5000, finalCashValue: 5450, closingAmount: 450,
+                },
+            });
+        } else {
+            return res.status(400).send({message: 'Tipo de talão inválido.'});
+        }
+        res.send('OK');
+    } catch (err) {
+        console.error('[printLayoutSample] error:', err);
+        res.status(500).send({message: 'Erro a imprimir o exemplo.', detail: String(err?.message || err)});
     }
 };
 

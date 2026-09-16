@@ -171,3 +171,83 @@ test('full job follows the house scheme: content → date → header + cut at th
         assert.ok(headerIdx < cutIdx || buf.lastIndexOf(FULL_CUT) > headerIdx, 'cut only after the header');
     }
 });
+
+// --- Ticket layout (per-element text sizes; default 'legacy' = historical bytes) ---
+
+test('layout defaults are byte-identical to the historical output', async () => {
+    const {renderItemTicketRaw, renderTotalTicketRaw} = await import('../services/printing/receiptRenderer.js');
+    const {resetPrintSettings, configurePrint, DEFAULT_TICKET_LAYOUT} = await import('../services/printing/printCommands.js');
+
+    resetPrintSettings();
+    const base = {headers: HEADERS, number: 1, tableNumber: '2A', items: [{quantity: 1, nameSnapshot: 'X'}]};
+    const defaults = {
+        item: renderItemTicketRaw('Bifana'),
+        totals: renderTotalTicketRaw([{quantity: 1, name: 'Bifana'}], 3.5),
+        order: buildOrderTicketJob(base),
+    };
+
+    configurePrint({layout: {...DEFAULT_TICKET_LAYOUT}});
+    assert.deepEqual(renderItemTicketRaw('Bifana'), defaults.item);
+    assert.deepEqual(renderTotalTicketRaw([{quantity: 1, name: 'Bifana'}], 3.5), defaults.totals);
+    assert.deepEqual(buildOrderTicketJob(base), defaults.order);
+
+    // historical (out-of-spec) GS ! 26 sequence still present by default
+    assert.ok(defaults.item.includes(Buffer.from([0x1D, 0x21, 0x20, 0x1D, 0x21, 26])));
+    resetPrintSettings();
+});
+
+test('itemName size option replaces the legacy sequence with a safe symmetric one', async () => {
+    const {renderItemTicketRaw} = await import('../services/printing/receiptRenderer.js');
+    const {configurePrint, resetPrintSettings} = await import('../services/printing/printCommands.js');
+
+    configurePrint({layout: {itemName: 'medium'}});
+    const buf = renderItemTicketRaw('Bifana');
+    assert.ok(buf.includes(Buffer.from([0x1D, 0x21, 0x11])), 'GS ! 2x2 present');
+    assert.ok(!buf.includes(Buffer.from([0x1D, 0x21, 26])), 'legacy GS ! 26 gone');
+    resetPrintSettings();
+});
+
+test('orderHighlight preset scales the MESA block on order and void tickets', () => {
+    const base = {headers: HEADERS, number: 42, tableNumber: '12B', items: [{quantity: 1, nameSnapshot: 'X'}]};
+
+    const medium = buildOrderTicketJob({...base, profile: {layout: {orderHighlight: 'medium'}}});
+    assert.ok(medium.includes(Buffer.from([0x1D, 0x21, 0x01])), 'label 1x2');
+    assert.ok(medium.includes(Buffer.from([0x1D, 0x21, 0x11])), 'value 2x2');
+    assert.ok(!medium.includes(Buffer.from([0x1D, 0x21, 0x22])), 'no 3x3 left');
+
+    const voidSmall = buildOrderVoidJob({...base, profile: {layout: {orderHighlight: 'small'}}});
+    assert.ok(!voidSmall.includes(Buffer.from([0x1D, 0x21, 0x22])), 'void follows the preset too');
+});
+
+test('orderItem size option swaps the double-width font for GS ! sizing', () => {
+    const base = {headers: HEADERS, number: 1, tableNumber: '2A', items: [{quantity: 1, nameSnapshot: 'X'}]};
+    const BOLD_MEDIUM = Buffer.from([0x1B, 0x21, 0x20]);
+
+    const legacy = buildOrderTicketJob(base);
+    assert.ok(legacy.includes(BOLD_MEDIUM), 'legacy items use ESC ! double width');
+
+    const tall = buildOrderTicketJob({...base, profile: {layout: {orderItem: 'tall'}}});
+    assert.ok(!tall.includes(BOLD_MEDIUM), 'no ESC ! double width');
+    assert.ok(tall.includes(Buffer.from([0x1D, 0x21, 0x01])), 'GS ! 1x2 present');
+});
+
+test('extended size presets emit the expected GS ! bytes', async () => {
+    const {renderItemTicketRaw} = await import('../services/printing/receiptRenderer.js');
+    const {configurePrint, resetPrintSettings} = await import('../services/printing/printCommands.js');
+
+    const expected = {wide: 0x10, mediumTall: 0x12, huge: 0x33};
+    for (const [preset, byte] of Object.entries(expected)) {
+        configurePrint({layout: {itemName: preset}});
+        const buf = renderItemTicketRaw('Bifana');
+        assert.ok(buf.includes(Buffer.from([0x1D, 0x21, byte])), `${preset} → GS ! 0x${byte.toString(16)}`);
+    }
+    resetPrintSettings();
+});
+
+test('unknown layout values fall back to legacy', async () => {
+    const {configurePrint, layoutValue, resetPrintSettings} = await import('../services/printing/printCommands.js');
+    configurePrint({layout: {itemName: 'giant', orderHighlight: 'big'}});
+    assert.equal(layoutValue('itemName'), 'legacy');
+    assert.equal(layoutValue('orderHighlight'), 'legacy');
+    resetPrintSettings();
+});

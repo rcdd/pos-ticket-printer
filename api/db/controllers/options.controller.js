@@ -1,5 +1,6 @@
 import db from "../index.js";
 import {ensureLicenseState} from "../../services/license.service.js";
+import {DEFAULT_TICKET_LAYOUT, TICKET_LAYOUT_OPTIONS} from "../../services/printing/printCommands.js";
 
 const Option = db.options;
 
@@ -18,6 +19,7 @@ const optionPrinterFeedLines = 'printer_feed_lines';
 const optionPrinterCutMode = 'printer_cut_mode';
 const optionPrinterPaperWidth = 'printer_paper_width'; // legacy (80/58) — migrated to columns
 const optionPrinterColumns = 'printer_columns';
+const optionTicketLayout = 'printer_ticket_layout'; // JSON: per-element text sizes
 const optionPrinterCodepage = 'printer_codepage';
 const optionPrinterDrawerPin = 'printer_drawer_pin';
 const optionPrinterFontSmall = 'printer_font_small';
@@ -142,6 +144,52 @@ const writeOptionValue = async (name, value) => {
     }
 };
 
+// Ticket layout: text size per ticket element, all defaulting to 'legacy'
+// (the historical byte sequences) so unconfigured installs print unchanged.
+export const getTicketLayoutVariable = async () => {
+    const raw = await readOptionValue(optionTicketLayout);
+    let stored = {};
+    if (raw) {
+        try {
+            stored = JSON.parse(raw) ?? {};
+        } catch {
+            stored = {};
+        }
+    }
+    const layout = {...DEFAULT_TICKET_LAYOUT};
+    for (const [key, allowed] of Object.entries(TICKET_LAYOUT_OPTIONS)) {
+        if (allowed.includes(stored[key])) layout[key] = stored[key];
+    }
+    return layout;
+};
+
+export const getTicketLayout = async (req, res) => {
+    try {
+        res.send(await getTicketLayoutVariable());
+    } catch (error) {
+        console.error('Error reading ticket layout:', error);
+        res.status(500).send({message: "Não foi possível obter o layout dos talões."});
+    }
+};
+
+export const setTicketLayout = async (req, res) => {
+    try {
+        const body = req.body ?? {};
+        const layout = {};
+        for (const [key, allowed] of Object.entries(TICKET_LAYOUT_OPTIONS)) {
+            if (!allowed.includes(body[key])) {
+                return res.status(400).send({message: `Valor inválido para '${key}'.`});
+            }
+            layout[key] = body[key];
+        }
+        await writeOptionValue(optionTicketLayout, JSON.stringify(layout));
+        res.send(await getTicketLayoutVariable());
+    } catch (error) {
+        console.error('Error saving ticket layout:', error);
+        res.status(500).send({message: "Não foi possível guardar o layout dos talões."});
+    }
+};
+
 export const getPrintProfileVariable = async () => {
     const [legacyRaw, feedRaw, cutRaw, widthRaw, columnsRaw, codepageRaw, pinRaw, fontRaw] = await Promise.all([
         readOptionValue(optionPrinterLegacyCut),
@@ -170,6 +218,8 @@ export const getPrintProfileVariable = async () => {
         codepage: ['cp858', 'cp850'].includes(codepageRaw) ? codepageRaw : 'cp1252',
         drawerPin: pinRaw === '5' ? 5 : 2,
         fontSmall: parseBoolean(fontRaw, false),
+        // per-element text sizes ride along so every print path gets them
+        layout: await getTicketLayoutVariable(),
     };
 };
 

@@ -221,6 +221,7 @@ app.use(eventsRoutes);
 // POS/runtime endpoints (authenticated)
 app.get('/printer/list', printer.getPrinterList);
 app.post('/printer/test-drawer', printer.testDrawer);
+app.post('/printer/test-layout', printer.printLayoutSample);
 
 app.post('/printer/print-ticket', async (req, res) => {
     const printNameOption = await options.getPrinterVariable();
@@ -305,6 +306,8 @@ app.get("/option/get-open-drawer", options.getOpenDrawer);
 app.post("/option/virtual-keyboard", options.setVirtualKeyboard);
 app.get("/option/print-profile", options.getPrintProfile);
 app.post("/option/print-profile", options.setPrintProfile);
+app.get("/option/ticket-layout", options.getTicketLayout);
+app.post("/option/ticket-layout", options.setTicketLayout);
 app.get("/option/multi-terminal", options.getMultiTerminal);
 app.post("/option/multi-terminal", requireRole(UserRoles.ADMIN), options.setMultiTerminal);
 app.get("/option/favorites", options.getFavoritesSettings);

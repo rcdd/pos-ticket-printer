@@ -1,7 +1,7 @@
 import {toEuros} from './utils.js';
 import {
     escSelectCodepage, align, bold, horizontalLine, fullCut, sizeNormal, sizeWide, textPrintLine, fontUnderline,
-    boldMedium, newLine, escInit, textPrint
+    boldMedium, newLine, escInit, textPrint, size, layoutValue, SIZE_BYTES
 } from "./printCommands.js";
 
 /**
@@ -45,10 +45,19 @@ export function renderHeaderRaw(headers) {
 
 export function renderItemTicketRaw(productName) {
     const parts = [];
-    parts.push(sizeWide());
-    parts.push(Buffer.from([0x1D, 0x21, 26]));
+    const itemSize = layoutValue('itemName');
+    if (itemSize === 'legacy') {
+        // historical sequence: GS ! 26 has out-of-spec bits, which some
+        // printers render as huge distorted glyphs — hence the layout option
+        parts.push(sizeWide());
+        parts.push(Buffer.from([0x1D, 0x21, 26]));
+    } else {
+        parts.push(size(SIZE_BYTES[itemSize]));
+        parts.push(bold(1));
+    }
     parts.push(textPrintLine(`1 ${productName ?? ''}`));
     parts.push(sizeNormal());
+    if (itemSize !== 'legacy') parts.push(bold(0));
     parts.push(textPrintLine(''));
     return Buffer.concat(parts);
 }
@@ -61,16 +70,27 @@ export function renderTotalTicketRaw(items, totalEuros, title = 'Pedido:') {
 
     parts.push(newLine());
 
-    parts.push(sizeWide());
-    parts.push(boldMedium());
+    const itemSize = layoutValue('totalsItem');
+    if (itemSize === 'legacy') {
+        parts.push(sizeWide());
+        parts.push(boldMedium());
+    } else {
+        parts.push(size(SIZE_BYTES[itemSize]));
+        parts.push(bold(1));
+    }
     for (const it of items) {
         parts.push(textPrintLine(`${it.quantity} ${it.name}`));
+    }
+    if (itemSize !== 'legacy') {
+        parts.push(sizeNormal());
+        parts.push(bold(0));
     }
 
     parts.push(newLine());
 
+    const totalSize = layoutValue('totalsTotal');
     parts.push(bold(1));
-    parts.push(sizeWide());
+    parts.push(totalSize === 'legacy' ? sizeWide() : size(SIZE_BYTES[totalSize]));
     parts.push(textPrintLine(`Total: ${toEuros(totalEuros)}`));
     parts.push(sizeNormal());
     parts.push(bold(0));
@@ -223,7 +243,12 @@ export function renderSessionRaw(sessionData) {
     parts.push(horizontalLine());
     parts.push(newLine());
 
-    parts.push(boldMedium());
+    const sessionTotalSize = layoutValue('sessionTotal');
+    if (sessionTotalSize === 'legacy') {
+        parts.push(boldMedium());
+    } else if (sessionTotalSize !== 'normal') {
+        parts.push(size(SIZE_BYTES[sessionTotalSize]));
+    }
     parts.push(textPrint(`Total: `));
     parts.push(bold(1));
     parts.push(textPrintLine(`${toEuros(sessionData.closingAmount / 100)}`));

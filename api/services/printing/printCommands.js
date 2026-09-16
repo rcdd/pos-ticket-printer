@@ -15,11 +15,42 @@ export const CODEPAGES = Object.freeze({
 // Characters per line vary per printer MODEL, not just paper width (plenty of
 // 80mm printers are 42/44 columns) — so the column count is configured
 // explicitly. Font B (small) fits ~4/3 of the Font A columns.
+// GS ! byte per symmetric-ish size preset. Asymmetric multipliers (like the
+// historical 3×-width) render inconsistently on cheap printers, so the
+// configurable presets stick to safe values; 'legacy' keeps each element's
+// historical byte sequence (the renderers emit it themselves).
+export const SIZE_BYTES = Object.freeze({
+    normal: 0x00,     // 1×1
+    wide: 0x10,       // 2 wide × 1 tall
+    tall: 0x01,       // 1 wide × 2 tall
+    medium: 0x11,     // 2×2
+    mediumTall: 0x12, // 2 wide × 3 tall
+    big: 0x22,        // 3×3
+    huge: 0x33,       // 4×4
+});
+
+// Per-element text sizes of the ticket layouts (see the renderers). Every
+// default is 'legacy' so unconfigured installs print byte-identical tickets.
+const ALL_SIZES = ['legacy', 'normal', 'wide', 'tall', 'medium', 'mediumTall', 'big', 'huge'];
+export const TICKET_LAYOUT_OPTIONS = Object.freeze({
+    itemName: ALL_SIZES,                                              // individual ticket: product name
+    totalsItem: ALL_SIZES,                                            // totals receipt: item lines
+    totalsTotal: ALL_SIZES,                                           // totals receipt: "Total:" line
+    orderHighlight: ['legacy', 'medium', 'small'],                    // order ticket: MESA/PEDIDO block
+    orderItem: ALL_SIZES.filter((s) => s !== 'huge'),                 // order ticket: item lines
+    sessionTotal: ['legacy', 'normal', 'wide', 'tall', 'medium'],     // session summary: closing total
+});
+
+export const DEFAULT_TICKET_LAYOUT = Object.freeze(
+    Object.fromEntries(Object.keys(TICKET_LAYOUT_OPTIONS).map((k) => [k, 'legacy']))
+);
+
 const DEFAULT_SETTINGS = Object.freeze({
     codepage: 'cp1252',
     columns: 48, // Font A characters per line
     fontSmall: false,
     drawerPin: 2,
+    layout: DEFAULT_TICKET_LAYOUT,
 });
 
 let settings = {...DEFAULT_SETTINGS};
@@ -29,10 +60,21 @@ export function configurePrint(next = {}) {
     if (!CODEPAGES[settings.codepage]) settings.codepage = DEFAULT_SETTINGS.codepage;
     const cols = Number(settings.columns);
     settings.columns = Number.isFinite(cols) ? Math.max(24, Math.min(64, Math.floor(cols))) : DEFAULT_SETTINGS.columns;
+    const layout = {...DEFAULT_TICKET_LAYOUT};
+    for (const [key, allowed] of Object.entries(TICKET_LAYOUT_OPTIONS)) {
+        const value = next.layout?.[key];
+        if (allowed.includes(value)) layout[key] = value;
+    }
+    settings.layout = layout;
 }
 
 export function resetPrintSettings() {
     settings = {...DEFAULT_SETTINGS};
+}
+
+// current size choice for a layout element — 'legacy' or a SIZE_BYTES key
+export function layoutValue(element) {
+    return settings.layout[element] ?? 'legacy';
 }
 
 const currentColumns = () =>

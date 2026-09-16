@@ -17,6 +17,7 @@ import LoadingButton from "@mui/lab/LoadingButton";
 import Switch from "@mui/material/Switch";
 import {useVirtualKeyboard} from "../../context/VirtualKeyboardContext.jsx";
 import TerminalsSettings from "../../components/Admin/TerminalsSettings.jsx";
+import TicketLayoutSettings from "../../components/Admin/TicketLayoutSettings.jsx";
 
 function SetupPage() {
     const [tabPosition, setTabPosition] = React.useState("1");
@@ -93,6 +94,7 @@ function SetupPage() {
                     <Box sx={{borderBottom: 1, borderColor: 'divider'}}>
                         <TabList onChange={handleTabChange} aria-label="lab API tabs example">
                             <Tab label="Impressora" value="1"/>
+                            <Tab label="Talões" value="4"/>
                             <Tab label="Programa" value="2"/>
                             <Tab label="Terminais" value="3"/>
                         </TabList>
@@ -100,6 +102,10 @@ function SetupPage() {
 
                     <TabPanel value="1">
                         <PrinterPage/>
+                    </TabPanel>
+
+                    <TabPanel value="4">
+                        <TicketLayoutSettings/>
                     </TabPanel>
 
                     <TabPanel value="3">

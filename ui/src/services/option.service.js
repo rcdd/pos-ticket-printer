@@ -11,6 +11,14 @@ class OptionService {
         return http.post(this.BASE_URL + "/option/print-profile", profile);
     }
 
+    getTicketLayout() {
+        return http.get(this.BASE_URL + "/option/ticket-layout");
+    }
+
+    setTicketLayout(layout) {
+        return http.post(this.BASE_URL + "/option/ticket-layout", layout);
+    }
+
     getPrinter() {
         return http.get(this.BASE_URL + "/option/get-printer");
     }

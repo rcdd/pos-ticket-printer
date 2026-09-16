@@ -3,7 +3,7 @@ import {
     initPrinter, renderSessionRaw, renderTestRaw,
 } from './receiptRenderer.js';
 import {EscposStrategy} from "./escposStrategy.js";
-import {openCashDrawer, fullCut, feed, configurePrint} from "./printCommands.js";
+import {openCashDrawer, fullCut, feed, configurePrint, DEFAULT_TICKET_LAYOUT} from "./printCommands.js";
 import {renderOrderTicketRaw, renderOrderVoidRaw} from "./orderRenderer.js";
 
 const escpos = new EscposStrategy();
@@ -24,6 +24,7 @@ export const DEFAULT_PRINT_PROFILE = Object.freeze({
     codepage: 'cp1252',         // 'cp1252' | 'cp858' | 'cp850'
     drawerPin: 2,               // 2 | 5
     fontSmall: false,
+    layout: DEFAULT_TICKET_LAYOUT, // per-element text sizes ('legacy' = historical bytes)
 });
 
 // Normalizes the profile and applies the character/width/drawer settings to
@@ -36,6 +37,7 @@ const applyProfile = (profile) => {
         columns: prof.columns,
         fontSmall: prof.fontSmall,
         drawerPin: prof.drawerPin,
+        layout: prof.layout,
     });
     return prof;
 };
