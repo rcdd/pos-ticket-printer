@@ -9,6 +9,32 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
+# ===== Single-instance guard =====
+# Double-clicking the shortcut twice used to run two startups in parallel,
+# racing the PM2 restarts and opening two kiosk windows. A named mutex lets
+# the second instance detect the first and bow out with a message. It is
+# released at the end of startup, so a deliberate relaunch later still works.
+$global:__MUTEX = New-Object System.Threading.Mutex($false, 'Global\POSTicketStartupMutex')
+$__mutexAcquired = $false
+try
+{
+    $__mutexAcquired = $global:__MUTEX.WaitOne(0)
+}
+catch [System.Threading.AbandonedMutexException]
+{
+    # previous instance died without releasing — we now own the mutex
+    $__mutexAcquired = $true
+}
+if (-not $__mutexAcquired)
+{
+    [System.Windows.Forms.MessageBox]::Show(
+            "O POS Ticket já está a ser iniciado noutra janela. Aguarde que o arranque termine.",
+            "POS Ticket",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null
+    exit 0
+}
+
 # Hide/Show console window
 Add-Type -Name Win32 -Namespace Native -MemberDefinition @"
 [System.Runtime.InteropServices.DllImport("kernel32.dll")] public static extern System.IntPtr GetConsoleWindow();
@@ -33,62 +59,77 @@ function Show-Console
 $global:__SPLASH = $null
 function New-Splash
 {
-    param([string]$Title = "POS Ticket", [string]$Subtitle = "Starting POS-Ticket...", [string]$ImagePath = "")
+    param([string]$Title = "POS Ticket", [string]$Subtitle = "Starting POS-Ticket...", [string]$ImagePath = "", [string]$Version = "")
+    $brandBlue = [System.Drawing.Color]::FromArgb(25, 118, 210)   # app primary (MUI blue 700)
+
     $form = New-Object System.Windows.Forms.Form
     $form.FormBorderStyle = 'None'
     $form.StartPosition = 'CenterScreen'
     $form.TopMost = $true
-    $form.BackColor = [System.Drawing.Color]::FromArgb(245, 247, 250)
-    $form.Size = New-Object System.Drawing.Size(520, 260)
+    $form.BackColor = [System.Drawing.Color]::White
+    $form.Size = New-Object System.Drawing.Size(520, 280)
     $form.ShowInTaskbar = $true
 
-    $panel = New-Object System.Windows.Forms.Panel
-    $panel.Size = $form.Size
-    $panel.BackColor = [System.Drawing.Color]::White
-    $panel.Padding = '24,24,24,24'
-    $form.Controls.Add($panel)
+    # brand accent strip across the top
+    $strip = New-Object System.Windows.Forms.Panel
+    $strip.Size = New-Object System.Drawing.Size(520, 6)
+    $strip.Location = New-Object System.Drawing.Point(0, 0)
+    $strip.BackColor = $brandBlue
+    $form.Controls.Add($strip)
 
-    $leftBase = 24
+    $textLeft = 32
     if ($ImagePath -and (Test-Path $ImagePath))
     {
         $pic = New-Object System.Windows.Forms.PictureBox
         $pic.SizeMode = 'Zoom'
-        $pic.Size = New-Object System.Drawing.Size(64, 64)
+        $pic.Size = New-Object System.Drawing.Size(88, 88)
         $pic.Image = [System.Drawing.Image]::FromFile($ImagePath)
-        $pic.Location = New-Object System.Drawing.Point(24, 24)
-        $panel.Controls.Add($pic)
-        $leftBase = 24 + 64 + 16
+        $pic.Location = New-Object System.Drawing.Point(32, 40)
+        $form.Controls.Add($pic)
+        $textLeft = 144
     }
 
     $lblTitle = New-Object System.Windows.Forms.Label
     $lblTitle.Text = $Title
-    $lblTitle.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 16)
+    $lblTitle.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 22)
     $lblTitle.AutoSize = $true
-    $lblTitle.Location = New-Object System.Drawing.Point($leftBase, 28)
-    $panel.Controls.Add($lblTitle)
+    $lblTitle.ForeColor = [System.Drawing.Color]::FromArgb(33, 41, 52)
+    $lblTitle.Location = New-Object System.Drawing.Point($textLeft, 46)
+    $form.Controls.Add($lblTitle)
+
+    if ($Version)
+    {
+        $lblVersion = New-Object System.Windows.Forms.Label
+        $lblVersion.Text = $Version
+        $lblVersion.Font = New-Object System.Drawing.Font('Segoe UI', 10)
+        $lblVersion.AutoSize = $true
+        $lblVersion.ForeColor = [System.Drawing.Color]::FromArgb(130, 138, 148)
+        $lblVersion.Location = New-Object System.Drawing.Point($textLeft, 94)
+        $form.Controls.Add($lblVersion)
+    }
 
     $lblStatus = New-Object System.Windows.Forms.Label
     $lblStatus.Text = $Subtitle
     $lblStatus.Font = New-Object System.Drawing.Font('Segoe UI', 10)
     $lblStatus.AutoSize = $true
     $lblStatus.ForeColor = [System.Drawing.Color]::FromArgb(90, 98, 110)
-    $lblStatus.Location = New-Object System.Drawing.Point($leftBase, 64)
-    $panel.Controls.Add($lblStatus)
+    $lblStatus.Location = New-Object System.Drawing.Point(32, 168)
+    $form.Controls.Add($lblStatus)
 
     $bar = New-Object System.Windows.Forms.ProgressBar
     $bar.Style = 'Marquee'
     $bar.MarqueeAnimationSpeed = 30
-    $bar.Size = New-Object System.Drawing.Size 472, 18
-    $bar.Location = New-Object System.Drawing.Point(24, 120)
-    $panel.Controls.Add($bar)
+    $bar.Size = New-Object System.Drawing.Size 456, 10
+    $bar.Location = New-Object System.Drawing.Point(32, 198)
+    $form.Controls.Add($bar)
 
     $lblFoot = New-Object System.Windows.Forms.Label
     $lblFoot.Text = "Por favor, aguarde..."
     $lblFoot.Font = New-Object System.Drawing.Font('Segoe UI', 9)
     $lblFoot.AutoSize = $true
     $lblFoot.ForeColor = [System.Drawing.Color]::FromArgb(130, 138, 148)
-    $lblFoot.Location = New-Object System.Drawing.Point(24, 150)
-    $panel.Controls.Add($lblFoot)
+    $lblFoot.Location = New-Object System.Drawing.Point(32, 232)
+    $form.Controls.Add($lblFoot)
 
     $form.Add_Shown({ $form.Activate() })
     $form.Show()
@@ -119,10 +160,23 @@ function Close-Splash
 # Splash on/off via env
 $useSplash = -not (Test-Path Env:POS_NO_SPLASH)
 $ScriptRoot = Split-Path -Path $MyInvocation.MyCommand.Path -Parent
+# app version for the splash (handy for support: shows what the machine runs)
+$appVersion = ''
+try
+{
+    $pkg = Get-Content (Join-Path $ScriptRoot 'api\package.json') -Raw | ConvertFrom-Json
+    if ($pkg.version)
+    {
+        $appVersion = "v$( $pkg.version )"
+    }
+}
+catch
+{
+}
 if ($useSplash)
 {
     $logo = Join-Path $ScriptRoot 'branding.png'  # optional
-    New-Splash -Title "POS Ticket" -Subtitle "Preparing..." -ImagePath $logo
+    New-Splash -Title "POS Ticket" -Subtitle "Preparing..." -ImagePath $logo -Version $appVersion
     Hide-Console
 }
 
@@ -441,8 +495,29 @@ try
     }
     if ($kioskBrowser)
     {
-        Write-Info "Launching kiosk browser: $kioskBrowser"
-        Start-Process $kioskBrowser "--app=http://localhost:3000 --kiosk"
+        # A kiosk window pointing at our UI may already be open (e.g. the user
+        # relaunched the shortcut with the app still running) — reuse it
+        # instead of opening a second one.
+        $kioskAlreadyOpen = $false
+        try
+        {
+            $kioskAlreadyOpen = $null -ne (
+                Get-CimInstance Win32_Process -Filter "Name='msedge.exe' OR Name='chrome.exe'" -ErrorAction SilentlyContinue |
+                Where-Object { $_.CommandLine -like '*--app=http://localhost:3000*' -and $_.CommandLine -like '*--kiosk*' } |
+                Select-Object -First 1)
+        }
+        catch
+        {
+        }
+        if ($kioskAlreadyOpen)
+        {
+            Write-Ok "Kiosk window already open; not launching another."
+        }
+        else
+        {
+            Write-Info "Launching kiosk browser: $kioskBrowser"
+            Start-Process $kioskBrowser "--app=http://localhost:3000 --kiosk"
+        }
     }
     else
     {
@@ -470,6 +545,15 @@ finally
     if ($useSplash)
     {
         Close-Splash
+    }
+    # release before the final pause, so the (possibly hidden) console waiting
+    # on ENTER doesn't keep blocking future launches
+    try
+    {
+        $global:__MUTEX.ReleaseMutex() | Out-Null
+    }
+    catch
+    {
     }
     Stop-Transcript | Out-Null
     if (-not $env:POS_NO_PAUSE)
