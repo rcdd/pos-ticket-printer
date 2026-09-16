@@ -423,6 +423,21 @@ try
         }
     }
 
+    # Explorer caches shortcut icons; without this, a replaced favicon.ico only
+    # shows up on the desktop shortcut after a reboot.
+    try
+    {
+        $ie4 = Join-Path $env:WINDIR 'System32\ie4uinit.exe'
+        if (Test-Path $ie4)
+        {
+            & $ie4 -show 2>$null
+            Write-Host "Cache de icones atualizada."
+        }
+    }
+    catch
+    {
+    }
+
     Write-Host "Update concluido."
 }
 finally
