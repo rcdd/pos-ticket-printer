@@ -241,7 +241,7 @@ function Wait-HttpReady
         catch
         {
         }
-        Start-Sleep -Milliseconds 700
+        Start-Sleep -Milliseconds 300
     }
     return $false
 }
@@ -373,86 +373,84 @@ try
     }
     Ensure-PM2Daemon
 
-    # --- Backend ---
+    # --- Services (one PM2 call via generated ecosystem file) ---
+    # Every pm2.cmd invocation spawns a fresh Node process, which costs 1-3s
+    # on old disks; the previous per-app delete+start dance added up to ~8
+    # spawns. All apps go in one generated ecosystem file now (2 spawns:
+    # delete trio + start), and phpMyAdmin stops sitting on the critical
+    # path — pm2 just forks it along with the rest.
     if ($useSplash)
     {
-        Set-SplashText "Starting backend..."
+        Set-SplashText "Starting services..."
     }
+
     $apiPath = Join-Path $ScriptRoot 'api'
-    $apiEntry = Join-Path $apiPath  'server.js'
+    $apiEntry = Join-Path $apiPath 'server.js'
     if (-not (Test-Path $apiEntry))
     {
         $apiEntry = Join-Path $apiPath 'app.js'
     }
+    $uiBuild = Join-Path $ScriptRoot 'ui\build'
+    $pmaPath = Join-Path $ScriptRoot 'phpmyadmin'
 
-    if (-not (Test-Path $apiEntry))
+    $apps = @()
+    if (Test-Path $apiEntry)
     {
-        Write-Warn "Nenhum entrypoint encontrado (esperava server.js ou app.js em $apiPath)."
+        $apps += @{
+            name = 'api-pos'
+            script = $apiEntry
+            cwd = $apiPath
+            node_args = '--enable-source-maps'
+            env = @{ NODE_ENV = 'production'; PORT = '9393' }
+        }
     }
     else
     {
-        Write-Info "Starting Backend via PM2..."
-        try
-        {
-            & $Pm2Cmd delete api-pos *> $null
-        }
-        catch
-        {
-        }
-        & $Pm2Cmd start $apiEntry `
-          --name api-pos `
-          --cwd  $apiPath `
-          --interpreter $NodeExe `
-          --node-args "--enable-source-maps" `
-          --env "NODE_ENV=production" `
-          --env "PORT=9393" | Out-Null
-        Write-Ok "Backend running at api-pos"
+        Write-Warn "Nenhum entrypoint encontrado (esperava server.js ou app.js em $apiPath)."
     }
-
-    # --- Frontend (PM2 static server) ---
-    if ($useSplash)
-    {
-        Set-SplashText "Starting frontend..."
-    }
-    $uiPath = Join-Path $ScriptRoot 'ui'
-    $uiBuild = Join-Path $uiPath 'build'
     if (Test-Path $uiBuild)
     {
-        Write-Info "Starting Frontend via PM2 (static serve)..."
-        try
-        {
-            & $Pm2Cmd delete ui-pos *> $null
+        $apps += @{
+            name = 'ui-pos'
+            script = 'serve'
+            env = @{ PM2_SERVE_PATH = $uiBuild; PM2_SERVE_PORT = '3000'; PM2_SERVE_SPA = 'true' }
         }
-        catch
-        {
-        }
-
-        # Use caminho absoluto + --spa para React
-        & $Pm2Cmd serve "`"$uiBuild`"" 3000 --spa --name ui-pos | Out-Null
-
-        Write-Ok "Frontend running at http://localhost:3000"
     }
     else
     {
         Write-Warn "UI build folder not found ($uiBuild)."
     }
-
-    # --- phpMyAdmin (PHP built-in server via PM2) ---
-    if ($useSplash)
+    if (Test-Path $pmaPath)
     {
-        Set-SplashText "Starting 3rd party applications..."
+        $PhpExe = (Get-Command 'php.exe' -ErrorAction SilentlyContinue | Select-Object -First 1).Source
+        if (-not $PhpExe)
+        {
+            $PhpExe = 'php'
+        }
+        $apps += @{
+            name = 'pma-pos'
+            script = $PhpExe
+            args = '-S localhost:8080'
+            cwd = $pmaPath
+            interpreter = 'none'
+        }
     }
-    Write-Host "[INFO] Starting phpMyAdmin via PM2..." -ForegroundColor Cyan
+
+    # runtime-generated (machine-specific absolute paths) — gitignored
+    $ecosystemPath = Join-Path $ScriptRoot 'pos.pm2.json'
+    $ecosystemJson = @{ apps = $apps } | ConvertTo-Json -Depth 5
+    [System.IO.File]::WriteAllText($ecosystemPath, $ecosystemJson, (New-Object System.Text.UTF8Encoding($false)))
+
+    Write-Info "Starting services via PM2 (API, UI, phpMyAdmin)..."
     try
     {
-        & $Pm2Cmd delete pma-pos *> $null
+        & $Pm2Cmd delete api-pos ui-pos pma-pos *> $null
     }
     catch
     {
     }
-
-    & $Pm2Cmd start "php" --name pma-pos --cwd "$ScriptRoot\phpmyadmin" -- -S localhost:8080 | Out-Null
-    Write-Ok "phpMyAdmin at http://localhost:8080"
+    & $Pm2Cmd start $ecosystemPath | Out-Null
+    Write-Ok "Services started: api-pos (9393), ui-pos (3000), pma-pos (8080)."
 
     # --- Wait for services before opening the kiosk ---
     if ($useSplash)
