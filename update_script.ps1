@@ -423,19 +423,38 @@ try
         }
     }
 
-    # Explorer caches shortcut icons; without this, a replaced favicon.ico only
-    # shows up on the desktop shortcut after a reboot.
+    # Explorer caches shortcut icons aggressively; refreshing the general icon
+    # cache (ie4uinit) is not enough for an unchanged .lnk. Rewriting the
+    # shortcut (same target) plus SHChangeNotify makes Explorer re-read the
+    # replaced favicon.ico without a reboot.
     try
     {
+        $shortcutPath = "$env:USERPROFILE\Desktop\POS Ticket.lnk"
+        if (Test-Path $shortcutPath)
+        {
+            $ws = New-Object -ComObject WScript.Shell
+            $s = $ws.CreateShortcut($shortcutPath)
+            $s.IconLocation = "$( Join-Path $Target 'favicon.ico' ),0"
+            $s.Save()
+        }
+
+        Add-Type -Namespace Native -Name Shell -MemberDefinition @"
+[System.Runtime.InteropServices.DllImport("shell32.dll")]
+public static extern void SHChangeNotify(int wEventId, uint uFlags, System.IntPtr dwItem1, System.IntPtr dwItem2);
+"@
+        # SHCNE_ASSOCCHANGED (0x08000000): tells the shell that icons changed
+        [Native.Shell]::SHChangeNotify(0x08000000, 0x0000, [IntPtr]::Zero, [IntPtr]::Zero)
+
         $ie4 = Join-Path $env:WINDIR 'System32\ie4uinit.exe'
         if (Test-Path $ie4)
         {
             & $ie4 -show 2>$null
-            Write-Host "Cache de icones atualizada."
         }
+        Write-Host "Cache de icones atualizada."
     }
     catch
     {
+        Write-Host "Nao foi possivel atualizar a cache de icones (o icone novo aparece apos reiniciar)."
     }
 
     Write-Host "Update concluido."
