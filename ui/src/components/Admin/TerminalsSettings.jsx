@@ -13,6 +13,8 @@ export default function TerminalsSettings() {
     const [info, setInfo] = useState(null);
     const [saving, setSaving] = useState(false);
     const [qrCodes, setQrCodes] = useState({});
+    const [orderSplit, setOrderSplit] = useState(true);
+    const [savingSplit, setSavingSplit] = useState(false);
 
     const load = useCallback(async () => {
         try {
@@ -20,6 +22,11 @@ export default function TerminalsSettings() {
             setInfo(data);
         } catch (error) {
             pushNetworkError(error, {title: 'Não foi possível obter o estado dos terminais'});
+        }
+        try {
+            const {data} = await OrderService.getOrderSplitOption();
+            setOrderSplit(Boolean(data?.enabled));
+        } catch {
         }
     }, [pushNetworkError]);
 
@@ -47,6 +54,24 @@ export default function TerminalsSettings() {
             canceled = true;
         };
     }, [info]);
+
+    const handleToggleSplit = async (event) => {
+        const next = event.target.checked;
+        const previous = orderSplit;
+        setOrderSplit(next);
+        setSavingSplit(true);
+        try {
+            await OrderService.setOrderSplitOption(next);
+            pushMessage('success', next
+                ? 'Separação de talões por secção ativada.'
+                : 'Separação de talões por secção desativada.');
+        } catch (error) {
+            setOrderSplit(previous);
+            pushNetworkError(error, {title: 'Não foi possível alterar a separação de talões'});
+        } finally {
+            setSavingSplit(false);
+        }
+    };
 
     const handleToggle = async (event) => {
         const next = event.target.checked;
@@ -100,6 +125,28 @@ export default function TerminalsSettings() {
                         {effective ? 'Multiposto ativado' : 'Multiposto desativado'}
                     </Typography>
                     {saving && <CircularProgress size={18}/>}
+                </Stack>
+            </Paper>
+
+            <Paper elevation={0} sx={{p: 3, border: (theme) => `1px solid ${theme.palette.divider}`}}>
+                <Typography variant="h6" fontWeight={700} gutterBottom>
+                    Separar talões por secção
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{mb: 2}}>
+                    Imprime um talão de pedido por secção de produtos (ex.: cozinha e bar), com o mesmo
+                    número de mesa/pedido e uma linha de destino — para cada talão seguir para o seu
+                    posto. O tamanho da linha de destino ajusta-se em Configurações → Talões.
+                </Typography>
+                <Stack direction="row" spacing={2} alignItems="center">
+                    <Switch
+                        checked={orderSplit}
+                        onChange={handleToggleSplit}
+                        disabled={savingSplit}
+                    />
+                    <Typography variant="body2">
+                        {orderSplit ? 'Separação ativada' : 'Separação desativada (talão único)'}
+                    </Typography>
+                    {savingSplit && <CircularProgress size={18}/>}
                 </Stack>
             </Paper>
 

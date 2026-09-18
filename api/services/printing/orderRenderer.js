@@ -1,27 +1,20 @@
 import {
-    escInit, escSelectCodepage, align, bold, size, sizeNormal, sizeWide, boldMedium,
+    escInit, escSelectCodepage, align, bold, size, sizeNormal,
     textPrintLine, horizontalLine, newLine, layoutValue, SIZE_BYTES,
 } from './printCommands.js';
 
 export const formatOrderNumber = (number) => `#${String(number ?? 0).padStart(3, '0')}`;
 
-// MESA/PEDIDO highlight block: GS ! byte for the label line and the value
-// line, per configured preset ('legacy' = historical 2×2 label / 3×3 value)
-const HIGHLIGHT_SIZES = Object.freeze({
-    legacy: {label: 0x11, value: 0x22},
-    medium: {label: 0x01, value: 0x11},
-    small: {label: 0x00, value: 0x01},
-});
-const highlightSizes = () => HIGHLIGHT_SIZES[layoutValue('orderHighlight')] ?? HIGHLIGHT_SIZES.legacy;
+// MESA/PEDIDO block: the label line ("MESA"/"PEDIDO") and the value line
+// (table / order number) are sized independently via the layout elements
+// orderLabel and orderValue. The BALCAO/AVULSO subline of standalone orders
+// keeps its historical fixed 3×1.
+const orderLabelSize = () => size(SIZE_BYTES[layoutValue('orderLabel')]);
+const orderValueSize = () => size(SIZE_BYTES[layoutValue('orderValue')]);
 
-// item lines of order/void tickets ('legacy' = historical double-width font)
+// item lines of order/void tickets
 const pushOrderItemsStyle = (parts) => {
-    const itemSize = layoutValue('orderItem');
-    if (itemSize === 'legacy') {
-        parts.push(boldMedium());
-        return () => parts.push(sizeNormal());
-    }
-    parts.push(size(SIZE_BYTES[itemSize]));
+    parts.push(size(SIZE_BYTES[layoutValue('orderItem')]));
     parts.push(bold(1));
     return () => {
         parts.push(sizeNormal());
@@ -40,7 +33,18 @@ const pushOrderItemsStyle = (parts) => {
 // (what kitchen and floor staff use); the order number goes on a small
 // reference line (reprints/audit). For standalone orders the number is
 // the customer's identity and stays giant.
-export function renderOrderTicketRaw({number, tableNumber, items = [], note, waiterName, reprint = false}) {
+// destination line ("» COZINHA") shown when order tickets are split per zone;
+// size configurable like the other layout elements
+const pushZoneLabel = (parts, zoneLabel) => {
+    if (!zoneLabel) return;
+    parts.push(size(SIZE_BYTES[layoutValue('orderZone')] ?? SIZE_BYTES.medium));
+    parts.push(bold(1));
+    parts.push(textPrintLine(`» ${String(zoneLabel).toUpperCase()}`));
+    parts.push(sizeNormal());
+    parts.push(bold(0));
+};
+
+export function renderOrderTicketRaw({number, tableNumber, items = [], note, waiterName, reprint = false, zoneLabel = null}) {
     const parts = [];
     parts.push(escInit());
     parts.push(escSelectCodepage());
@@ -52,23 +56,22 @@ export function renderOrderTicketRaw({number, tableNumber, items = [], note, wai
         parts.push(bold(0));
     }
     parts.push(bold(1));
-    const highlight = highlightSizes();
     if (tableNumber) {
-        parts.push(size(highlight.label)); // legacy: 2x2
+        parts.push(orderLabelSize()); // default: 2x2
         parts.push(textPrintLine('MESA'));
-        parts.push(size(highlight.value)); // legacy: 3x3
+        parts.push(orderValueSize()); // default: 3x3
         parts.push(textPrintLine(String(tableNumber)));
     } else {
-        parts.push(size(highlight.label));
+        parts.push(orderLabelSize());
         parts.push(textPrintLine('PEDIDO'));
-        parts.push(size(highlight.value));
+        parts.push(orderValueSize());
         parts.push(textPrintLine(formatOrderNumber(number)));
-        parts.push(sizeNormal());
-        if (layoutValue('orderHighlight') === 'legacy') parts.push(sizeWide());
+        parts.push(size(SIZE_BYTES.extraWide));
         parts.push(textPrintLine('BALCAO / AVULSO'));
     }
     parts.push(sizeNormal());
     parts.push(bold(0));
+    pushZoneLabel(parts, zoneLabel);
 
     parts.push(horizontalLine());
     parts.push(align(0));
@@ -101,20 +104,20 @@ export function renderOrderTicketRaw({number, tableNumber, items = [], note, wai
 }
 
 // Void ticket: tells the kitchen that items of an order were cancelled.
-export function renderOrderVoidRaw({number, tableNumber, items = [], approvedByName}) {
+export function renderOrderVoidRaw({number, tableNumber, items = [], approvedByName, zoneLabel = null}) {
     const parts = [];
     parts.push(escInit());
     parts.push(escSelectCodepage());
 
     parts.push(align(1));
     parts.push(bold(1));
-    const highlight = highlightSizes();
-    parts.push(size(highlight.label)); // legacy: 2x2
+    parts.push(orderLabelSize()); // default: 2x2
     parts.push(textPrintLine('** ANULACAO **'));
-    parts.push(size(highlight.value)); // legacy: 3x3
+    parts.push(orderValueSize()); // default: 3x3
     parts.push(textPrintLine(tableNumber ? `MESA ${tableNumber}` : formatOrderNumber(number)));
     parts.push(sizeNormal());
     parts.push(bold(0));
+    pushZoneLabel(parts, zoneLabel);
 
     parts.push(horizontalLine());
     parts.push(align(0));

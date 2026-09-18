@@ -76,6 +76,14 @@ class OrderService {
     setMultiTerminalOption(enabled) {
         return http.post(this.BASE_URL + "/option/multi-terminal", {enabled});
     }
+
+    getOrderSplitOption() {
+        return http.get(this.BASE_URL + "/option/order-split");
+    }
+
+    setOrderSplitOption(enabled) {
+        return http.post(this.BASE_URL + "/option/order-split", {enabled});
+    }
 }
 
 export default new OrderService();

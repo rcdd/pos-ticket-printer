@@ -24,7 +24,7 @@ export const DEFAULT_PRINT_PROFILE = Object.freeze({
     codepage: 'cp1252',         // 'cp1252' | 'cp858' | 'cp850'
     drawerPin: 2,               // 2 | 5
     fontSmall: false,
-    layout: DEFAULT_TICKET_LAYOUT, // per-element text sizes ('legacy' = historical bytes)
+    layout: DEFAULT_TICKET_LAYOUT, // per-element text sizes (defaults match the historical output)
 });
 
 // Normalizes the profile and applies the character/width/drawer settings to

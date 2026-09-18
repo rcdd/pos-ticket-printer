@@ -20,61 +20,42 @@ import {useToast} from "../Common/ToastProvider";
 
 const SAVE_DEBOUNCE_MS = 500;
 
-// Size choices per element. 'legacy' keeps the exact historical print bytes,
-// so untouched installs keep printing the same tickets; the other values map
-// to safe symmetric ESC/POS multipliers on the API side.
+// Concrete size presets (width × height). Every element's default is the
+// concrete equivalent of the historical output and gets a "— padrão" suffix,
+// so the user always knows where the standard sits in the scale.
 const SIZE_OPTIONS = [
-    {value: "legacy", label: "Atual (padrão)"},
     {value: "normal", label: "Normal (1×1)"},
     {value: "wide", label: "Largo (2×1)"},
+    {value: "extraWide", label: "Extra largo (3×1)"},
     {value: "tall", label: "Alto (1×2)"},
     {value: "medium", label: "Médio (2×2)"},
     {value: "mediumTall", label: "Médio alto (2×3)"},
     {value: "big", label: "Grande (3×3)"},
     {value: "huge", label: "Extra grande (4×4)"},
 ];
-const pickSizes = (values) => SIZE_OPTIONS.filter((o) => values.includes(o.value));
-
-const HIGHLIGHT_OPTIONS = [
-    {value: "legacy", label: "Grande (padrão)"},
-    {value: "medium", label: "Médio"},
-    {value: "small", label: "Pequeno"},
-];
-
 const DEFAULT_LAYOUT = {
-    itemName: "legacy",
-    totalsItem: "legacy",
-    totalsTotal: "legacy",
-    orderHighlight: "legacy",
-    orderItem: "legacy",
-    sessionTotal: "legacy",
+    itemName: "mediumTall",
+    totalsItem: "extraWide",
+    totalsTotal: "extraWide",
+    orderLabel: "medium",
+    orderValue: "big",
+    orderItem: "wide",
+    orderZone: "medium",
+    sessionTotal: "wide",
 };
 
-// Approximate on-screen scale (width×height) of each choice; the 'legacy'
-// entries mirror what the historical commands request from the printer.
+// Approximate on-screen scale (width×height) of each choice.
 const PREVIEW_SCALES = {
     normal: {sx: 1, sy: 1},
     wide: {sx: 2, sy: 1},
+    extraWide: {sx: 3, sy: 1},
     tall: {sx: 1, sy: 2},
     medium: {sx: 2, sy: 2},
     mediumTall: {sx: 2, sy: 3},
     big: {sx: 3, sy: 3},
     huge: {sx: 4, sy: 4},
 };
-const legacyScale = {
-    itemName: {sx: 2, sy: 3},
-    totalsItem: {sx: 3, sy: 1},
-    totalsTotal: {sx: 3, sy: 1},
-    orderItem: {sx: 2, sy: 1},
-    sessionTotal: {sx: 2, sy: 1},
-};
-const scaleFor = (element, value) =>
-    value === "legacy" ? (legacyScale[element] ?? PREVIEW_SCALES.normal) : (PREVIEW_SCALES[value] ?? PREVIEW_SCALES.normal);
-const HIGHLIGHT_PREVIEW = {
-    legacy: {label: {sx: 2, sy: 2}, value: {sx: 3, sy: 3}},
-    medium: {label: {sx: 1, sy: 2}, value: {sx: 2, sy: 2}},
-    small: {label: {sx: 1, sy: 1}, value: {sx: 1, sy: 2}},
-};
+const scaleFor = (element, value) => PREVIEW_SCALES[value] ?? PREVIEW_SCALES.normal;
 
 // One preview line, scaled horizontally/vertically like the printer would
 function PreviewLine({scale = PREVIEW_SCALES.normal, bold = false, center = false, children}) {
@@ -121,7 +102,7 @@ function TicketPreview({children}) {
     );
 }
 
-function SizeSelect({id, label, value, options, disabled, onChange, helper}) {
+function SizeSelect({id, label, value, options, disabled, onChange, helper, defaultValue}) {
     return (
         <FormControl disabled={disabled} sx={{minWidth: 230}}>
             <InputLabel id={id}>{label}</InputLabel>
@@ -133,7 +114,9 @@ function SizeSelect({id, label, value, options, disabled, onChange, helper}) {
                 onChange={(e) => onChange(e.target.value)}
             >
                 {options.map((o) => (
-                    <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+                    <MenuItem key={o.value} value={o.value}>
+                        {o.value === defaultValue ? `${o.label} — padrão` : o.label}
+                    </MenuItem>
                 ))}
             </Select>
             {helper ? <FormHelperText>{helper}</FormHelperText> : null}
@@ -233,14 +216,13 @@ function TicketLayoutSettings() {
             Imprimir exemplo
         </LoadingButton>
     );
-    const highlightPreview = HIGHLIGHT_PREVIEW[layout.orderHighlight] ?? HIGHLIGHT_PREVIEW.legacy;
 
     return (
         <Stack spacing={3}>
             <Typography variant="body2" color="text.secondary">
-                Tamanhos de texto de cada tipo de talão. "Atual (padrão)" mantém a impressão exatamente
-                como até aqui; se algum texto sair deformado ou demasiado grande nessa impressora,
-                escolha um dos tamanhos fixos e confirme com "Imprimir exemplo".
+                Tamanhos de texto de cada tipo de talão. A opção marcada com "padrão" é o tamanho
+                típico de cada elemento; se algum texto sair deformado ou demasiado grande nessa
+                impressora, ajuste e confirme com "Imprimir exemplo".
             </Typography>
 
             <Paper elevation={0} sx={sectionSx}>
@@ -255,8 +237,8 @@ function TicketLayoutSettings() {
                             label="Nome do produto"
                             value={layout.itemName}
                             options={SIZE_OPTIONS}
+                            defaultValue={DEFAULT_LAYOUT.itemName}
                             onChange={(v) => updateLayout({itemName: v})}
-                            helper='O tamanho "Atual" usa um comando que algumas impressoras deformam.'
                         />
                         {sampleButton("item")}
                     </Stack>
@@ -282,6 +264,7 @@ function TicketLayoutSettings() {
                             label="Linhas de produtos"
                             value={layout.totalsItem}
                             options={SIZE_OPTIONS}
+                            defaultValue={DEFAULT_LAYOUT.totalsItem}
                             onChange={(v) => updateLayout({totalsItem: v})}
                         />
                         <SizeSelect
@@ -289,6 +272,7 @@ function TicketLayoutSettings() {
                             label='Linha "Total"'
                             value={layout.totalsTotal}
                             options={SIZE_OPTIONS}
+                            defaultValue={DEFAULT_LAYOUT.totalsTotal}
                             onChange={(v) => updateLayout({totalsTotal: v})}
                         />
                         {sampleButton("totals")}
@@ -310,24 +294,44 @@ function TicketLayoutSettings() {
                 <Stack direction={{xs: "column", md: "row"}} spacing={3} alignItems={{md: "flex-start"}}>
                     <Stack spacing={2}>
                         <SizeSelect
-                            id="layout-order-highlight"
-                            label="Destaque da mesa / nº do pedido"
-                            value={layout.orderHighlight}
-                            options={HIGHLIGHT_OPTIONS}
-                            onChange={(v) => updateLayout({orderHighlight: v})}
+                            id="layout-order-label"
+                            label='Linha "MESA / PEDIDO"'
+                            value={layout.orderLabel}
+                            options={SIZE_OPTIONS}
+                            defaultValue={DEFAULT_LAYOUT.orderLabel}
+                            onChange={(v) => updateLayout({orderLabel: v})}
+                        />
+                        <SizeSelect
+                            id="layout-order-value"
+                            label="Nº da mesa / do pedido"
+                            value={layout.orderValue}
+                            options={SIZE_OPTIONS}
+                            defaultValue={DEFAULT_LAYOUT.orderValue}
+                            onChange={(v) => updateLayout({orderValue: v})}
+                        />
+                        <SizeSelect
+                            id="layout-order-zone"
+                            label="Linha de destino (secção)"
+                            value={layout.orderZone}
+                            options={SIZE_OPTIONS}
+                            defaultValue={DEFAULT_LAYOUT.orderZone}
+                            onChange={(v) => updateLayout({orderZone: v})}
+                            helper="Impressa quando os talões são separados por secção (ex.: » COZINHA)."
                         />
                         <SizeSelect
                             id="layout-order-item"
                             label="Linhas de produtos"
                             value={layout.orderItem}
-                            options={pickSizes(["legacy", "normal", "wide", "tall", "medium", "mediumTall", "big"])}
+                            options={SIZE_OPTIONS}
+                            defaultValue={DEFAULT_LAYOUT.orderItem}
                             onChange={(v) => updateLayout({orderItem: v})}
                         />
                         {sampleButton("order")}
                     </Stack>
                     <TicketPreview>
-                        <PreviewLine scale={highlightPreview.label} bold center>MESA</PreviewLine>
-                        <PreviewLine scale={highlightPreview.value} bold center>12A</PreviewLine>
+                        <PreviewLine scale={scaleFor("orderLabel", layout.orderLabel)} bold center>MESA</PreviewLine>
+                        <PreviewLine scale={scaleFor("orderValue", layout.orderValue)} bold center>12A</PreviewLine>
+                        <PreviewLine scale={scaleFor("orderZone", layout.orderZone)} bold center>» COZINHA</PreviewLine>
                         <PreviewLine>____________________</PreviewLine>
                         <PreviewLine scale={scaleFor("orderItem", layout.orderItem)} bold>2x Imperial</PreviewLine>
                         <PreviewLine scale={scaleFor("orderItem", layout.orderItem)} bold>1x Bifana</PreviewLine>
@@ -347,7 +351,8 @@ function TicketLayoutSettings() {
                             id="layout-session-total"
                             label='Linha "Total" final'
                             value={layout.sessionTotal}
-                            options={pickSizes(["legacy", "normal", "wide", "tall", "medium"])}
+                            options={SIZE_OPTIONS}
+                            defaultValue={DEFAULT_LAYOUT.sessionTotal}
                             onChange={(v) => updateLayout({sessionTotal: v})}
                         />
                         {sampleButton("session")}

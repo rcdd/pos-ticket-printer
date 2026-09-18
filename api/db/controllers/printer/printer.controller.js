@@ -125,6 +125,7 @@ export const printLayoutSample = async (req, res) => {
                 printerName, headers, profile,
                 number: 123, tableNumber: '12A',
                 items: sampleItems.map((it) => ({quantity: it.quantity, nameSnapshot: it.name})),
+                zoneLabel: 'Cozinha',
                 waiterName: 'Exemplo',
             });
         } else if (ticketType === 'session') {

@@ -15,13 +15,13 @@ export const CODEPAGES = Object.freeze({
 // Characters per line vary per printer MODEL, not just paper width (plenty of
 // 80mm printers are 42/44 columns) — so the column count is configured
 // explicitly. Font B (small) fits ~4/3 of the Font A columns.
-// GS ! byte per symmetric-ish size preset. Asymmetric multipliers (like the
-// historical 3×-width) render inconsistently on cheap printers, so the
-// configurable presets stick to safe values; 'legacy' keeps each element's
-// historical byte sequence (the renderers emit it themselves).
+// GS ! byte per named size preset (width × height multipliers). Only these
+// combinations are offered — free-form multipliers render inconsistently on
+// cheap printers (the original out-of-spec sequences were exactly that bug).
 export const SIZE_BYTES = Object.freeze({
     normal: 0x00,     // 1×1
     wide: 0x10,       // 2 wide × 1 tall
+    extraWide: 0x20,  // 3 wide × 1 tall
     tall: 0x01,       // 1 wide × 2 tall
     medium: 0x11,     // 2×2
     mediumTall: 0x12, // 2 wide × 3 tall
@@ -30,20 +30,52 @@ export const SIZE_BYTES = Object.freeze({
 });
 
 // Per-element text sizes of the ticket layouts (see the renderers). Every
-// default is 'legacy' so unconfigured installs print byte-identical tickets.
-const ALL_SIZES = ['legacy', 'normal', 'wide', 'tall', 'medium', 'mediumTall', 'big', 'huge'];
+// element offers the full preset list; the defaults are the concrete
+// equivalents of the historical output, so the user always sees WHICH size
+// is the standard one.
+const ALL_SIZES = ['normal', 'wide', 'extraWide', 'tall', 'medium', 'mediumTall', 'big', 'huge'];
 export const TICKET_LAYOUT_OPTIONS = Object.freeze({
-    itemName: ALL_SIZES,                                              // individual ticket: product name
-    totalsItem: ALL_SIZES,                                            // totals receipt: item lines
-    totalsTotal: ALL_SIZES,                                           // totals receipt: "Total:" line
-    orderHighlight: ['legacy', 'medium', 'small'],                    // order ticket: MESA/PEDIDO block
-    orderItem: ALL_SIZES.filter((s) => s !== 'huge'),                 // order ticket: item lines
-    sessionTotal: ['legacy', 'normal', 'wide', 'tall', 'medium'],     // session summary: closing total
+    itemName: ALL_SIZES,     // individual ticket: product name
+    totalsItem: ALL_SIZES,   // totals receipt: item lines
+    totalsTotal: ALL_SIZES,  // totals receipt: "Total:" line
+    orderLabel: ALL_SIZES,   // order ticket: "MESA"/"PEDIDO"/"** ANULACAO **" line
+    orderValue: ALL_SIZES,   // order ticket: table / order number value line
+    orderItem: ALL_SIZES,    // order ticket: item lines
+    orderZone: ALL_SIZES,    // order ticket: destination line
+    sessionTotal: ALL_SIZES, // session summary: closing total
 });
 
-export const DEFAULT_TICKET_LAYOUT = Object.freeze(
-    Object.fromEntries(Object.keys(TICKET_LAYOUT_OPTIONS).map((k) => [k, 'legacy']))
-);
+export const DEFAULT_TICKET_LAYOUT = Object.freeze({
+    itemName: 'mediumTall',   // historical: ~2×3 via out-of-spec GS ! 26
+    totalsItem: 'extraWide',  // historical: 3× width
+    totalsTotal: 'extraWide', // historical: 3× width
+    orderLabel: 'medium',     // historical: 2×2
+    orderValue: 'big',        // historical: 3×3
+    orderItem: 'wide',        // historical: double width (ESC ! 0x20)
+    orderZone: 'medium',
+    sessionTotal: 'wide',     // historical: double width (ESC ! 0x20)
+});
+
+// Normalizes a stored/incoming layout to the current shape: invalid or
+// removed values ('legacy', unknown presets) fall back to the defaults, and
+// the retired composite 'orderHighlight' migrates to orderLabel/orderValue.
+const HIGHLIGHT_MIGRATION = Object.freeze({
+    legacy: {orderLabel: 'medium', orderValue: 'big'},
+    big: {orderLabel: 'medium', orderValue: 'big'},
+    medium: {orderLabel: 'tall', orderValue: 'medium'},
+    small: {orderLabel: 'normal', orderValue: 'tall'},
+});
+
+export function normalizeTicketLayout(stored = {}) {
+    const layout = {...DEFAULT_TICKET_LAYOUT};
+    for (const [key, allowed] of Object.entries(TICKET_LAYOUT_OPTIONS)) {
+        if (allowed.includes(stored[key])) layout[key] = stored[key];
+    }
+    if (!stored.orderLabel && !stored.orderValue && HIGHLIGHT_MIGRATION[stored.orderHighlight]) {
+        Object.assign(layout, HIGHLIGHT_MIGRATION[stored.orderHighlight]);
+    }
+    return layout;
+}
 
 const DEFAULT_SETTINGS = Object.freeze({
     codepage: 'cp1252',
@@ -60,12 +92,7 @@ export function configurePrint(next = {}) {
     if (!CODEPAGES[settings.codepage]) settings.codepage = DEFAULT_SETTINGS.codepage;
     const cols = Number(settings.columns);
     settings.columns = Number.isFinite(cols) ? Math.max(24, Math.min(64, Math.floor(cols))) : DEFAULT_SETTINGS.columns;
-    const layout = {...DEFAULT_TICKET_LAYOUT};
-    for (const [key, allowed] of Object.entries(TICKET_LAYOUT_OPTIONS)) {
-        const value = next.layout?.[key];
-        if (allowed.includes(value)) layout[key] = value;
-    }
-    settings.layout = layout;
+    settings.layout = normalizeTicketLayout(next.layout ?? {});
 }
 
 export function resetPrintSettings() {

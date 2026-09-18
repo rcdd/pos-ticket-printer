@@ -1,6 +1,6 @@
 import db from "../index.js";
 import {ensureLicenseState} from "../../services/license.service.js";
-import {DEFAULT_TICKET_LAYOUT, TICKET_LAYOUT_OPTIONS} from "../../services/printing/printCommands.js";
+import {TICKET_LAYOUT_OPTIONS, normalizeTicketLayout} from "../../services/printing/printCommands.js";
 
 const Option = db.options;
 
@@ -20,6 +20,7 @@ const optionPrinterCutMode = 'printer_cut_mode';
 const optionPrinterPaperWidth = 'printer_paper_width'; // legacy (80/58) — migrated to columns
 const optionPrinterColumns = 'printer_columns';
 const optionTicketLayout = 'printer_ticket_layout'; // JSON: per-element text sizes
+const optionOrderSplitByZone = 'order_split_by_zone'; // one order ticket per product zone
 const optionPrinterCodepage = 'printer_codepage';
 const optionPrinterDrawerPin = 'printer_drawer_pin';
 const optionPrinterFontSmall = 'printer_font_small';
@@ -144,8 +145,8 @@ const writeOptionValue = async (name, value) => {
     }
 };
 
-// Ticket layout: text size per ticket element, all defaulting to 'legacy'
-// (the historical byte sequences) so unconfigured installs print unchanged.
+// Ticket layout: text size per ticket element; defaults are the concrete
+// equivalents of the historical output (see DEFAULT_TICKET_LAYOUT).
 export const getTicketLayoutVariable = async () => {
     const raw = await readOptionValue(optionTicketLayout);
     let stored = {};
@@ -156,11 +157,9 @@ export const getTicketLayoutVariable = async () => {
             stored = {};
         }
     }
-    const layout = {...DEFAULT_TICKET_LAYOUT};
-    for (const [key, allowed] of Object.entries(TICKET_LAYOUT_OPTIONS)) {
-        if (allowed.includes(stored[key])) layout[key] = stored[key];
-    }
-    return layout;
+    // normalization also migrates layouts stored by older versions ('legacy'
+    // values, the retired composite 'orderHighlight')
+    return normalizeTicketLayout(stored);
 };
 
 export const getTicketLayout = async (req, res) => {
@@ -272,6 +271,36 @@ export const setPrintProfile = async (req, res) => {
     } catch (error) {
         console.error('Error saving print profile:', error);
         res.status(500).send({message: "Não foi possível guardar o perfil de impressão."});
+    }
+};
+
+// Order tickets split per product zone (kitchen/bar): enabled by default —
+// it is what a kitchen/bar setup expects; single-zone orders are unaffected.
+export const readOrderSplitSetting = async () => {
+    const raw = await readOptionValue(optionOrderSplitByZone);
+    return parseBoolean(raw, true);
+};
+
+export const getOrderSplit = async (req, res) => {
+    try {
+        res.send({enabled: await readOrderSplitSetting()});
+    } catch (error) {
+        console.error('Error reading order split setting:', error);
+        res.status(500).send({message: "Não foi possível obter a configuração de separação de talões."});
+    }
+};
+
+export const setOrderSplit = async (req, res) => {
+    try {
+        const parsed = parseBoolean(req.body?.enabled, null);
+        if (parsed === null) {
+            return res.status(400).send({message: "O campo 'enabled' é obrigatório e deve ser verdadeiro ou falso."});
+        }
+        await writeOptionValue(optionOrderSplitByZone, parsed ? 'true' : 'false');
+        res.send({enabled: await readOrderSplitSetting()});
+    } catch (error) {
+        console.error('Error saving order split setting:', error);
+        res.status(500).send({message: "Não foi possível guardar a configuração de separação de talões."});
     }
 };
 

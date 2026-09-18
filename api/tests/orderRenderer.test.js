@@ -172,63 +172,71 @@ test('full job follows the house scheme: content → date → header + cut at th
     }
 });
 
-// --- Ticket layout (per-element text sizes; default 'legacy' = historical bytes) ---
+// --- Ticket layout (per-element text sizes; defaults = concrete equivalents
+// of the historical output) ---
 
-test('layout defaults are byte-identical to the historical output', async () => {
+test('layout defaults render the documented concrete sizes', async () => {
     const {renderItemTicketRaw, renderTotalTicketRaw} = await import('../services/printing/receiptRenderer.js');
-    const {resetPrintSettings, configurePrint, DEFAULT_TICKET_LAYOUT} = await import('../services/printing/printCommands.js');
+    const {resetPrintSettings} = await import('../services/printing/printCommands.js');
 
     resetPrintSettings();
+    const item = renderItemTicketRaw('Bifana');
+    assert.ok(item.includes(Buffer.from([0x1D, 0x21, 0x12])), 'item name: 2x3 (mediumTall)');
+    assert.ok(!item.includes(Buffer.from([0x1D, 0x21, 26])), 'out-of-spec GS ! 26 is gone');
+
+    const totals = renderTotalTicketRaw([{quantity: 1, name: 'Bifana'}], 3.5);
+    assert.ok(totals.includes(Buffer.from([0x1D, 0x21, 0x20])), 'totals: 3x1 (extraWide)');
+
     const base = {headers: HEADERS, number: 1, tableNumber: '2A', items: [{quantity: 1, nameSnapshot: 'X'}]};
-    const defaults = {
-        item: renderItemTicketRaw('Bifana'),
-        totals: renderTotalTicketRaw([{quantity: 1, name: 'Bifana'}], 3.5),
-        order: buildOrderTicketJob(base),
-    };
-
-    configurePrint({layout: {...DEFAULT_TICKET_LAYOUT}});
-    assert.deepEqual(renderItemTicketRaw('Bifana'), defaults.item);
-    assert.deepEqual(renderTotalTicketRaw([{quantity: 1, name: 'Bifana'}], 3.5), defaults.totals);
-    assert.deepEqual(buildOrderTicketJob(base), defaults.order);
-
-    // historical (out-of-spec) GS ! 26 sequence still present by default
-    assert.ok(defaults.item.includes(Buffer.from([0x1D, 0x21, 0x20, 0x1D, 0x21, 26])));
-    resetPrintSettings();
+    const order = buildOrderTicketJob(base);
+    assert.ok(order.includes(Buffer.from([0x1D, 0x21, 0x11])), 'order: 2x2 label');
+    assert.ok(order.includes(Buffer.from([0x1D, 0x21, 0x22])), 'order: 3x3 value');
+    assert.ok(order.includes(Buffer.from([0x1D, 0x21, 0x10])), 'order items: 2x1 (wide)');
+    assert.ok(!order.includes(Buffer.from([0x1B, 0x21, 0x20])), 'no ESC ! double-width left');
 });
 
-test('itemName size option replaces the legacy sequence with a safe symmetric one', async () => {
+test('itemName size option changes the emitted GS ! byte', async () => {
     const {renderItemTicketRaw} = await import('../services/printing/receiptRenderer.js');
     const {configurePrint, resetPrintSettings} = await import('../services/printing/printCommands.js');
 
     configurePrint({layout: {itemName: 'medium'}});
     const buf = renderItemTicketRaw('Bifana');
     assert.ok(buf.includes(Buffer.from([0x1D, 0x21, 0x11])), 'GS ! 2x2 present');
-    assert.ok(!buf.includes(Buffer.from([0x1D, 0x21, 26])), 'legacy GS ! 26 gone');
+    assert.ok(!buf.includes(Buffer.from([0x1D, 0x21, 0x12])), 'default 2x3 replaced');
     resetPrintSettings();
 });
 
-test('orderHighlight preset scales the MESA block on order and void tickets', () => {
+test('orderLabel and orderValue size the MESA block independently', () => {
     const base = {headers: HEADERS, number: 42, tableNumber: '12B', items: [{quantity: 1, nameSnapshot: 'X'}]};
 
-    const medium = buildOrderTicketJob({...base, profile: {layout: {orderHighlight: 'medium'}}});
-    assert.ok(medium.includes(Buffer.from([0x1D, 0x21, 0x01])), 'label 1x2');
-    assert.ok(medium.includes(Buffer.from([0x1D, 0x21, 0x11])), 'value 2x2');
-    assert.ok(!medium.includes(Buffer.from([0x1D, 0x21, 0x22])), 'no 3x3 left');
+    const custom = buildOrderTicketJob({...base, profile: {layout: {orderLabel: 'tall', orderValue: 'medium'}}});
+    assert.ok(custom.includes(Buffer.from([0x1D, 0x21, 0x01])), 'label 1x2');
+    assert.ok(custom.includes(Buffer.from([0x1D, 0x21, 0x11])), 'value 2x2');
+    assert.ok(!custom.includes(Buffer.from([0x1D, 0x21, 0x22])), 'default 3x3 replaced');
 
-    const voidSmall = buildOrderVoidJob({...base, profile: {layout: {orderHighlight: 'small'}}});
-    assert.ok(!voidSmall.includes(Buffer.from([0x1D, 0x21, 0x22])), 'void follows the preset too');
+    const voidSmall = buildOrderVoidJob({...base, profile: {layout: {orderLabel: 'normal', orderValue: 'tall'}}});
+    assert.ok(!voidSmall.includes(Buffer.from([0x1D, 0x21, 0x22])), 'void follows the elements too');
 });
 
-test('orderItem size option swaps the double-width font for GS ! sizing', () => {
-    const base = {headers: HEADERS, number: 1, tableNumber: '2A', items: [{quantity: 1, nameSnapshot: 'X'}]};
-    const BOLD_MEDIUM = Buffer.from([0x1B, 0x21, 0x20]);
+test('retired composite orderHighlight migrates to orderLabel/orderValue', async () => {
+    const {normalizeTicketLayout} = await import('../services/printing/printCommands.js');
 
-    const legacy = buildOrderTicketJob(base);
-    assert.ok(legacy.includes(BOLD_MEDIUM), 'legacy items use ESC ! double width');
+    const migrated = normalizeTicketLayout({orderHighlight: 'medium'});
+    assert.equal(migrated.orderLabel, 'tall');
+    assert.equal(migrated.orderValue, 'medium');
+
+    // explicit new values win over the old composite
+    const explicit = normalizeTicketLayout({orderHighlight: 'small', orderLabel: 'huge', orderValue: 'huge'});
+    assert.equal(explicit.orderLabel, 'huge');
+    assert.equal(explicit.orderValue, 'huge');
+});
+
+test('orderItem size option changes the item line sizing', () => {
+    const base = {headers: HEADERS, number: 1, tableNumber: '2A', items: [{quantity: 1, nameSnapshot: 'X'}]};
 
     const tall = buildOrderTicketJob({...base, profile: {layout: {orderItem: 'tall'}}});
-    assert.ok(!tall.includes(BOLD_MEDIUM), 'no ESC ! double width');
     assert.ok(tall.includes(Buffer.from([0x1D, 0x21, 0x01])), 'GS ! 1x2 present');
+    assert.ok(!tall.includes(Buffer.from([0x1D, 0x21, 0x10])), 'default 2x1 replaced');
 });
 
 test('extended size presets emit the expected GS ! bytes', async () => {
@@ -244,10 +252,59 @@ test('extended size presets emit the expected GS ! bytes', async () => {
     resetPrintSettings();
 });
 
-test('unknown layout values fall back to legacy', async () => {
+test('unknown or legacy stored values fall back to the element default', async () => {
     const {configurePrint, layoutValue, resetPrintSettings} = await import('../services/printing/printCommands.js');
-    configurePrint({layout: {itemName: 'giant', orderHighlight: 'big'}});
-    assert.equal(layoutValue('itemName'), 'legacy');
-    assert.equal(layoutValue('orderHighlight'), 'legacy');
+    // 'legacy' is what older installs may still have stored — it migrates to
+    // the concrete default on read; unknown values do the same
+    configurePrint({layout: {itemName: 'giant', totalsItem: 'legacy', orderHighlight: 'legacy'}});
+    assert.equal(layoutValue('itemName'), 'mediumTall');
+    assert.equal(layoutValue('totalsItem'), 'extraWide');
+    assert.equal(layoutValue('orderLabel'), 'medium');
+    assert.equal(layoutValue('orderValue'), 'big');
     resetPrintSettings();
+});
+
+// --- Zone split (one order ticket per product section) ---
+
+test('groupItemsByZone splits per zone, sorted, no-zone group last', async () => {
+    const {groupItemsByZone} = await import('../services/printing/zoneSplit.js');
+    const zones = new Map([[1, 'Cozinha'], [2, 'Bar'], [3, null]]);
+    const items = [
+        {productId: 1, nameSnapshot: 'Bifana'},
+        {productId: 2, nameSnapshot: 'Imperial'},
+        {productId: 1, nameSnapshot: 'Borrego'},
+        {productId: 3, nameSnapshot: 'Extra'},
+        {productId: 99, nameSnapshot: 'Fantasma'}, // unknown product → no zone
+    ];
+    const groups = groupItemsByZone(items, zones);
+    assert.deepEqual(groups.map((g) => g.zoneLabel), ['Bar', 'Cozinha', null]);
+    assert.deepEqual(groups[0].items.map((i) => i.nameSnapshot), ['Imperial']);
+    assert.deepEqual(groups[1].items.map((i) => i.nameSnapshot), ['Bifana', 'Borrego']);
+    assert.deepEqual(groups[2].items.map((i) => i.nameSnapshot), ['Extra', 'Fantasma']);
+});
+
+test('zoneLabel prints an uppercase destination line, absent by default', () => {
+    const base = {headers: HEADERS, number: 7, tableNumber: '3B', items: [{quantity: 1, nameSnapshot: 'X'}]};
+
+    const plain = asText(buildOrderTicketJob(base));
+    assert.doesNotMatch(plain, /COZINHA/);
+
+    const labelled = asText(buildOrderTicketJob({...base, zoneLabel: 'Cozinha'}));
+    assert.match(labelled, /COZINHA/);
+
+    const voided = asText(buildOrderVoidJob({...base, zoneLabel: 'Bar'}));
+    assert.match(voided, /BAR/);
+});
+
+test('orderZone layout option sets the destination line size (default medium 2x2)', () => {
+    const base = {headers: HEADERS, number: 7, tableNumber: '3B', items: [{quantity: 1, nameSnapshot: 'X'}], zoneLabel: 'Bar'};
+
+    const dflt = buildOrderTicketJob(base);
+    const idx = asText(dflt).indexOf('» BAR');
+    assert.ok(idx > 0, 'label present');
+    // sequence before the label text: GS ! 0x11 (size 2x2) then ESC E 1 (bold)
+    assert.deepEqual([...dflt.subarray(idx - 6, idx)], [0x1D, 0x21, 0x11, 0x1B, 0x45, 0x01]);
+
+    const big = buildOrderTicketJob({...base, profile: {layout: {orderZone: 'big'}}});
+    assert.ok(big.includes(Buffer.from([0x1D, 0x21, 0x22])), 'GS ! 3x3 when big');
 });

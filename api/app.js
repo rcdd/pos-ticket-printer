@@ -310,6 +310,8 @@ app.get("/option/ticket-layout", options.getTicketLayout);
 app.post("/option/ticket-layout", options.setTicketLayout);
 app.get("/option/multi-terminal", options.getMultiTerminal);
 app.post("/option/multi-terminal", requireRole(UserRoles.ADMIN), options.setMultiTerminal);
+app.get("/option/order-split", options.getOrderSplit);
+app.post("/option/order-split", requireRole(UserRoles.ADMIN), options.setOrderSplit);
 app.get("/option/favorites", options.getFavoritesSettings);
 app.post("/option/favorites", options.setFavoritesSettings);
 
