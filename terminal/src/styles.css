@@ -57,6 +57,30 @@ input:focus, textarea:focus {
     border-color: var(--primary);
 }
 
+/* password field with show/hide toggle */
+.pwd-wrap {
+    position: relative;
+}
+
+.pwd-wrap input {
+    padding-right: 46px;
+}
+
+.pwd-toggle {
+    position: absolute;
+    top: 50%;
+    right: 4px;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    color: var(--muted);
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
 /* ---- top bar ---- */
 .topbar {
     position: sticky;

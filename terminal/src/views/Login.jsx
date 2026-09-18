@@ -1,5 +1,6 @@
 import {useState} from 'preact/hooks';
 import {api, setToken} from '../api.js';
+import {PasswordInput} from './PasswordInput.jsx';
 
 export function Login({onLogin}) {
     const [username, setUsername] = useState('');
@@ -36,9 +37,7 @@ export function Login({onLogin}) {
                     autocomplete="username"
                     onInput={(e) => setUsername(e.currentTarget.value)}
                 />
-                <input
-                    placeholder="Palavra-passe"
-                    type="password"
+                <PasswordInput
                     value={password}
                     autocomplete="current-password"
                     onInput={(e) => setPassword(e.currentTarget.value)}

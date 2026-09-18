@@ -1,6 +1,7 @@
 import {useCallback, useEffect, useState} from 'preact/hooks';
 import {api} from '../api.js';
 import {centsToEuros} from '../money.js';
+import {PasswordInput} from './PasswordInput.jsx';
 
 const formatNumber = (number) => `#${String(number ?? 0).padStart(3, '0')}`;
 const STATUS_LABEL = {sent: 'Por pagar', paid: 'Pago', cancelled: 'Anulado'};
@@ -46,8 +47,8 @@ function CancelItemDialog({order, item, currentUser, onDone, onClose}) {
                     <div style="display:flex; flex-direction:column; gap:8px">
                         <input placeholder="Utilizador admin" autocapitalize="none" value={username}
                                onInput={(e) => setUsername(e.currentTarget.value)}/>
-                        <input placeholder="Palavra-passe" type="password" value={password}
-                               onInput={(e) => setPassword(e.currentTarget.value)}/>
+                        <PasswordInput value={password}
+                                       onInput={(e) => setPassword(e.currentTarget.value)}/>
                     </div>
                 </>
             )}
