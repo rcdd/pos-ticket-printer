@@ -87,7 +87,9 @@ code {
 
 .products-list {
     display: block;
-    height: calc(100vh - 210px);
+    /* fill the viewport: 64px appbar + 16px main padding + 49px zone tabs
+       above, 16px main padding below — anything more leaves a dead strip */
+    height: calc(100vh - 150px);
     overflow-x: hidden;
     overflow-y: auto;
 }
