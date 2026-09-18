@@ -28,7 +28,12 @@ import {
     Skeleton,
     TableContainer
 } from '@mui/material';
-import {DataGrid} from '@mui/x-data-grid';
+import {
+    DataGrid,
+    useGridApiRef,
+    gridExpandedSortedRowIdsSelector,
+    gridVisibleColumnFieldsSelector,
+} from '@mui/x-data-grid';
 import DownloadIcon from '@mui/icons-material/Download';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
@@ -55,6 +60,8 @@ function ReportsPage() {
 
     const {pushNetworkError, pushMessage} = useToast();
     const userNameCacheRef = React.useRef(new Map());
+    // one grid is mounted at a time (per tab), so a single apiRef serves all
+    const gridApiRef = useGridApiRef();
 
     // ui
     const [loading, setLoading] = React.useState(true);
@@ -231,18 +238,27 @@ function ReportsPage() {
         });
     }, [sessions, invoices]);
 
-    // export helpers
-    const downloadCSV = (filename, rows, columns) => {
-        const headers = columns.map(c => c.headerName ?? c.field);
-        const lines = rows.map(r => columns.map(c => {
-            const val = typeof c.valueGetter === 'function' ? c.valueGetter(r[c.field], r) :
-                typeof c.valueFormatter === 'function' ? c.valueFormatter(r[c.field], r) :
-                    r[c.field];
-            console.log(val);
-            const s = String(val ?? '');
-            return `"${s.replace(/"/g, '""')}"`;
-        }).join(','));
-        const csv = [headers.join(','), ...lines].join('\n');
+    // export helpers — reads the rows from the GRID (current filters + sort)
+    // and only the visible columns, so the CSV matches exactly what is shown
+    const downloadCSV = (filename, columns) => {
+        if (!gridApiRef.current) return;
+        const visibleFields = new Set(gridVisibleColumnFieldsSelector(gridApiRef));
+        const cols = columns.filter((c) => !c.hideCsv && visibleFields.has(c.field));
+        const rowIds = gridExpandedSortedRowIdsSelector(gridApiRef);
+
+        const headers = cols.map(c => c.headerName ?? c.field);
+        const lines = rowIds.map((id) => {
+            const r = gridApiRef.current.getRow(id);
+            return cols.map(c => {
+                const val = typeof c.valueGetter === 'function' ? c.valueGetter(r[c.field], r) :
+                    typeof c.valueFormatter === 'function' ? c.valueFormatter(r[c.field], r) :
+                        r[c.field];
+                const s = String(val ?? '');
+                return `"${s.replace(/"/g, '""')}"`;
+            }).join(',');
+        });
+        // BOM so Excel opens the accents correctly
+        const csv = '\uFEFF' + [headers.join(','), ...lines].join('\n');
         const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -264,6 +280,7 @@ function ReportsPage() {
         },
         {
             field: 'status', headerName: 'Estado', width: 120,
+            valueFormatter: (v) => v === 'opened' ? 'Aberta' : 'Fechada', // CSV export
             renderCell: (p) => (
                 <Chip size="small" color={p.value === 'opened' ? 'success' : 'default'}
                       label={p.value === 'opened' ? 'Aberta' : 'Fechada'}/>
@@ -311,6 +328,7 @@ function ReportsPage() {
         },
         {
             field: 'isDeleted', headerName: 'Estado', width: 120,
+            valueFormatter: (v) => v ? 'Anulada' : 'Válida', // CSV export
             renderCell: (p) => (
                 <Chip size="small" color={p.value ? 'error' : 'success'} label={p.value ? 'Anulada' : 'Válida'}/>
             )
@@ -338,14 +356,14 @@ function ReportsPage() {
         {field: 'total', headerName: 'Total', width: 140, valueFormatter: (v) => eur(v)},
     ]), [eur]);
 
-    const sessionColumnVisibilityModel = React.useMemo(() => {
-        return sessionsCols.reduce((model, col) => {
-            if (col.hide) {
-                model[col.field] = false;
-            }
-            return model;
-        }, {});
-    }, [sessionsCols]);
+    // 'hide' is not a v7 DataGrid column prop — it only works through a
+    // columnVisibilityModel, so build one per grid from the flags
+    const visibilityModelFrom = (cols) => cols.reduce((model, col) => {
+        if (col.hide) model[col.field] = false;
+        return model;
+    }, {});
+    const sessionColumnVisibilityModel = React.useMemo(() => visibilityModelFrom(sessionsCols), [sessionsCols]);
+    const invoiceColumnVisibilityModel = React.useMemo(() => visibilityModelFrom(invoicesCols), [invoicesCols]);
 
     const resetFilters = () => {
         setDateFrom('');
@@ -726,9 +744,9 @@ function ReportsPage() {
                         startIcon={<DownloadIcon/>}
                         variant="outlined"
                         onClick={() => {
-                            if (tab === 'sessions') downloadCSV('sessoes.csv', sessionsRows, sessionsCols.filter(s => !s.hideCsv));
-                            if (tab === 'invoices') downloadCSV('faturas.csv', filteredInvoices, invoicesCols.filter(i => !i.hideCsv));
-                            if (tab === 'products') downloadCSV('produtos.csv', productsAgg, productsCols.filter(p => !p.hideCsv));
+                            if (tab === 'sessions') downloadCSV('sessoes.csv', sessionsCols);
+                            if (tab === 'invoices') downloadCSV('faturas.csv', invoicesCols);
+                            if (tab === 'products') downloadCSV('produtos.csv', productsCols);
                         }}
                     >
                         Exportar CSV
@@ -737,6 +755,7 @@ function ReportsPage() {
 
                 {tab === 'sessions' && (
                     <DataGrid
+                        apiRef={gridApiRef}
                         rows={sessionsRows}
                         columns={sessionsCols}
                         loading={loading}
@@ -755,6 +774,7 @@ function ReportsPage() {
 
                 {tab === 'invoices' && (
                     <DataGrid
+                        apiRef={gridApiRef}
                         rows={filteredInvoices}
                         columns={invoicesCols}
                         loading={loading}
@@ -765,6 +785,9 @@ function ReportsPage() {
                             sorting: {
                                 sortModel: [{field: 'createdAt', sort: 'desc'}],
                             },
+                            columns: {
+                                columnVisibilityModel: invoiceColumnVisibilityModel,
+                            },
                         }}
                         sx={{
                             '& .row--revoked': {opacity: 0.6, textDecoration: 'line-through'},
@@ -774,6 +797,7 @@ function ReportsPage() {
 
                 {tab === 'products' && (
                     <DataGrid
+                        apiRef={gridApiRef}
                         rows={productsAgg}
                         columns={productsCols}
                         loading={loading}
