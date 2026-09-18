@@ -19,7 +19,9 @@ export function computeSessionAggregates(invoices = [], initialAmountCents = 0, 
             if (!product) continue;
 
             const qty = Number(rec?.quantity || 0);
-            const price = Number(product?.price || 0);
+            // unit price recorded at sale time; current product price only as
+            // fallback for legacy records created before it was stored
+            const price = Number(rec?.price ?? product?.price ?? 0);
             const hasDiscount = inv?.discountPercent && inv.discountPercent > 0;
 
             if (hasDiscount) {

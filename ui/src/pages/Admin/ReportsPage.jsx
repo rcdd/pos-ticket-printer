@@ -30,7 +30,10 @@ import {
 } from '@mui/material';
 import {
     DataGrid,
+    GridFooter,
     useGridApiRef,
+    useGridApiContext,
+    useGridSelector,
     gridExpandedSortedRowIdsSelector,
     gridVisibleColumnFieldsSelector,
 } from '@mui/x-data-grid';
@@ -118,11 +121,13 @@ function ReportsPage() {
             setInvoices(Array.isArray(inv) ? inv : inv?.data ?? []);
         } catch (e) {
             console.error('Failed to fetch reports:', e?.response?.data || e);
+            pushNetworkError(e, {title: 'Não foi possível carregar os relatórios'});
             setSessions([]);
             setInvoices([]);
         } finally {
             setLoading(false);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     React.useEffect(() => {
@@ -175,14 +180,22 @@ function ReportsPage() {
 
     const productsAgg = React.useMemo(() => {
         const map = new Map();
-        for (const inv of filteredInvoices) {
+        // revoked invoices are not sales — only count them when the user
+        // explicitly filters for revoked ones
+        const source = statusFilter === 'all'
+            ? filteredInvoices.filter((inv) => !inv.isDeleted)
+            : filteredInvoices;
+        for (const inv of source) {
             const disc = inv?.discountPercent || 0;
             for (const r of inv?.records ?? []) {
                 const item = r.productItem || r.menuItem;
                 if (!item) continue;
                 const id = r.productItem ? `p-${item.id}` : `m-${item.id}`;
                 const key = `${id}-${disc}`;
-                const price = item.price || 0;
+                // unit price recorded at sale time (current price only as
+                // fallback for legacy records) — product prices change
+                // between events and must not rewrite old reports
+                const price = r.price ?? item.price ?? 0;
                 const unit = disc > 0 ? Math.round(price * (1 - disc / 100)) : price;
                 const prev = map.get(key) ?? {
                     id: key,
@@ -201,7 +214,7 @@ function ReportsPage() {
             }
         }
         return Array.from(map.values());
-    }, [filteredInvoices]);
+    }, [filteredInvoices, statusFilter]);
 
     const sessionsRows = React.useMemo(() => {
         const bySession = new Map();
@@ -220,7 +233,18 @@ function ReportsPage() {
             if (inv.isDeleted) acc.revoked += 1;
             bySession.set(sid, acc);
         }
-        return (sessions ?? []).map((s) => {
+        // date and session filters apply here too (a session matches when it
+        // overlaps the range); payment/status filters only concern invoices
+        const from = dateFrom ? new Date(dateFrom + 'T00:00') : null;
+        const to = dateTo ? new Date(dateTo + 'T23:59:59') : null;
+        return (sessions ?? []).filter((s) => {
+            if (sessionId !== 'all' && String(s.id) !== String(sessionId)) return false;
+            const opened = new Date(s.openedAt);
+            const closed = s.closedAt ? new Date(s.closedAt) : new Date();
+            if (from && closed < from) return false;
+            if (to && opened > to) return false;
+            return true;
+        }).map((s) => {
             const agg = bySession.get(s.id) ?? {total: 0, cash: 0, card: 0, mbway: 0, count: 0, revoked: 0};
             return {
                 id: s.id,
@@ -236,7 +260,7 @@ function ReportsPage() {
                 mbway: agg.mbway,
             };
         });
-    }, [sessions, invoices]);
+    }, [sessions, invoices, sessionId, dateFrom, dateTo]);
 
     // export helpers — reads the rows from the GRID (current filters + sort)
     // and only the visible columns, so the CSV matches exactly what is shown
@@ -371,6 +395,28 @@ function ReportsPage() {
         setSessionId('all');
         setPaymentFilter('all');
         setStatusFilter('all');
+    };
+
+    // date shortcuts (local dates — toISOString would shift the day in UTC)
+    const localDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const applyToday = () => {
+        const today = localDate(new Date());
+        setDateFrom(today);
+        setDateTo(today);
+    };
+    const applyLast7Days = () => {
+        const now = new Date();
+        const from = new Date(now);
+        from.setDate(now.getDate() - 6);
+        setDateFrom(localDate(from));
+        setDateTo(localDate(now));
+    };
+    const openSession = React.useMemo(() => sessions.find((s) => s.status === 'opened') ?? null, [sessions]);
+    const applyOpenSession = () => {
+        if (!openSession) return;
+        setSessionId(String(openSession.id));
+        setDateFrom('');
+        setDateTo('');
     };
 
     React.useEffect(() => {
@@ -693,6 +739,18 @@ function ReportsPage() {
                     </Tooltip>
                 </Toolbar>
 
+                <Stack direction="row" spacing={1} sx={{mt: 0.5, flexWrap: 'wrap'}} useFlexGap>
+                    <Chip size="small" label="Hoje" clickable onClick={applyToday}/>
+                    <Chip size="small" label="Últimos 7 dias" clickable onClick={applyLast7Days}/>
+                    <Chip
+                        size="small"
+                        label="Sessão aberta"
+                        clickable
+                        disabled={!openSession}
+                        onClick={applyOpenSession}
+                    />
+                </Stack>
+
                 <Stack direction="row" spacing={2} sx={{mt: 1, flexWrap: 'wrap'}}>
                     <Paper sx={{p: 1.5, flex: '1 1 180px'}} variant="outlined">
                         <Typography variant="caption" color="text.secondary">Faturas</Typography>
@@ -803,6 +861,7 @@ function ReportsPage() {
                         loading={loading}
                         disableRowSelectionOnClick
                         density="compact"
+                        slots={{footer: ProductsTotalsFooter}}
                     />
                 )}
             </Paper>
@@ -829,7 +888,7 @@ function ReportsPage() {
                             const item = r.productItem || r.menuItem;
                             if (!item) return <Typography key={i} variant="body2" color="text.disabled">Item
                                 removido</Typography>;
-                            const unit = item.price || 0;
+                            const unit = r.price ?? item.price ?? 0;
                             const disc = viewInvoice?.discountPercent || 0;
                             const unitDisc = disc > 0 ? Math.round(unit * (1 - disc / 100)) : unit;
                             return (
@@ -1076,6 +1135,37 @@ function ReportsPage() {
                 </DialogActions>
             </Dialog>
         </Stack>
+    );
+}
+
+// totals of the VISIBLE product rows (reacts to the grid's own filters,
+// e.g. filtering by zone), shown above the standard grid footer
+function ProductsTotalsFooter() {
+    const apiRef = useGridApiContext();
+    const rowIds = useGridSelector(apiRef, gridExpandedSortedRowIdsSelector);
+    let qty = 0;
+    let total = 0;
+    for (const id of rowIds) {
+        const row = apiRef.current.getRow(id);
+        if (row) {
+            qty += row.quantity || 0;
+            total += row.total || 0;
+        }
+    }
+    const totalEur = (total / 100).toLocaleString('pt-PT', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' €';
+    return (
+        <Box>
+            <Stack
+                direction="row"
+                spacing={3}
+                justifyContent="flex-end"
+                sx={{px: 2, py: 1, borderTop: '1px solid', borderColor: 'divider'}}
+            >
+                <Typography variant="body2" fontWeight={700}>Qt.: {qty}</Typography>
+                <Typography variant="body2" fontWeight={700}>Total: {totalEur}</Typography>
+            </Stack>
+            <GridFooter/>
+        </Box>
     );
 }
 

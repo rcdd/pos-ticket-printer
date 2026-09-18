@@ -108,3 +108,22 @@ describe('sumByType', () => {
         expect(sumByType([], 'CASH_IN')).toBe(0);
     });
 });
+
+test('uses the price recorded at sale time, not the current product price', () => {
+    const invoices = [{
+        isDeleted: false,
+        total: 400,
+        paymentMethod: 'cash',
+        records: [
+            // product price was raised to 300 AFTER this sale of 2 × 200
+            {quantity: 2, price: 200, productItem: {id: 1, name: 'Bifana', price: 300}},
+            // legacy record without stored price falls back to the current one
+            {quantity: 1, productItem: {id: 2, name: 'Imperial', price: 120}},
+        ],
+    }];
+    const {productsAgg} = computeSessionAggregates(invoices, 0, []);
+    const bifana = productsAgg.find((p) => p.id === 1);
+    const imperial = productsAgg.find((p) => p.id === 2);
+    expect(bifana.total).toBe(400);
+    expect(imperial.total).toBe(120);
+});
