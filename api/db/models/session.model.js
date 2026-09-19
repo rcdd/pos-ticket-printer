@@ -49,6 +49,13 @@ export default (sequelize, Sequelize) => {
         notes: {
             type: Sequelize.TEXT,
             allowNull: true
+        },
+        // test/training session: recorded like any other but hidden from the
+        // reports by default (audit-friendly)
+        isTest: {
+            type: Sequelize.BOOLEAN,
+            allowNull: false,
+            defaultValue: false
         }
     });
 };

@@ -1,7 +1,7 @@
 import React, {useEffect} from 'react'
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
-import {Box, IconButton} from "@mui/material";
+import {Box, Checkbox, FormControlLabel, IconButton} from "@mui/material";
 import DialogActions from "@mui/material/DialogActions";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
@@ -13,6 +13,7 @@ export default function CloseSessionModal({open, setModal, onCloseSession}) {
     const [isLoading, setIsLoading] = React.useState(false);
     const [openModal, setOpenModal] = React.useState(open);
     const [notes, setNotes] = React.useState("");
+    const [isTest, setIsTest] = React.useState(false);
 
     useEffect(() => {
         setOpenModal(open);
@@ -21,7 +22,7 @@ export default function CloseSessionModal({open, setModal, onCloseSession}) {
     const handleCloseModal = async (confirm = false) => {
         if (confirm) {
             setIsLoading(true);
-            await onCloseSession(notes);
+            await onCloseSession(notes, isTest);
             setIsLoading(false);
         } else {
             setModal(false);
@@ -69,6 +70,17 @@ export default function CloseSessionModal({open, setModal, onCloseSession}) {
                             multiline: true,
                             rows: 2,
                         }}
+                    />
+
+                    <FormControlLabel
+                        sx={{mt: 1}}
+                        control={
+                            <Checkbox
+                                checked={isTest}
+                                onChange={(e) => setIsTest(e.target.checked)}
+                            />
+                        }
+                        label="Sessão de teste / formação (escondida dos relatórios por omissão)"
                     />
 
                 </Box>

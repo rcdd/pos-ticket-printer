@@ -91,7 +91,32 @@ function collectExistingTableNames(rows) {
     return new Set(names);
 }
 
+// Columns added to EXISTING tables after a release: the default boot sync
+// only creates missing tables, so these are applied explicitly.
+async function ensureAddedColumns() {
+    const queryInterface = db.sequelize.getQueryInterface();
+    const added = [
+        {table: 'sessions', column: 'isTest', model: db.sessions},
+    ];
+    for (const {table, column, model} of added) {
+        try {
+            const description = await queryInterface.describeTable(table);
+            if (!description[column]) {
+                await queryInterface.addColumn(table, column, model.rawAttributes[column]);
+                console.log(`[db] Added column ${table}.${column}`);
+            }
+        } catch (error) {
+            console.warn(`[db] Could not ensure column ${table}.${column}:`, error?.message || error);
+        }
+    }
+}
+
 export async function ensureDatabaseSchema() {
+    await ensureDatabaseTables();
+    await ensureAddedColumns();
+}
+
+async function ensureDatabaseTables() {
     const syncMode = (process.env.DB_SYNC_ON_BOOT ?? "missing").toLowerCase();
     const skipModes = new Set(["false", "0", "off", "skip"]);
 

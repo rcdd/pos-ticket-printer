@@ -93,7 +93,9 @@ export const closeSession = async (req, res) => {
         closedAt: new Date(),
         status: "closed",
         finalAmount: req.body.finalAmount,
-        notes: req.body.notes ? req.body.notes : null
+        notes: req.body.notes ? req.body.notes : null,
+        // test/training session — hidden from reports by default
+        isTest: req.body.isTest === true
     };
 
     Session.update(updateData, {

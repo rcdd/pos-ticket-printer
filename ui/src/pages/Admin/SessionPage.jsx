@@ -97,7 +97,7 @@ export default function SessionPage({ onCloseSession }) {
         return () => { mounted = false; };
     }, [session?.id, fetchInvoices, fetchCashMovements, fetchUsers]);
 
-    const handleCloseSession = async (notes) => {
+    const handleCloseSession = async (notes, isTest = false) => {
         if (!session?.id) {
             pushNetworkError(null, { title: "Sessão não encontrada", message: "Não existe sessão ativa para fechar." });
             return;
@@ -148,6 +148,7 @@ export default function SessionPage({ onCloseSession }) {
             userId: user.id,
             closingAmount: finalCashValueCents,
             notes,
+            isTest,
         };
 
         // The summary ticket must only print when the session actually closes —

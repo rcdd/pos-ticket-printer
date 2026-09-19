@@ -108,6 +108,8 @@ function ReportsPage() {
     const [sessionId, setSessionId] = React.useState('all');
     const [paymentFilter, setPaymentFilter] = React.useState('all');
     const [statusFilter, setStatusFilter] = React.useState('all'); // invoices: all|active|revoked
+    // test/training sessions are recorded but hidden by default (audit view)
+    const [showTestSessions, setShowTestSessions] = React.useState(false);
 
     // fetch
     const fetchAll = React.useCallback(async () => {
@@ -148,9 +150,15 @@ function ReportsPage() {
         ? inv.payments
         : [{method: inv?.paymentMethod ?? 'cash', amount: inv?.total ?? 0}]);
 
+    const testSessionIds = React.useMemo(
+        () => new Set((sessions ?? []).filter((s) => s.isTest).map((s) => s.id)),
+        [sessions],
+    );
+
     // filter invoices
     const filteredInvoices = React.useMemo(() => {
         return (invoices ?? []).filter((inv) => {
+            if (!showTestSessions && testSessionIds.has(inv.sessionId)) return false;
             if (sessionId !== 'all' && String(inv.sessionId) !== String(sessionId)) return false;
             if (paymentFilter !== 'all' && !invoiceParcels(inv).some((p) => p.method === paymentFilter)) return false;
             if (statusFilter === 'active' && inv.isDeleted) return false;
@@ -165,7 +173,7 @@ function ReportsPage() {
             }
             return true;
         });
-    }, [invoices, sessionId, paymentFilter, statusFilter, dateFrom, dateTo]);
+    }, [invoices, sessionId, paymentFilter, statusFilter, dateFrom, dateTo, showTestSessions, testSessionIds]);
 
     // summary for invoices
     const summary = React.useMemo(() => {
@@ -248,6 +256,7 @@ function ReportsPage() {
         const from = dateFrom ? new Date(dateFrom + 'T00:00') : null;
         const to = dateTo ? new Date(dateTo + 'T23:59:59') : null;
         return (sessions ?? []).filter((s) => {
+            if (!showTestSessions && s.isTest) return false;
             if (sessionId !== 'all' && String(s.id) !== String(sessionId)) return false;
             const opened = new Date(s.openedAt);
             const closed = s.closedAt ? new Date(s.closedAt) : new Date();
@@ -261,6 +270,7 @@ function ReportsPage() {
                 openedAt: s.openedAt,
                 closedAt: s.closedAt,
                 status: s.status,
+                isTest: Boolean(s.isTest),
                 initialAmount: s.initialAmount || 0,
                 invoices: agg.count,
                 revoked: agg.revoked,
@@ -270,7 +280,7 @@ function ReportsPage() {
                 mbway: agg.mbway,
             };
         });
-    }, [sessions, invoices, sessionId, dateFrom, dateTo]);
+    }, [sessions, invoices, sessionId, dateFrom, dateTo, showTestSessions]);
 
     // export helpers — reads the rows from the GRID (current filters + sort)
     // and only the visible columns, so the CSV matches exactly what is shown
@@ -313,11 +323,14 @@ function ReportsPage() {
             valueFormatter: (v) => v ? new Date(v).toLocaleString('pt-PT') : '—'
         },
         {
-            field: 'status', headerName: 'Estado', width: 120,
-            valueFormatter: (v) => v === 'opened' ? 'Aberta' : 'Fechada', // CSV export
+            field: 'status', headerName: 'Estado', width: 160,
+            valueFormatter: (v, row) => `${v === 'opened' ? 'Aberta' : 'Fechada'}${row?.isTest ? ' (teste)' : ''}`, // CSV export
             renderCell: (p) => (
-                <Chip size="small" color={p.value === 'opened' ? 'success' : 'default'}
-                      label={p.value === 'opened' ? 'Aberta' : 'Fechada'}/>
+                <Stack direction="row" spacing={0.5}>
+                    <Chip size="small" color={p.value === 'opened' ? 'success' : 'default'}
+                          label={p.value === 'opened' ? 'Aberta' : 'Fechada'}/>
+                    {p.row.isTest && <Chip size="small" color="warning" variant="outlined" label="Teste"/>}
+                </Stack>
             )
         },
         {field: 'initialAmount', headerName: 'Abertura', width: 120, valueFormatter: (v) => eur(v), hide: true},
@@ -719,9 +732,9 @@ function ReportsPage() {
                         onChange={(e) => setSessionId(e.target.value)}
                     >
                         <MenuItem value="all">Todas</MenuItem>
-                        {sessions.map(s => (
+                        {sessions.filter((s) => showTestSessions || !s.isTest).map(s => (
                             <MenuItem key={s.id} value={String(s.id)}>
-                                #{s.id} — {new Date(s.openedAt).toLocaleString('pt-PT')}
+                                #{s.id} — {new Date(s.openedAt).toLocaleString('pt-PT')}{s.isTest ? ' — TESTE' : ''}
                             </MenuItem>
                         ))}
                     </TextField>
@@ -768,6 +781,15 @@ function ReportsPage() {
                         clickable
                         disabled={!openSession}
                         onClick={applyOpenSession}
+                    />
+                    <Box sx={{flexGrow: 1}}/>
+                    <Chip
+                        size="small"
+                        variant={showTestSessions ? 'filled' : 'outlined'}
+                        color="warning"
+                        clickable
+                        label={showTestSessions ? 'A mostrar sessões de teste' : 'Mostrar sessões de teste'}
+                        onClick={() => setShowTestSessions((v) => !v)}
                     />
                 </Stack>
 
