@@ -1,7 +1,8 @@
 import bcrypt from 'bcrypt';
 import db from "../index.js";
 import {emitEvent, EventTypes} from "../../services/events.service.js";
-import {tryPrintOrderTicket, tryPrintOrderVoid} from "../../services/orderPrinting.service.js";
+import {tryPrintOrderTicket, tryPrintOrderVoid, tryPrintOrderMove} from "../../services/orderPrinting.service.js";
+import {openGroupTx} from "./tables.controller.js";
 
 const Order = db.orders;
 const OrderItem = db.orderItems;
@@ -307,6 +308,101 @@ const resolveApprovingAdmin = async (req) => {
     return admin;
 };
 
+// Moves an OPEN order to another table group, a new group or standalone.
+// Safe for billing: invoices only materialize at payment time from whatever
+// is open on the target table then — paid/cancelled orders are refused.
+// Prints a correction ticket (the kitchen's original ticket says the old
+// table) and records the move in the order_events audit trail.
+export const move = async (req, res) => {
+    try {
+        const toStandalone = req.body?.toStandalone === true;
+        const targetTableId = req.body?.targetTableId != null ? Number(req.body.targetTableId) : null;
+        const newTableNumber = req.body?.newTableNumber != null ? String(req.body.newTableNumber).trim() : null;
+        const destinations = [toStandalone, targetTableId != null, Boolean(newTableNumber)].filter(Boolean);
+        if (destinations.length !== 1) {
+            return res.status(400).send({message: "Indique exatamente um destino: mesa existente, mesa nova ou avulso."});
+        }
+
+        const result = await db.sequelize.transaction(async (transaction) => {
+            const order = await Order.findByPk(req.params.id, {
+                include: [{model: Table, as: 'table'}],
+                lock: transaction.LOCK.UPDATE,
+                transaction,
+            });
+            if (!order) {
+                return {error: {status: 404, message: `Pedido ${req.params.id} não encontrado.`}};
+            }
+            if (order.status !== OrderStatus.SENT) {
+                return {error: {status: 409, message: `O pedido #${order.number} já foi ${order.status === OrderStatus.PAID ? 'pago' : 'anulado'} — não é possível movê-lo.`}};
+            }
+
+            const fromLabel = order.table ? `MESA ${order.table.displayName}` : 'AVULSO';
+            const fromTableId = order.tableId;
+
+            let toTable = null;
+            if (targetTableId != null) {
+                toTable = await Table.findByPk(targetTableId, {transaction});
+                if (!toTable || toTable.status !== TableStatus.OPEN || toTable.sessionId !== order.sessionId) {
+                    return {error: {status: 400, message: "A mesa de destino não está aberta nesta sessão."}};
+                }
+            } else if (newTableNumber) {
+                // session lock serializes group-letter assignment (same as tables.open)
+                await Session.findByPk(order.sessionId, {transaction, lock: transaction.LOCK.UPDATE});
+                const created = await openGroupTx({
+                    sessionId: order.sessionId,
+                    number: newTableNumber,
+                    userId: req.user?.id ?? null,
+                    transaction,
+                });
+                if (created.error) return {error: created.error};
+                toTable = created.table;
+            }
+
+            const toTableId = toTable ? toTable.id : null;
+            if (toTableId === fromTableId) {
+                return {error: {status: 400, message: "O pedido já está nesse destino."}};
+            }
+            const toLabel = toTable ? `MESA ${toTable.displayName}` : 'AVULSO';
+
+            await order.update({tableId: toTableId}, {transaction});
+            await db.orderEvents.create({
+                orderId: order.id,
+                type: 'moved',
+                payload: {from: fromLabel, to: toLabel, fromTableId, toTableId},
+                userId: req.user?.id ?? null,
+            }, {transaction});
+
+            return {order, fromLabel, toLabel, fromTableId, toTableId};
+        });
+
+        if (result.error) {
+            return res.status(result.error.status).send({message: result.error.message});
+        }
+
+        const movePrint = await tryPrintOrderMove(
+            result.order,
+            result.fromLabel,
+            result.toLabel,
+            req.user?.name || req.user?.username || null,
+        );
+
+        emitEvent(EventTypes.ORDER_UPDATED, {orderId: result.order.id, moved: true});
+        if (result.fromTableId) emitEvent(EventTypes.TABLE_UPDATED, {tableId: result.fromTableId});
+        if (result.toTableId) emitEvent(EventTypes.TABLE_UPDATED, {tableId: result.toTableId});
+
+        res.send({
+            order: await Order.findByPk(result.order.id, {include: orderInclude}),
+            fromLabel: result.fromLabel,
+            toLabel: result.toLabel,
+            movePrinted: movePrint.printed,
+            movePrintError: movePrint.error,
+        });
+    } catch (error) {
+        console.error('[orders.move] error:', error);
+        res.status(500).send({message: "Não foi possível mover o pedido."});
+    }
+};
+
 // Cancels items of an already-sent order (admin approved) and prints a
 // void ticket for the kitchen. Cancelling everything cancels the order.
 export const cancelItems = async (req, res) => {
@@ -314,6 +410,10 @@ export const cancelItems = async (req, res) => {
         const admin = await resolveApprovingAdmin(req);
 
         const itemIds = Array.isArray(req.body?.itemIds) ? req.body.itemIds.map(Number) : [];
+        // partial quantities: [{id, quantity}] cancels only part of a line
+        // (2 of 3 beers) — the line is split into an active remainder and a
+        // cancelled row, so the audit and the void ticket stay accurate
+        const partialItems = Array.isArray(req.body?.items) ? req.body.items : [];
         const cancelAll = req.body?.all === true;
 
         const result = await db.sequelize.transaction(async (transaction) => {
@@ -330,29 +430,83 @@ export const cancelItems = async (req, res) => {
             }
 
             const activeItems = (order.items ?? []).filter((item) => item.status === db.OrderItemStatus.ACTIVE);
-            const targets = cancelAll
-                ? activeItems
-                : activeItems.filter((item) => itemIds.includes(item.id));
 
+            // requested quantity per item id (null = whole line)
+            const requested = new Map();
+            if (cancelAll) {
+                for (const item of activeItems) requested.set(item.id, null);
+            } else {
+                for (const id of itemIds) requested.set(id, null);
+                for (const entry of partialItems) {
+                    const id = Number(entry?.id);
+                    const qty = parseInt(entry?.quantity, 10);
+                    if (Number.isFinite(id) && Number.isFinite(qty) && qty > 0) requested.set(id, qty);
+                }
+            }
+            const targets = activeItems.filter((item) => requested.has(item.id));
             if (targets.length === 0) {
                 return {error: {status: 400, message: "Nenhum item válido para anular."}};
             }
 
             const now = new Date();
-            await OrderItem.update(
-                {status: db.OrderItemStatus.CANCELLED, cancelledById: admin.id, cancelledAt: now},
-                {where: {id: targets.map((item) => item.id)}, transaction},
-            );
+            const cancelledItems = [];
+            let anyRemaining = false;
+            let newTotal = 0;
 
-            const remaining = activeItems.filter((item) => !targets.some((t) => t.id === item.id));
-            const newTotal = computeTotal(remaining);
+            for (const item of activeItems) {
+                const want = requested.has(item.id) ? (requested.get(item.id) ?? item.quantity) : 0;
+                const qty = Math.min(Math.max(want, 0), item.quantity);
+                const keep = item.quantity - qty;
+
+                if (qty === 0) {
+                    anyRemaining = true;
+                    newTotal += item.price * item.quantity;
+                    continue;
+                }
+                if (keep === 0) {
+                    await item.update(
+                        {status: db.OrderItemStatus.CANCELLED, cancelledById: admin.id, cancelledAt: now},
+                        {transaction},
+                    );
+                    cancelledItems.push(item.toJSON());
+                } else {
+                    // split the line: remainder stays active, cancelled part
+                    // becomes its own row
+                    await item.update({quantity: keep}, {transaction});
+                    const split = await OrderItem.create({
+                        orderId: order.id,
+                        productId: item.productId,
+                        menuId: item.menuId,
+                        nameSnapshot: item.nameSnapshot,
+                        quantity: qty,
+                        price: item.price,
+                        status: db.OrderItemStatus.CANCELLED,
+                        cancelledById: admin.id,
+                        cancelledAt: now,
+                    }, {transaction});
+                    cancelledItems.push(split.toJSON());
+                    anyRemaining = true;
+                    newTotal += item.price * keep;
+                }
+            }
+
             const orderUpdate = {total: newTotal};
-            if (remaining.length === 0) {
+            if (!anyRemaining) {
                 orderUpdate.status = OrderStatus.CANCELLED;
             }
             await order.update(orderUpdate, {transaction});
 
-            return {order, cancelledItems: targets.map((item) => item.toJSON()), fullyCancelled: remaining.length === 0};
+            await db.orderEvents.create({
+                orderId: order.id,
+                type: 'items_cancelled',
+                payload: {
+                    items: cancelledItems.map((it) => ({id: it.id, name: it.nameSnapshot, quantity: it.quantity})),
+                    approvedById: admin.id,
+                },
+                userId: req.user?.id ?? null,
+            }, {transaction});
+
+            return {order, cancelledItems, fullyCancelled: !anyRemaining};
         });
 
         if (result.error) {

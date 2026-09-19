@@ -37,6 +37,31 @@ const suggestNumber = async (sessionId, transaction = null) => {
     return String(candidate);
 };
 
+// Opens a new group at a table INSIDE an existing transaction (the caller
+// must hold the session lock). Shared by tables.open and orders.move.
+export const openGroupTx = async ({sessionId, number, userId, transaction}) => {
+    const normalized = normalizeTableNumber(number);
+    if (!normalized) {
+        return {error: {status: 400, message: "O número da mesa tem de ser numérico (1–9999)."}};
+    }
+    const openTabs = await Table.findAll({
+        where: {sessionId, status: TableStatus.OPEN, number: normalized},
+        transaction,
+    });
+    const letter = assignLetter(openTabs);
+    if (!letter) {
+        return {error: {status: 409, message: `A mesa ${normalized} já tem 26 grupos abertos.`}};
+    }
+    const table = await Table.create({
+        number: normalized,
+        letter,
+        sessionId,
+        openedById: userId ?? null,
+        status: TableStatus.OPEN,
+    }, {transaction});
+    return {table};
+};
+
 // First free letter among the table's open groups (reused after closing)
 const assignLetter = (openTabs) => {
     const used = new Set(openTabs.map((tab) => tab.letter).filter(Boolean));

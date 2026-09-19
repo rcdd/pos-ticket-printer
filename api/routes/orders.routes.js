@@ -18,6 +18,7 @@ router.post('/order', multi, orders.create);
 router.post('/order/:id/reprint', orders.reprint);
 router.post('/order/:id/pay', cashier, orders.pay);
 router.post('/order/:id/cancel-items', orders.cancelItems);
+router.post('/order/:id/move', cashier, orders.move);
 router.get('/orders', orders.findAll);
 router.get('/order/by-number/:number', orders.findByNumber);
 router.get('/order/:id', orders.findOne);

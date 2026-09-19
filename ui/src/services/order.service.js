@@ -32,8 +32,13 @@ class OrderService {
         return http.post(this.BASE_URL + `/order/${id}/reprint`);
     }
 
-    // body: {itemIds: [...]} or {all: true}; + adminUsername/adminPassword
-    // when the caller is not an admin
+    // body: {targetTableId} | {newTableNumber} | {toStandalone: true}
+    moveOrder(id, body) {
+        return http.post(this.BASE_URL + `/order/${id}/move`, body);
+    }
+
+    // body: {all: true} | {itemIds: [...]} | {items: [{id, quantity}]};
+    // + adminUsername/adminPassword when the caller is not an admin
     cancelItems(id, body) {
         return http.post(this.BASE_URL + `/order/${id}/cancel-items`, body);
     }

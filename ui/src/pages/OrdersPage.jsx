@@ -9,6 +9,10 @@ import TableRestaurantIcon from '@mui/icons-material/TableRestaurant';
 import PrintIcon from '@mui/icons-material/Print';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import CloseIcon from '@mui/icons-material/Close';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import AddIcon from '@mui/icons-material/Add';
+import RemoveIcon from '@mui/icons-material/Remove';
+import EditIcon from '@mui/icons-material/Edit';
 import OrderService from '../services/order.service';
 import PrinterService from '../services/printer.service';
 import NumericTextFieldWithKeypad from '../components/Common/NumericTextFieldKeypad';
@@ -59,6 +63,27 @@ export default function OrdersPage() {
     const [adminPassword, setAdminPassword] = useState('');
     const [isCancelling, setIsCancelling] = useState(false);
     const isAdmin = (AuthService.getUser()?.role || '') === 'admin';
+
+    // order modification: the user edits the RESULTING quantities ("fica com
+    // 2 cafés") and the diff is cancelled behind the scenes
+    const [modifyTarget, setModifyTarget] = useState(null);
+    const [keepQty, setKeepQty] = useState({}); // itemId → desired final quantity
+
+    // move order between tables / to standalone
+    const [moveTarget, setMoveTarget] = useState(null);
+    const [moveNewNumber, setMoveNewNumber] = useState('');
+    const [isMoving, setIsMoving] = useState(false);
+
+    const openModifyDialog = (order) => {
+        const initial = {};
+        for (const item of activeItems(order)) initial[item.id] = item.quantity;
+        setKeepQty(initial);
+        setModifyTarget(order);
+    };
+
+    const setItemKeepQty = (itemId, value, max) => {
+        setKeepQty((prev) => ({...prev, [itemId]: Math.max(0, Math.min(max, value))}));
+    };
 
     const load = useCallback(async () => {
         try {
@@ -232,6 +257,27 @@ export default function OrdersPage() {
         if (wasPaid) load();
     };
 
+    // diff between the current order and the desired result: what to cancel
+    const modifyDiff = useMemo(() => {
+        if (!modifyTarget) return {items: [], removedCount: 0, isEverything: false, summary: []};
+        const active = activeItems(modifyTarget);
+        const items = active
+            .map((item) => ({id: item.id, quantity: item.quantity - (keepQty[item.id] ?? item.quantity)}))
+            .filter((entry) => entry.quantity > 0);
+        const isEverything = active.length > 0 && active.every((item) => (keepQty[item.id] ?? 0) === 0);
+        const summary = active
+            .filter((item) => (keepQty[item.id] ?? item.quantity) > 0)
+            .map((item) => `${keepQty[item.id] ?? item.quantity}× ${item.nameSnapshot}`);
+        return {items, removedCount: items.reduce((acc, entry) => acc + entry.quantity, 0), isEverything, summary};
+    }, [modifyTarget, keepQty]);
+
+    const closeApprovalDialogs = () => {
+        setCancelTarget(null);
+        setModifyTarget(null);
+        setAdminUsername('');
+        setAdminPassword('');
+    };
+
     const confirmCancelOrder = async () => {
         if (!cancelTarget || isCancelling) return;
         setIsCancelling(true);
@@ -246,14 +292,56 @@ export default function OrdersPage() {
             if (!data.voidPrinted) {
                 pushError(`Talão de anulação não impresso${data.voidPrintError ? `: ${data.voidPrintError}` : '.'}`);
             }
-            setCancelTarget(null);
-            setAdminUsername('');
-            setAdminPassword('');
+            closeApprovalDialogs();
             load();
         } catch (error) {
             pushNetworkError(error, {title: 'Não foi possível anular o pedido'});
         } finally {
             setIsCancelling(false);
+        }
+    };
+
+    const confirmModify = async () => {
+        if (!modifyTarget || isCancelling || modifyDiff.removedCount === 0) return;
+        setIsCancelling(true);
+        try {
+            const body = modifyDiff.isEverything ? {all: true} : {items: modifyDiff.items};
+            if (!isAdmin) {
+                body.adminUsername = adminUsername;
+                body.adminPassword = adminPassword;
+            }
+            const {data} = await OrderService.cancelItems(modifyTarget.id, body);
+            pushMessage('success', modifyDiff.isEverything
+                ? `Pedido ${formatNumber(modifyTarget.number)} anulado.`
+                : `Pedido ${formatNumber(modifyTarget.number)} modificado — fica: ${modifyDiff.summary.join(', ')}.`);
+            if (!data.voidPrinted) {
+                pushError(`Talão de anulação não impresso${data.voidPrintError ? `: ${data.voidPrintError}` : '.'}`);
+            }
+            closeApprovalDialogs();
+            load();
+        } catch (error) {
+            pushNetworkError(error, {title: 'Não foi possível modificar o pedido'});
+        } finally {
+            setIsCancelling(false);
+        }
+    };
+
+    const moveOrderTo = async (body) => {
+        if (!moveTarget || isMoving) return;
+        setIsMoving(true);
+        try {
+            const {data} = await OrderService.moveOrder(moveTarget.id, body);
+            pushMessage('success', `Pedido ${formatNumber(moveTarget.number)} movido: ${data.fromLabel} → ${data.toLabel}.`);
+            if (!data.movePrinted) {
+                pushError(`Talão de correção não impresso${data.movePrintError ? `: ${data.movePrintError}` : '.'} Avise a cozinha/bar.`);
+            }
+            setMoveTarget(null);
+            setMoveNewNumber('');
+            load();
+        } catch (error) {
+            pushNetworkError(error, {title: 'Não foi possível mover o pedido'});
+        } finally {
+            setIsMoving(false);
         }
     };
 
@@ -291,6 +379,8 @@ export default function OrdersPage() {
                 </Typography>
                 {!order.printedAt && <Chip size="small" color="warning" label="talão não impresso"/>}
                 <Button size="small" onClick={() => reprintOrder(order)} startIcon={<PrintIcon/>}>2ª via</Button>
+                <Button size="small" onClick={() => setMoveTarget(order)} startIcon={<SwapHorizIcon/>}>Mover</Button>
+                <Button size="small" onClick={() => openModifyDialog(order)} startIcon={<EditIcon/>}>Modificar</Button>
                 <Button size="small" color="error" onClick={() => setCancelTarget(order)}>Anular</Button>
             </Stack>
             {(order.items ?? []).map((item) => (
@@ -475,6 +565,12 @@ export default function OrdersPage() {
                                         <Stack direction="row" spacing={1}>
                                             <Button size="small" onClick={() => reprintOrder(order)}
                                                     startIcon={<PrintIcon/>}>2ª via</Button>
+                                            <Button size="small"
+                                                    onClick={() => setMoveTarget(order)}
+                                                    startIcon={<SwapHorizIcon/>}>Mover</Button>
+                                            <Button size="small"
+                                                    onClick={() => openModifyDialog(order)}
+                                                    startIcon={<EditIcon/>}>Modificar</Button>
                                             <Button size="small" color="error"
                                                     onClick={() => setCancelTarget(order)}>Anular</Button>
                                             <Box sx={{flex: 1}}/>
@@ -548,8 +644,9 @@ export default function OrdersPage() {
                 <DialogTitle>Anular pedido {cancelTarget ? formatNumber(cancelTarget.number) : ''}</DialogTitle>
                 <DialogContent>
                     <DialogContentText sx={{mb: 2}}>
-                        Todos os itens ficam anulados e é impresso um talão de anulação para a cozinha.
-                        Esta ação fica registada.
+                        Todos os itens ficam anulados e é impresso um talão de anulação para a
+                        cozinha/bar. Esta ação fica registada. Para corrigir apenas quantidades,
+                        use "Modificar".
                     </DialogContentText>
                     {!isAdmin && (
                         <Stack spacing={2}>
@@ -567,6 +664,132 @@ export default function OrdersPage() {
                             disabled={isCancelling || (!isAdmin && (!adminUsername || !adminPassword))}>
                         Anular pedido
                     </Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog open={Boolean(modifyTarget)} onClose={() => setModifyTarget(null)} fullWidth maxWidth="xs">
+                <DialogTitle>Modificar pedido {modifyTarget ? formatNumber(modifyTarget.number) : ''}</DialogTitle>
+                <DialogContent>
+                    <DialogContentText sx={{mb: 1.5}}>
+                        Ajuste as quantidades para o que o pedido <b>deve ficar</b>. A diferença é
+                        anulada e impressa para a cozinha/bar.
+                    </DialogContentText>
+                    <Stack spacing={0.5} sx={{mb: 1.5}}>
+                        {modifyTarget && activeItems(modifyTarget).map((item) => {
+                            const qty = keepQty[item.id] ?? item.quantity;
+                            const changed = qty !== item.quantity;
+                            return (
+                                <Stack key={item.id} direction="row" alignItems="center" spacing={1}>
+                                    <Typography variant="body2" sx={{flex: 1}} noWrap
+                                                color={qty === 0 ? 'text.disabled' : 'text.primary'}
+                                                style={{textDecoration: qty === 0 ? 'line-through' : 'none'}}>
+                                        {item.nameSnapshot}
+                                    </Typography>
+                                    {changed && (
+                                        <Typography variant="caption" color="text.disabled"
+                                                    style={{textDecoration: 'line-through'}}>
+                                            {item.quantity}
+                                        </Typography>
+                                    )}
+                                    <IconButton size="small" disabled={qty <= 0}
+                                                onClick={() => setItemKeepQty(item.id, qty - 1, item.quantity)}>
+                                        <RemoveIcon fontSize="small"/>
+                                    </IconButton>
+                                    <Typography variant="body2" fontWeight={700}
+                                                color={changed ? 'warning.main' : 'text.primary'}
+                                                sx={{width: 24, textAlign: 'center'}}>
+                                        {qty}
+                                    </Typography>
+                                    <IconButton size="small" disabled={qty >= item.quantity}
+                                                onClick={() => setItemKeepQty(item.id, qty + 1, item.quantity)}>
+                                        <AddIcon fontSize="small"/>
+                                    </IconButton>
+                                </Stack>
+                            );
+                        })}
+                    </Stack>
+                    {modifyDiff.removedCount > 0 && (
+                        <DialogContentText sx={{mb: 1.5}}>
+                            {modifyDiff.isEverything
+                                ? 'Fica: pedido totalmente anulado.'
+                                : `Fica: ${modifyDiff.summary.join(', ')}.`}
+                        </DialogContentText>
+                    )}
+                    {!isAdmin && (
+                        <Stack spacing={2}>
+                            <DialogContentText>Requer aprovação de um administrador:</DialogContentText>
+                            <TextField label="Utilizador admin" size="small" value={adminUsername}
+                                       onChange={(e) => setAdminUsername(e.target.value)}/>
+                            <TextField label="Palavra-passe" type="password" size="small" value={adminPassword}
+                                       onChange={(e) => setAdminPassword(e.target.value)}/>
+                        </Stack>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button variant="contained" onClick={() => setModifyTarget(null)}>Voltar</Button>
+                    <Button variant="contained" color="warning" onClick={confirmModify}
+                            disabled={isCancelling || modifyDiff.removedCount === 0 || (!isAdmin && (!adminUsername || !adminPassword))}>
+                        Guardar alterações
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog open={Boolean(moveTarget)} onClose={() => setMoveTarget(null)} fullWidth maxWidth="xs">
+                <DialogTitle>
+                    Mover pedido {moveTarget ? formatNumber(moveTarget.number) : ''}
+                    <Typography variant="body2" color="text.secondary">
+                        Atualmente: {moveTarget?.table ? `Mesa ${moveTarget.table.displayName}` : 'Avulso'} —
+                        é impresso um talão de correção para a cozinha/bar.
+                    </Typography>
+                </DialogTitle>
+                <DialogContent>
+                    <DialogContentText sx={{mb: 1}}>Mesas abertas:</DialogContentText>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{mb: 2}}>
+                        {(tableCards ?? [])
+                            .filter((card) => card.table.id !== moveTarget?.tableId)
+                            .map((card) => (
+                                <Chip
+                                    key={card.table.id}
+                                    clickable
+                                    disabled={isMoving}
+                                    label={`${card.table.displayName} · ${formatCents(card.table.unpaidTotal ?? 0)}`}
+                                    onClick={() => moveOrderTo({targetTableId: card.table.id})}
+                                />
+                            ))}
+                        {(tableCards ?? []).filter((card) => card.table.id !== moveTarget?.tableId).length === 0 && (
+                            <Typography variant="body2" color="text.disabled">Nenhuma outra mesa aberta.</Typography>
+                        )}
+                    </Stack>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                        <TextField
+                            label="Nova mesa (nº)"
+                            size="small"
+                            value={moveNewNumber}
+                            onChange={(e) => setMoveNewNumber(e.target.value.replace(/\D/g, ''))}
+                            sx={{flex: 1}}
+                        />
+                        <Button
+                            variant="outlined"
+                            disabled={isMoving || !moveNewNumber}
+                            onClick={() => moveOrderTo({newTableNumber: moveNewNumber})}
+                        >
+                            Criar e mover
+                        </Button>
+                    </Stack>
+                    {moveTarget?.tableId && (
+                        <Button
+                            sx={{mt: 2}}
+                            fullWidth
+                            variant="outlined"
+                            disabled={isMoving}
+                            onClick={() => moveOrderTo({toStandalone: true})}
+                        >
+                            Mover para avulso (pagar ao balcão)
+                        </Button>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setMoveTarget(null)} disabled={isMoving}>Fechar</Button>
                 </DialogActions>
             </Dialog>
 
