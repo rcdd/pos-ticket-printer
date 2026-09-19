@@ -1,5 +1,6 @@
 import {useCallback, useEffect, useRef, useState} from 'preact/hooks';
 import {api, clearSession, getStoredUser, getToken, setStoredUser, setUnauthorizedHandler} from './api.js';
+import {notifyCatalogUpdated} from './views/OrderBuilder.jsx';
 import {Login} from './views/Login.jsx';
 import {Home} from './views/Home.jsx';
 import {OrderBuilder} from './views/OrderBuilder.jsx';
@@ -115,6 +116,7 @@ export function App() {
         let source = null;
         let retry = null;
         let stopped = false;
+        let catalogDebounce = null;
 
         const connect = () => {
             const token = getToken();
@@ -128,6 +130,12 @@ export function App() {
                 refreshStatus();
                 bump();
             });
+            // product/zone/menu edits at the register: refresh mounted
+            // catalogs in place (debounced — imports fire bursts of these)
+            source.addEventListener('catalog.updated', () => {
+                clearTimeout(catalogDebounce);
+                catalogDebounce = setTimeout(notifyCatalogUpdated, 800);
+            });
             source.onerror = () => {
                 source.close();
                 if (!stopped) retry = setTimeout(connect, 5000);
@@ -139,6 +147,7 @@ export function App() {
             stopped = true;
             if (source) source.close();
             if (retry) clearTimeout(retry);
+            if (catalogDebounce) clearTimeout(catalogDebounce);
         };
     }, [user, refreshStatus]);
 

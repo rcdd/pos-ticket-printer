@@ -10,6 +10,7 @@ export const EventTypes = Object.freeze({
     ORDER_UPDATED: 'order.updated',
     TABLE_UPDATED: 'table.updated',
     SESSION_UPDATED: 'session.updated',
+    CATALOG_UPDATED: 'catalog.updated',
 });
 
 export function emitEvent(type, payload = {}) {

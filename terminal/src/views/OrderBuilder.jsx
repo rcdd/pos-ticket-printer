@@ -7,6 +7,7 @@ const MENUS_TAB = '__menus__';
 
 // Simple catalog cache — avoids re-downloading on every order
 let catalogCache = null;
+const catalogListeners = new Set();
 
 async function loadCatalog() {
     if (catalogCache) return catalogCache;
@@ -21,6 +22,13 @@ async function loadCatalog() {
 
 export const invalidateCatalog = () => {
     catalogCache = null;
+};
+
+// Called from the SSE handler when the register edits products/zones/menus:
+// mounted builders re-fetch and reconcile their state without any refresh.
+export const notifyCatalogUpdated = () => {
+    catalogCache = null;
+    for (const listener of catalogListeners) listener();
 };
 
 const cartKey = (item) => (item.menuId ? `m${item.menuId}` : `p${item.productId}`);
@@ -165,6 +173,53 @@ export function OrderBuilder({table, canOrder, onCancel, onSent, onViewTable, re
             .catch((err) => setError(err.message));
     }, []);
 
+    // Live catalog updates from the register: refresh the grid in place and
+    // reconcile the cart — names/prices follow, removed products are dropped
+    // with a visible notice. The in-progress order is never lost (and prices
+    // are resolved server-side at creation anyway).
+    const [catalogNotice, setCatalogNotice] = useState(null);
+    useEffect(() => {
+        const listener = () => {
+            loadCatalog()
+                .then((data) => {
+                    setCatalog(data);
+                    setTab((current) => {
+                        if (current === MENUS_TAB) return data.menus.length ? current : null;
+                        if (current !== null && data.zones.some((zone) => zone.id === current)) return current;
+                        const firstZone = [...data.zones].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))[0];
+                        return firstZone ? firstZone.id : (data.menus.length ? MENUS_TAB : null);
+                    });
+                    setCart((prev) => {
+                        const removed = [];
+                        const next = prev.map((item) => {
+                            const source = item.menuId
+                                ? data.menus.find((menu) => menu.id === item.menuId)
+                                : data.products.find((product) => product.id === item.productId);
+                            if (!source || source.isDeleted) {
+                                removed.push(item.name);
+                                return null;
+                            }
+                            return {...item, name: source.name, price: source.price ?? 0};
+                        }).filter(Boolean);
+                        setCatalogNotice(removed.length
+                            ? `Produtos atualizados — removido do pedido (indisponível): ${removed.join(', ')}`
+                            : 'Produtos atualizados.');
+                        return next;
+                    });
+                })
+                .catch(() => {});
+        };
+        catalogListeners.add(listener);
+        return () => catalogListeners.delete(listener);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
+        if (!catalogNotice) return undefined;
+        const timer = setTimeout(() => setCatalogNotice(null), 5000);
+        return () => clearTimeout(timer);
+    }, [catalogNotice]);
+
     const zonesSorted = useMemo(
         () => (catalog ? [...catalog.zones].sort((a, b) => (a.position ?? 0) - (b.position ?? 0)) : []),
         [catalog],
@@ -266,6 +321,10 @@ export function OrderBuilder({table, canOrder, onCancel, onSent, onViewTable, re
                     </button>
                 )}
             </div>
+
+            {catalogNotice && (
+                <div class="catalog-notice" role="status">{catalogNotice}</div>
+            )}
 
             <div class="tabs">
                 {zonesSorted.map((zone) => (

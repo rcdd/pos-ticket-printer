@@ -1,6 +1,6 @@
 // Minimal service worker: cache-first for the app's static assets,
 // always network for the API (data must be fresh).
-const CACHE = 'terminal-v20';
+const CACHE = 'terminal-v21';
 const APP_SHELL = ['/terminal/', '/terminal/manifest.webmanifest', '/terminal/icon.svg'];
 
 self.addEventListener('install', (event) => {

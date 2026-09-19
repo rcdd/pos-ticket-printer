@@ -22,6 +22,7 @@ import {requireRole} from "./middleware/authorization.js";
 import {enforceLicense} from "./services/license.service.js";
 import {AUTH_EXPIRES_HEADER, AUTH_TOKEN_HEADER} from "./services/token.service.js";
 import systemRoutes, {terminalStatus, closeKiosk} from "./routes/system.routes.js";
+import {emitEvent, EventTypes} from "./services/events.service.js";
 import ordersRoutes from "./routes/orders.routes.js";
 import eventsRoutes from "./routes/events.routes.js";
 import {loginRateLimit} from "./middleware/rateLimit.js";
@@ -315,13 +316,24 @@ app.post("/option/order-split", requireRole(UserRoles.ADMIN), options.setOrderSp
 app.get("/option/favorites", options.getFavoritesSettings);
 app.post("/option/favorites", options.setFavoritesSettings);
 
+// Every successful catalog mutation notifies the connected clients
+// (terminals and the POS front) so their product grids refresh live.
+const notifyCatalogUpdate = (req, res, next) => {
+    res.on('finish', () => {
+        if (res.statusCode < 400) {
+            emitEvent(EventTypes.CATALOG_UPDATED);
+        }
+    });
+    next();
+};
+
 // Products (management)
-app.post("/db/product", products.create);
-app.put("/db/product", products.update);
-app.delete("/db/product/:id", products.softDelete);
-app.post("/db/product/reorder", products.updatePositions);
-app.delete("/db/product/zone/:zoneId", products.softDeleteByZone);
-app.delete("/db/products", products.softDeleteAllProducts);
+app.post("/db/product", notifyCatalogUpdate, products.create);
+app.put("/db/product", notifyCatalogUpdate, products.update);
+app.delete("/db/product/:id", notifyCatalogUpdate, products.softDelete);
+app.post("/db/product/reorder", notifyCatalogUpdate, products.updatePositions);
+app.delete("/db/product/zone/:zoneId", notifyCatalogUpdate, products.softDeleteByZone);
+app.delete("/db/products", notifyCatalogUpdate, products.softDeleteAllProducts);
 
 // Invoices
 app.post("/invoice/all", invoices.getAll);
@@ -330,15 +342,15 @@ app.post("/invoice/session", invoices.getFromSession);
 app.get("/reports/top-products", invoices.getTopProducts);
 
 // Menus
-app.post("/menu/add", menus.create);
-app.put("/menu/:id", menus.update);
-app.delete("/menu/:id", menus.deleteMenu);
+app.post("/menu/add", notifyCatalogUpdate, menus.create);
+app.put("/menu/:id", notifyCatalogUpdate, menus.update);
+app.delete("/menu/:id", notifyCatalogUpdate, menus.deleteMenu);
 
 // Zones
-app.post("/zone/add", zones.create);
-app.put("/zone/update", zones.update);
-app.delete("/zone/:id", zones.softDelete);
-app.post("/zone/reorder", zones.updatePositions);
+app.post("/zone/add", notifyCatalogUpdate, zones.create);
+app.put("/zone/update", notifyCatalogUpdate, zones.update);
+app.delete("/zone/:id", notifyCatalogUpdate, zones.softDelete);
+app.post("/zone/reorder", notifyCatalogUpdate, zones.updatePositions);
 app.delete("/inventory/reset", inventory.resetAll);
 
 // Sessions

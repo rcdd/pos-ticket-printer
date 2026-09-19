@@ -57,6 +57,16 @@ input:focus, textarea:focus {
     border-color: var(--primary);
 }
 
+/* transient banner: catalog refreshed live from the register */
+.catalog-notice {
+    margin: 8px 12px 0;
+    padding: 8px 12px;
+    border-radius: var(--radius);
+    background: #e3f2fd;
+    color: #0d47a1;
+    font-size: 14px;
+}
+
 /* password field with show/hide toggle */
 .pwd-wrap {
     position: relative;
