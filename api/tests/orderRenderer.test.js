@@ -308,3 +308,20 @@ test('orderZone layout option sets the destination line size (default medium 2x2
     const big = buildOrderTicketJob({...base, profile: {layout: {orderZone: 'big'}}});
     assert.ok(big.includes(Buffer.from([0x1D, 0x21, 0x22])), 'GS ! 3x3 when big');
 });
+
+test('orderNote size option scales the Obs line', () => {
+    const base = {
+        headers: HEADERS, number: 7, tableNumber: '3B',
+        items: [{quantity: 1, nameSnapshot: 'X'}], note: 'sem picante',
+    };
+
+    const dflt = buildOrderTicketJob(base);
+    const idx = asText(dflt).indexOf('Obs: sem picante');
+    assert.ok(idx > 0, 'note present');
+    // GS ! 1x1 (normal, the historical look) + ESC E 1 right before the note
+    assert.deepEqual([...dflt.subarray(idx - 6, idx)], [0x1D, 0x21, 0x00, 0x1B, 0x45, 0x01]);
+
+    const big = buildOrderTicketJob({...base, profile: {layout: {orderNote: 'medium'}}});
+    const idxBig = asText(big).indexOf('Obs: sem picante');
+    assert.deepEqual([...big.subarray(idxBig - 6, idxBig)], [0x1D, 0x21, 0x11, 0x1B, 0x45, 0x01]);
+});

@@ -41,6 +41,7 @@ export const TICKET_LAYOUT_OPTIONS = Object.freeze({
     orderLabel: ALL_SIZES,   // order ticket: "MESA"/"PEDIDO"/"** ANULACAO **" line
     orderValue: ALL_SIZES,   // order ticket: table / order number value line
     orderItem: ALL_SIZES,    // order ticket: item lines
+    orderNote: ALL_SIZES,    // order ticket: "Obs:" line (kitchen notes)
     orderZone: ALL_SIZES,    // order ticket: destination line
     sessionTotal: ALL_SIZES, // session summary: closing total
 });
@@ -52,6 +53,7 @@ export const DEFAULT_TICKET_LAYOUT = Object.freeze({
     orderLabel: 'medium',     // historical: 2×2
     orderValue: 'big',        // historical: 3×3
     orderItem: 'wide',        // historical: double width (ESC ! 0x20)
+    orderNote: 'normal',      // historical: plain bold line
     orderZone: 'medium',
     sessionTotal: 'wide',     // historical: double width (ESC ! 0x20)
 });

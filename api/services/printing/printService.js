@@ -4,7 +4,7 @@ import {
 } from './receiptRenderer.js';
 import {EscposStrategy} from "./escposStrategy.js";
 import {openCashDrawer, fullCut, feed, configurePrint, DEFAULT_TICKET_LAYOUT} from "./printCommands.js";
-import {renderOrderTicketRaw, renderOrderVoidRaw} from "./orderRenderer.js";
+import {renderOrderTicketRaw, renderOrderVoidRaw, renderOrderMoveRaw} from "./orderRenderer.js";
 
 const escpos = new EscposStrategy();
 
@@ -233,4 +233,22 @@ export async function printOrderTicket({printerName, profile, ...job}) {
 export async function printOrderVoid({printerName, profile, ...job}) {
     const prof = applyProfile(profile);
     await sendJobs(printerName, [buildOrderVoidJob({profile: prof, ...job})], `POS Anulacao ${job.number}`, prof);
+}
+
+// Table-change correction ticket (same job assembly as the other order jobs)
+export function buildOrderMoveJob({headers, profile, ...content}) {
+    const prof = applyProfile(profile);
+    if (isTrailingHeader(prof)) {
+        return Buffer.concat([
+            renderOrderMoveRaw(content),
+            renderFooterRaw(headers),
+            renderHeaderRaw(headers),
+        ]);
+    }
+    return standardTicket(prof, headers, renderOrderMoveRaw(content));
+}
+
+export async function printOrderMove({printerName, profile, ...job}) {
+    const prof = applyProfile(profile);
+    await sendJobs(printerName, [buildOrderMoveJob({profile: prof, ...job})], `POS Correcao ${job.number}`, prof);
 }

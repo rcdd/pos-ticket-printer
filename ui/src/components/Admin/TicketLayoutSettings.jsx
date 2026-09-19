@@ -40,6 +40,7 @@ const DEFAULT_LAYOUT = {
     orderLabel: "medium",
     orderValue: "big",
     orderItem: "wide",
+    orderNote: "normal",
     orderZone: "medium",
     sessionTotal: "wide",
 };
@@ -326,6 +327,15 @@ function TicketLayoutSettings() {
                             defaultValue={DEFAULT_LAYOUT.orderItem}
                             onChange={(v) => updateLayout({orderItem: v})}
                         />
+                        <SizeSelect
+                            id="layout-order-note"
+                            label='Observações ("Obs:")'
+                            value={layout.orderNote}
+                            options={SIZE_OPTIONS}
+                            defaultValue={DEFAULT_LAYOUT.orderNote}
+                            onChange={(v) => updateLayout({orderNote: v})}
+                            helper="Notas para a cozinha/bar — aumente para não passarem despercebidas."
+                        />
                         {sampleButton("order")}
                     </Stack>
                     <TicketPreview>
@@ -335,6 +345,7 @@ function TicketLayoutSettings() {
                         <PreviewLine>____________________</PreviewLine>
                         <PreviewLine scale={scaleFor("orderItem", layout.orderItem)} bold>2x Imperial</PreviewLine>
                         <PreviewLine scale={scaleFor("orderItem", layout.orderItem)} bold>1x Bifana</PreviewLine>
+                        <PreviewLine scale={scaleFor("orderNote", layout.orderNote)} bold>Obs: sem picante</PreviewLine>
                         <PreviewLine center>Pedido #123 · Exemplo</PreviewLine>
                     </TicketPreview>
                 </Stack>

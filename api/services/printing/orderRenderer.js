@@ -84,8 +84,10 @@ export function renderOrderTicketRaw({number, tableNumber, items = [], note, wai
 
     if (note) {
         parts.push(newLine());
+        parts.push(size(SIZE_BYTES[layoutValue('orderNote')]));
         parts.push(bold(1));
         parts.push(textPrintLine(`Obs: ${note}`));
+        parts.push(sizeNormal());
         parts.push(bold(0));
     }
 
@@ -99,6 +101,33 @@ export function renderOrderTicketRaw({number, tableNumber, items = [], note, wai
         parts.push(textPrintLine(refParts.join(' · ')));
         parts.push(align(0));
     }
+
+    return Buffer.concat(parts);
+}
+
+// Correction ticket: tells the kitchen/bar that an order changed table, so
+// the food is delivered to the right place (their original ticket still says
+// the old table).
+export function renderOrderMoveRaw({number, fromLabel, toLabel, movedByName}) {
+    const parts = [];
+    parts.push(escInit());
+    parts.push(escSelectCodepage());
+
+    parts.push(align(1));
+    parts.push(bold(1));
+    parts.push(size(SIZE_BYTES[layoutValue('orderLabel')]));
+    parts.push(textPrintLine('** CORRECAO **'));
+    parts.push(textPrintLine(`Pedido ${formatOrderNumber(number)}`));
+    parts.push(size(SIZE_BYTES[layoutValue('orderValue')]));
+    parts.push(textPrintLine(`${fromLabel} > ${toLabel}`));
+    parts.push(sizeNormal());
+    parts.push(bold(0));
+
+    parts.push(horizontalLine());
+    if (movedByName) {
+        parts.push(textPrintLine(`Movido por: ${movedByName}`));
+    }
+    parts.push(align(0));
 
     return Buffer.concat(parts);
 }

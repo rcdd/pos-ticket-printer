@@ -1,4 +1,4 @@
-import {printOrderTicket, printOrderVoid} from './printing/printService.js';
+import {printOrderTicket, printOrderVoid, printOrderMove} from './printing/printService.js';
 import {
     getPrinterVariable, getHeadersVariable, getPrintProfileVariable, readOrderSplitSetting,
 } from '../db/controllers/options.controller.js';
@@ -58,6 +58,30 @@ export async function tryPrintOrderTicket(order, {reprint = false} = {}) {
         return {printed: true, error: null};
     } catch (error) {
         console.error(`[print] Falha a imprimir pedido #${order.number}:`, error?.message || error);
+        return {printed: false, error: String(error?.message || error)};
+    }
+}
+
+// Correction ticket after a table move — the kitchen's original ticket says
+// the OLD table, so without this the food still goes to the wrong place.
+export async function tryPrintOrderMove(order, fromLabel, toLabel, movedByName) {
+    try {
+        const printerName = await getPrinterVariable();
+        if (!printerName) {
+            return {printed: false, error: 'Impressora não configurada.'};
+        }
+        await printOrderMove({
+            printerName,
+            headers: await getHeadersVariable(),
+            profile: await getPrintProfileVariable(),
+            number: order.number,
+            fromLabel,
+            toLabel,
+            movedByName,
+        });
+        return {printed: true, error: null};
+    } catch (error) {
+        console.error(`[print] Falha a imprimir correção do pedido #${order.number}:`, error?.message || error);
         return {printed: false, error: String(error?.message || error)};
     }
 }
