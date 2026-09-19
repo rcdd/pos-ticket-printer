@@ -325,3 +325,17 @@ test('orderNote size option scales the Obs line', () => {
     const idxBig = asText(big).indexOf('Obs: sem picante');
     assert.deepEqual([...big.subarray(idxBig - 6, idxBig)], [0x1D, 0x21, 0x11, 0x1B, 0x45, 0x01]);
 });
+
+test('totals receipt prints the split-payment breakdown (only when split)', async () => {
+    const {renderTotalTicketRaw} = await import('../services/printing/receiptRenderer.js');
+    const {resetPrintSettings} = await import('../services/printing/printCommands.js');
+    resetPrintSettings();
+
+    const single = asText(renderTotalTicketRaw([{quantity: 1, name: 'X'}], 5, 'Pedido:', [{method: 'cash', amount: 500}]));
+    assert.doesNotMatch(single, /Dinheiro:/);
+
+    const split = asText(renderTotalTicketRaw([{quantity: 1, name: 'X'}], 5, 'Pedido:',
+        [{method: 'cash', amount: 300}, {method: 'mbway', amount: 200}]));
+    assert.match(split, /Dinheiro: 3.00/);
+    assert.match(split, /MBWay: 2.00/);
+});

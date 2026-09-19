@@ -1,6 +1,7 @@
 import db from "../index.js";
 import {emitEvent, EventTypes} from "../../services/events.service.js";
 import {getActiveSession, computeTotal} from "./orders.controller.js";
+import {normalizePayments} from "../../services/payments.util.js";
 
 const Table = db.tables;
 const Order = db.orders;
@@ -298,19 +299,25 @@ export const pay = async (req, res) => {
             const total = computeTotal(activeItems);
             const discountedTotal = Math.round(total * (1 - discountPercent / 100));
 
+            const normalized = normalizePayments(req.body?.payments, paymentMethod, discountedTotal);
+            if (normalized.error) {
+                return {error: {status: 400, message: normalized.error}};
+            }
+
             const invoice = await db.invoices.create({
                 total: discountedTotal,
                 userId: req.user?.id ?? null,
                 sessionId: table.sessionId,
-                paymentMethod,
+                paymentMethod: normalized.primaryMethod,
                 discountPercent,
+                payments: normalized.payments,
                 records: activeItems.map((item) => ({
                     quantity: item.quantity,
                     price: item.price,
                     product: item.productId ?? null,
                     menu: item.menuId ?? null,
                 })),
-            }, {include: [db.records], transaction});
+            }, {include: [db.records, {model: db.invoicePayments, as: 'payments'}], transaction});
 
             await Order.update(
                 {status: OrderStatus.PAID, invoiceId: invoice.id},

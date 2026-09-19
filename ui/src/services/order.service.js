@@ -24,8 +24,10 @@ class OrderService {
         return http.get(this.BASE_URL + `/order/by-number/${number}`);
     }
 
-    pay(id, {paymentMethod, discount}) {
-        return http.post(this.BASE_URL + `/order/${id}/pay`, {paymentMethod, discount});
+    // body: {paymentMethod, discount, payments?} — pass through untouched so
+    // split-payment parcels reach the API (destructuring dropped them once)
+    pay(id, body) {
+        return http.post(this.BASE_URL + `/order/${id}/pay`, body);
     }
 
     reprint(id) {
@@ -51,8 +53,8 @@ class OrderService {
         return http.get(this.BASE_URL + `/table/${id}`);
     }
 
-    payTable(id, {paymentMethod, discount}) {
-        return http.post(this.BASE_URL + `/table/${id}/pay`, {paymentMethod, discount});
+    payTable(id, body) {
+        return http.post(this.BASE_URL + `/table/${id}/pay`, body);
     }
 
     closeTableEmpty(id) {

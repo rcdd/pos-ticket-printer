@@ -116,7 +116,7 @@ function POSPage({user}) {
         setOpenModal(true);
     };
 
-    const handlePrint = async (status = false, finalAmount = totalAmount, discount = 0, paymentMethod, openDrawer) => {
+    const handlePrint = async (status = false, finalAmount = totalAmount, discount = 0, paymentMethod, openDrawer, payments = null) => {
         if (!status) {
             setOpenModal(false);
             return;
@@ -138,7 +138,8 @@ function POSPage({user}) {
             const printPayload = {
                 items: cart,
                 totalAmount: (finalAmount / 100).toFixed(2),
-                openDrawer: openDrawer
+                openDrawer: openDrawer,
+                payments: payments ?? undefined,
             };
             await PrinterService.printTicket(printPayload);
 
@@ -148,7 +149,8 @@ function POSPage({user}) {
                 cart,
                 finalAmount,
                 discount,
-                paymentMethod
+                paymentMethod,
+                payments ?? undefined
             );
 
             setInvoiceId(invoiceId);

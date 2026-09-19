@@ -54,7 +54,9 @@ export function renderItemTicketRaw(productName) {
     return Buffer.concat(parts);
 }
 
-export function renderTotalTicketRaw(items, totalEuros, title = 'Pedido:') {
+const PAYMENT_LABELS = Object.freeze({cash: 'Dinheiro', card: 'Multibanco', mbway: 'MBWay', other: 'Outro'});
+
+export function renderTotalTicketRaw(items, totalEuros, title = 'Pedido:', payments = null) {
     const parts = [];
     parts.push(fontUnderline(1));
     parts.push(textPrintLine(title));
@@ -77,6 +79,15 @@ export function renderTotalTicketRaw(items, totalEuros, title = 'Pedido:') {
     parts.push(textPrintLine(`Total: ${toEuros(totalEuros)}`));
     parts.push(sizeNormal());
     parts.push(bold(0));
+
+    // split payments: how the bill was settled, per method
+    if (Array.isArray(payments) && payments.length > 1) {
+        parts.push(newLine());
+        for (const payment of payments) {
+            const label = PAYMENT_LABELS[payment.method] ?? payment.method;
+            parts.push(textPrintLine(`${label}: ${toEuros((payment.amount ?? 0) / 100)}`));
+        }
+    }
     return Buffer.concat(parts);
 }
 

@@ -208,7 +208,7 @@ export default function OrdersPage() {
         });
     };
 
-    const handlePay = async (status, finalAmount, discount, paymentMethod, openDrawer) => {
+    const handlePay = async (status, finalAmount, discount, paymentMethod, openDrawer, payments = null) => {
         if (!status) {
             setPayTarget(null);
             return;
@@ -218,7 +218,7 @@ export default function OrdersPage() {
         try {
             setIsPrinting(true);
 
-            const payload = {paymentMethod, discount};
+            const payload = {paymentMethod, discount, payments: payments ?? undefined};
             const {data} = payTarget.kind === 'table'
                 ? await OrderService.payTable(payTarget.id, payload)
                 : await OrderService.pay(payTarget.id, payload);
@@ -229,6 +229,7 @@ export default function OrdersPage() {
                     items: payTarget.items,
                     totalAmount: (finalAmount / 100).toFixed(2),
                     openDrawer,
+                    payments: payments ?? undefined,
                     // product tickets already went out when the order reached
                     // the kitchen — payment prints the total only
                     printType: 'totals',

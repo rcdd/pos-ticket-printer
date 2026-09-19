@@ -142,11 +142,17 @@ function ReportsPage() {
         []
     );
 
+    // an invoice's payment parcels (split bill) — invoices without rows are
+    // single-payment: derive one parcel from the legacy method/total fields
+    const invoiceParcels = (inv) => (Array.isArray(inv?.payments) && inv.payments.length > 0
+        ? inv.payments
+        : [{method: inv?.paymentMethod ?? 'cash', amount: inv?.total ?? 0}]);
+
     // filter invoices
     const filteredInvoices = React.useMemo(() => {
         return (invoices ?? []).filter((inv) => {
             if (sessionId !== 'all' && String(inv.sessionId) !== String(sessionId)) return false;
-            if (paymentFilter !== 'all' && inv.paymentMethod !== paymentFilter) return false;
+            if (paymentFilter !== 'all' && !invoiceParcels(inv).some((p) => p.method === paymentFilter)) return false;
             if (statusFilter === 'active' && inv.isDeleted) return false;
             if (statusFilter === 'revoked' && !inv.isDeleted) return false;
             if (dateFrom) {
@@ -169,8 +175,10 @@ function ReportsPage() {
         const byMethod = filteredInvoices
             .filter(inv => !inv.isDeleted)
             .reduce((map, v) => {
-                const k = v.paymentMethod || 'unknown';
-                map[k] = (map[k] || 0) + (v.total || 0);
+                for (const parcel of invoiceParcels(v)) {
+                    const k = parcel.method || 'unknown';
+                    map[k] = (map[k] || 0) + (parcel.amount || 0);
+                }
                 return map;
             }, {});
         const count = filteredInvoices.length;
@@ -225,9 +233,11 @@ function ReportsPage() {
             // Considerar apenas faturas válidas para totais
             if (!inv.isDeleted) {
                 acc.total += inv.total || 0;
-                if (inv.paymentMethod === 'cash') acc.cash += inv.total || 0;
-                if (inv.paymentMethod === 'card') acc.card += inv.total || 0;
-                if (inv.paymentMethod === 'mbway') acc.mbway += inv.total || 0;
+                for (const parcel of invoiceParcels(inv)) {
+                    if (parcel.method === 'cash') acc.cash += parcel.amount || 0;
+                    if (parcel.method === 'card') acc.card += parcel.amount || 0;
+                    if (parcel.method === 'mbway') acc.mbway += parcel.amount || 0;
+                }
             }
             acc.count += 1;
             if (inv.isDeleted) acc.revoked += 1;
@@ -347,8 +357,18 @@ function ReportsPage() {
             },
         },
         {
-            field: 'paymentMethod', headerName: 'Método', width: 140,
-            valueFormatter: (v) => PaymentMethods.find(m => m.id === v)?.name ?? v
+            field: 'paymentMethod', headerName: 'Método', width: 170,
+            // split bills show the aggregated breakdown, not just the primary method
+            valueGetter: (value, row) => {
+                const parcels = (Array.isArray(row?.payments) && row.payments.length > 0)
+                    ? row.payments
+                    : [{method: row?.paymentMethod ?? 'cash', amount: row?.total ?? 0}];
+                const byMethod = new Map();
+                for (const p of parcels) byMethod.set(p.method, (byMethod.get(p.method) ?? 0) + (p.amount ?? 0));
+                return [...byMethod.keys()]
+                    .map((m) => PaymentMethods.find((x) => x.id === m)?.name ?? m)
+                    .join(' + ');
+            },
         },
         {
             field: 'isDeleted', headerName: 'Estado', width: 120,

@@ -127,3 +127,21 @@ test('uses the price recorded at sale time, not the current product price', () =
     expect(bifana.total).toBe(400);
     expect(imperial.total).toBe(120);
 });
+
+test('split payments: parcels drive the per-method totals and the cash drawer', () => {
+    const invoices = [{
+        isDeleted: false,
+        total: 500,
+        paymentMethod: 'cash', // primary method (largest parcel) — must be ignored
+        payments: [
+            {method: 'cash', amount: 300},
+            {method: 'mbway', amount: 200},
+        ],
+        records: [],
+    }];
+    const {paymentsAgg, finalCashValueCents} = computeSessionAggregates(invoices, 1000, []);
+    const byMethod = Object.fromEntries(paymentsAgg.map((p) => [p.method, p.amount]));
+    expect(byMethod.cash).toBe(300);
+    expect(byMethod.mbway).toBe(200);
+    expect(finalCashValueCents).toBe(1300); // opening 10€ + only the cash parcel
+});

@@ -15,6 +15,7 @@ import tableModel, {TableStatus} from "./models/table.model.js";
 import orderModel, {OrderStatus} from "./models/order.model.js";
 import orderItemModel, {OrderItemStatus} from "./models/orderItem.model.js";
 import orderEventModel from "./models/orderEvent.model.js";
+import invoicePaymentModel from "./models/invoicePayment.model.js";
 
 const sequelize = new Sequelize(dbConfig.DB, dbConfig.USER, dbConfig.PASSWORD, {
     host: dbConfig.HOST,
@@ -48,6 +49,7 @@ db.tables = tableModel(sequelize, Sequelize);
 db.orders = orderModel(sequelize, Sequelize);
 db.orderItems = orderItemModel(sequelize, Sequelize);
 db.orderEvents = orderEventModel(sequelize, Sequelize);
+db.invoicePayments = invoicePaymentModel(sequelize, Sequelize);
 db.UserRoles = UserRoles;
 db.TableStatus = TableStatus;
 db.OrderStatus = OrderStatus;
@@ -55,6 +57,8 @@ db.OrderItemStatus = OrderItemStatus;
 
 // relations
 db.invoices.hasMany(db.records, { foreignKey: 'invoiceId' });
+db.invoices.hasMany(db.invoicePayments, { foreignKey: 'invoiceId', as: 'payments' });
+db.invoicePayments.belongsTo(db.invoices, { foreignKey: 'invoiceId' });
 db.records.belongsTo(db.invoices, { foreignKey: 'invoiceId' });
 
 db.menus.belongsToMany(db.products, { through: db.menuProducts });

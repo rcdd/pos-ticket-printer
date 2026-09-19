@@ -4,14 +4,15 @@ import {PaymentMethods} from "../enums/PaymentMethodsEnum";
 class InvoiceService {
     BASE_URL = (process.env.REACT_APP_API_BASE_URL || 'http://localhost:9393');
 
-    async addInvoice(sessionId, userId, items, totalAmount, discount, paymentMethod = PaymentMethods.find(p => p.value === 'cash').name) {
+    async addInvoice(sessionId, userId, items, totalAmount, discount, paymentMethod = PaymentMethods.find(p => p.value === 'cash').name, payments = undefined) {
         const result = await http.post(this.BASE_URL + "/invoice/add", {
             sessionId,
             userId,
             items,
             totalAmount,
             discount,
-            paymentMethod
+            paymentMethod,
+            payments
         });
 
         return result.data.id;

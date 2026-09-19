@@ -9,10 +9,18 @@ export function computeSessionAggregates(invoices = [], initialAmountCents = 0, 
         if (inv?.isDeleted) continue;
 
         const invTotal = inv?.total ?? 0;
-        const method = inv?.paymentMethod ?? "cash";
         totalAmount += invTotal;
-        paymentsMap.set(method, (paymentsMap.get(method) ?? 0) + invTotal);
-        if (method === "cash") cashTotal += invTotal;
+        // split payments: use the parcels; invoices without parcels are
+        // single-payment (their method/total live on the invoice itself)
+        const parcels = Array.isArray(inv?.payments) && inv.payments.length > 0
+            ? inv.payments
+            : [{method: inv?.paymentMethod ?? "cash", amount: invTotal}];
+        for (const parcel of parcels) {
+            const method = parcel?.method ?? "cash";
+            const amount = Number(parcel?.amount ?? 0);
+            paymentsMap.set(method, (paymentsMap.get(method) ?? 0) + amount);
+            if (method === "cash") cashTotal += amount;
+        }
 
         for (const rec of inv?.records ?? []) {
             const product = rec?.productItem;

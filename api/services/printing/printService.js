@@ -97,7 +97,7 @@ async function sendJobs(printerName, jobs, jobName, profile) {
     await escpos.printRawByName(printerName, Buffer.concat(jobs), jobName);
 }
 
-export async function printTicketRequest({printerName, headers, items, totalAmount, printType, openDrawer, isTest, receiptTitle, profile}) {
+export async function printTicketRequest({printerName, headers, items, totalAmount, printType, openDrawer, isTest, receiptTitle, payments, profile}) {
     const prof = applyProfile(profile);
     const totalEuros = toEuros(totalAmount);
     const expanded = expandItems(items);
@@ -138,7 +138,7 @@ export async function printTicketRequest({printerName, headers, items, totalAmou
         if (printType === 'totals' || printType === 'both') {
             buf = Buffer.concat([
                 buf,
-                renderTotalTicketRaw(items, totalEuros, receiptTitle || 'Pedido:'),
+                renderTotalTicketRaw(items, totalEuros, receiptTitle || 'Pedido:', payments),
                 renderFooterRaw(headers),
                 renderHeaderRaw(headers),
             ]);
@@ -155,7 +155,7 @@ export async function printTicketRequest({printerName, headers, items, totalAmou
         }
     }
     if (printType === 'totals' || printType === 'both') {
-        jobs.push(standardTicket(prof, headers, renderTotalTicketRaw(items, totalEuros, receiptTitle || 'Pedido:')));
+        jobs.push(standardTicket(prof, headers, renderTotalTicketRaw(items, totalEuros, receiptTitle || 'Pedido:', payments)));
     }
     if (openDrawer && jobs.length > 0) {
         jobs[0] = Buffer.concat([openCashDrawer(), jobs[0]]);

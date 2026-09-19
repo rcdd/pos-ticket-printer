@@ -1,4 +1,6 @@
 import db from "../index.js";
+import {normalizePayments} from "../../services/payments.util.js";
+
 const Invoices = db.invoices;
 
 export const create = (req, res) => {
@@ -51,11 +53,20 @@ export const create = (req, res) => {
     const sessionId = req.body.sessionId;
     const userId = req.body.userId;
     const total = req.body.totalAmount ?? 0;
-    const paymentMethod = req.body.paymentMethod ?? 'cash';
     const discountPercent = req.body.discount ?? 0;
 
-    Invoices.create({records, total, userId, sessionId, paymentMethod, discountPercent}, {
-        include: [db.records]
+    // split payments: parcels must sum to the total; without parcels, a
+    // single payment with the given method is assumed
+    const normalized = normalizePayments(req.body.payments, req.body.paymentMethod ?? 'cash', total);
+    if (normalized.error) {
+        res.status(400).send({message: normalized.error});
+        return;
+    }
+    const paymentMethod = normalized.primaryMethod;
+    const payments = normalized.payments;
+
+    Invoices.create({records, total, userId, sessionId, paymentMethod, discountPercent, payments}, {
+        include: [db.records, {model: db.invoicePayments, as: 'payments'}]
     })
         .then(data => {
             res.send({message: "ok", id: data.id});
@@ -77,6 +88,7 @@ export const getAll = (req, res) => {
                 attributes: ['id', 'number', 'tableId'],
                 include: [{model: db.tables, as: 'table', attributes: ['number']}],
             },
+            {model: db.invoicePayments, as: 'payments'},
             {
                 model: db.records,
                 include: [
@@ -203,6 +215,7 @@ export const getFromSession = (req, res) => {
     Invoices.findAll({
         where: {sessionId: sessionId},
         include: [
+            {model: db.invoicePayments, as: 'payments'},
             {
                 model: db.records,
                 include: [

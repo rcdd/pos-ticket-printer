@@ -6,6 +6,7 @@ import {
     listPrinters, printTicketRequest, printSessionRequest, kickDrawer, printOrderTicket,
 } from '../../../services/printing/printService.js';
 import {getPrintProfileVariable, getHeadersVariable} from '../options.controller.js';
+import {paymentsByMethod} from '../../../services/payments.util.js';
 
 export const getPrintName = async () => {
     const opt = await Option.findOne({where: {name: 'printer'}});
@@ -46,6 +47,13 @@ export const printTicket = async (req, res) => {
         const receiptTitle = typeof req.body.receiptTitle === 'string'
             ? req.body.receiptTitle.slice(0, 32)
             : undefined;
+        // split payments breakdown printed under the total (data only — the
+        // invoice itself was already validated/recorded by the invoice API)
+        const payments = Array.isArray(req.body.payments)
+            ? paymentsByMethod(req.body.payments
+                .filter((p) => p && typeof p.method === 'string' && Number.isFinite(Number(p.amount)))
+                .map((p) => ({method: p.method, amount: Number(p.amount)})))
+            : undefined;
 
         if (!printerName || printerName === 'undefined') {
             try {
@@ -66,6 +74,7 @@ export const printTicket = async (req, res) => {
             openDrawer,
             isTest,
             receiptTitle,
+            payments,
             profile: await getPrintProfileVariable()
         });
 
