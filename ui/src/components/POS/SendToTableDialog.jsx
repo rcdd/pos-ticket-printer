@@ -25,6 +25,7 @@ export default function SendToTableDialog({open, cart, totalAmount, onClose, onS
     const [newNumber, setNewNumber] = useState('');
     const [note, setNote] = useState('');
     const [sending, setSending] = useState(false);
+    const [tableFilter, setTableFilter] = useState('');
 
     const load = useCallback(async () => {
         try {
@@ -41,9 +42,18 @@ export default function SendToTableDialog({open, cart, totalAmount, onClose, onS
         setSelected(null);
         setNewNumber('');
         setNote('');
+        setTableFilter('');
         setTables(null);
         load();
     }, [open, load]);
+
+    // with many open tables, filter by the physical table number
+    const visibleTables = useMemo(() => {
+        if (!tables) return [];
+        const wanted = tableFilter.trim();
+        if (!wanted) return tables;
+        return tables.filter((table) => String(table.number) === String(parseInt(wanted, 10)));
+    }, [tables, tableFilter]);
 
     const items = useMemo(() => (cart ?? []).map((item) => ({
         productId: item.type === 'Menu' ? undefined : item.id,
@@ -100,40 +110,27 @@ export default function SendToTableDialog({open, cart, totalAmount, onClose, onS
                     na página Pedidos.
                 </Typography>
 
+                {/* special destinations first, in a fixed spot — with many
+                    tables they used to drown in the middle of the chip soup */}
                 <Typography variant="subtitle2" gutterBottom>Destino</Typography>
-
-                {tables === null ? (
-                    <CircularProgress size={22}/>
-                ) : (
-                    <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1} sx={{mb: 1.5}}>
-                        {tables.map((table) => (
-                            <Chip
-                                key={table.id}
-                                icon={<TableRestaurantIcon/>}
-                                label={`Mesa ${table.displayName || table.number}${table.openOrders ? ` · ${eur.format(table.unpaidTotal / 100)}` : ''}`}
-                                color={selected?.kind === 'table' && selected.id === table.id ? 'primary' : 'default'}
-                                onClick={() => setSelected({kind: 'table', id: table.id, number: table.displayName || table.number})}
-                                sx={{py: 2.2, fontSize: 15}}
-                            />
-                        ))}
-                        <Chip
-                            icon={<TableRestaurantIcon/>}
-                            label="Novo grupo"
-                            variant={selected?.kind === 'new' ? 'filled' : 'outlined'}
-                            color={selected?.kind === 'new' ? 'primary' : 'default'}
-                            onClick={() => setSelected({kind: 'new'})}
-                            sx={{py: 2.2, fontSize: 15}}
-                        />
-                        <Chip
-                            icon={<ReceiptLongIcon/>}
-                            label="Pedido avulso"
-                            variant={selected?.kind === 'standalone' ? 'filled' : 'outlined'}
-                            color={selected?.kind === 'standalone' ? 'primary' : 'default'}
-                            onClick={() => setSelected({kind: 'standalone'})}
-                            sx={{py: 2.2, fontSize: 15}}
-                        />
-                    </Stack>
-                )}
+                <Stack direction="row" spacing={1} sx={{mb: 1}}>
+                    <Button
+                        fullWidth
+                        startIcon={<TableRestaurantIcon/>}
+                        variant={selected?.kind === 'new' ? 'contained' : 'outlined'}
+                        onClick={() => setSelected({kind: 'new'})}
+                    >
+                        Novo grupo
+                    </Button>
+                    <Button
+                        fullWidth
+                        startIcon={<ReceiptLongIcon/>}
+                        variant={selected?.kind === 'standalone' ? 'contained' : 'outlined'}
+                        onClick={() => setSelected({kind: 'standalone'})}
+                    >
+                        Pedido avulso
+                    </Button>
+                </Stack>
 
                 {selected?.kind === 'new' && (
                     <TextField
@@ -144,6 +141,54 @@ export default function SendToTableDialog({open, cart, totalAmount, onClose, onS
                         onChange={(e) => setNewNumber(e.target.value.replace(/\D/g, '').slice(0, 4))}
                         sx={{mb: 1.5, width: {xs: '100%', sm: 260}}}
                     />
+                )}
+
+                <Stack direction="row" alignItems="center" spacing={1} sx={{mb: 0.5}}>
+                    <Typography variant="subtitle2" sx={{flex: 1}}>
+                        Mesas abertas{tables?.length ? ` (${tables.length})` : ''}
+                    </Typography>
+                    {(tables?.length ?? 0) > 6 && (
+                        <TextField
+                            placeholder="Filtrar nº"
+                            size="small"
+                            value={tableFilter}
+                            inputProps={{inputMode: 'numeric', pattern: '[0-9]*', maxLength: 4}}
+                            onChange={(e) => setTableFilter(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                            sx={{width: 110}}
+                        />
+                    )}
+                </Stack>
+
+                {tables === null ? (
+                    <CircularProgress size={22}/>
+                ) : tables.length === 0 ? (
+                    <Typography variant="body2" color="text.disabled" sx={{mb: 1.5}}>
+                        Não há mesas abertas.
+                    </Typography>
+                ) : (
+                    <Stack
+                        direction="row"
+                        flexWrap="wrap"
+                        useFlexGap
+                        spacing={1}
+                        sx={{mb: 1.5, maxHeight: 190, overflowY: 'auto', pr: 0.5}}
+                    >
+                        {visibleTables.map((table) => (
+                            <Chip
+                                key={table.id}
+                                icon={<TableRestaurantIcon/>}
+                                label={`Mesa ${table.displayName || table.number}${table.openOrders ? ` · ${eur.format(table.unpaidTotal / 100)}` : ''}`}
+                                color={selected?.kind === 'table' && selected.id === table.id ? 'primary' : 'default'}
+                                onClick={() => setSelected({kind: 'table', id: table.id, number: table.displayName || table.number})}
+                                sx={{py: 2.2, fontSize: 15}}
+                            />
+                        ))}
+                        {visibleTables.length === 0 && (
+                            <Typography variant="body2" color="text.disabled">
+                                Nenhuma mesa {tableFilter} aberta — use "Novo grupo".
+                            </Typography>
+                        )}
+                    </Stack>
                 )}
 
                 <Box>

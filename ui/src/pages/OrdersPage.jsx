@@ -563,21 +563,22 @@ export default function OrdersPage() {
                                                 </Typography>
                                             ))}
                                         </Box>
-                                        <Stack direction="row" spacing={1}>
-                                            <Button size="small" onClick={() => reprintOrder(order)}
-                                                    startIcon={<PrintIcon/>}>2ª via</Button>
-                                            <Button size="small"
-                                                    onClick={() => setMoveTarget(order)}
-                                                    startIcon={<SwapHorizIcon/>}>Mover</Button>
-                                            <Button size="small"
-                                                    onClick={() => openModifyDialog(order)}
-                                                    startIcon={<EditIcon/>}>Modificar</Button>
-                                            <Button size="small" color="error"
-                                                    onClick={() => setCancelTarget(order)}>Anular</Button>
-                                            <Box sx={{flex: 1}}/>
-                                            <Button variant="contained" size="small"
+                                        <Stack spacing={1}>
+                                            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                                <Button size="small" onClick={() => reprintOrder(order)}
+                                                        startIcon={<PrintIcon/>}>2ª via</Button>
+                                                <Button size="small"
+                                                        onClick={() => setMoveTarget(order)}
+                                                        startIcon={<SwapHorizIcon/>}>Mover</Button>
+                                                <Button size="small"
+                                                        onClick={() => openModifyDialog(order)}
+                                                        startIcon={<EditIcon/>}>Modificar</Button>
+                                                <Button size="small" color="error"
+                                                        onClick={() => setCancelTarget(order)}>Anular</Button>
+                                            </Stack>
+                                            <Button variant="contained" size="small" fullWidth
                                                     onClick={() => startPayOrder(order)}>
-                                                Pagar
+                                                Pagar {formatCents(order.total)}
                                             </Button>
                                         </Stack>
                                     </CardContent>
