@@ -34,6 +34,8 @@ export default function TerminalsSettings() {
         load();
     }, [load]);
 
+    const FULLY_PLAY_URL = 'https://play.google.com/store/apps/details?id=de.ozerov.fully';
+
     useEffect(() => {
         if (!info?.multiTerminal?.effective || !info?.addresses?.length) {
             setQrCodes({});
@@ -48,12 +50,20 @@ export default function TerminalsSettings() {
                 } catch {
                 }
             }
+            try {
+                codes.__fully = await QRCode.toDataURL(FULLY_PLAY_URL, {width: 180, margin: 1});
+            } catch {
+            }
             if (!canceled) setQrCodes(codes);
         })();
         return () => {
             canceled = true;
         };
     }, [info]);
+
+    // short start URL for Fully: the API root redirects to /terminal/, so
+    // typing just ip:porta on the phone is enough
+    const fullyStartUrl = (info?.addresses?.[0]?.terminalUrl ?? '').replace(/\/terminal\/?$/, '');
 
     const handleToggleSplit = async (event) => {
         const next = event.target.checked;
@@ -180,6 +190,50 @@ export default function TerminalsSettings() {
                             ))}
                         </Stack>
                     )}
+                </Paper>
+            )}
+
+            {effective && info.addresses.length > 0 && (
+                <Paper elevation={0} sx={{p: 3, border: (theme) => `1px solid ${theme.palette.divider}`}}>
+                    <Typography variant="h6" fontWeight={700} gutterBottom>
+                        Modo kiosk em Android (Fully Kiosk)
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{mb: 2}}>
+                        Para ecrã inteiro a sério em telemóveis Android: instalar a app e apontá-la
+                        ao terminal.
+                    </Typography>
+                    <Stack direction={{xs: 'column', sm: 'row'}} spacing={3} alignItems="flex-start">
+                        <Box sx={{textAlign: 'center'}}>
+                            {qrCodes.__fully && (
+                                <img src={qrCodes.__fully} alt="QR Play Store — Fully Kiosk"
+                                     width={180} height={180}/>
+                            )}
+                            <Typography variant="body2" fontWeight={600}>1. Instalar (Play Store)</Typography>
+                        </Box>
+                        <Box sx={{flex: 1}}>
+                            <Typography variant="body2" sx={{mb: 1}}>
+                                <b>2. Nas definições do Fully</b>, em <i>Start URL</i>, escreva:
+                            </Typography>
+                            <Typography
+                                variant="h6"
+                                sx={{
+                                    fontFamily: 'monospace',
+                                    p: 1,
+                                    bgcolor: 'action.hover',
+                                    borderRadius: 1,
+                                    wordBreak: 'break-all',
+                                }}
+                            >
+                                {fullyStartUrl}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{display: 'block', mt: 1}}>
+                                Basta o endereço curto — abre diretamente o terminal. Recomendado
+                                ativar também: Kiosk Mode (com PIN), Keep Screen On e desligar o
+                                Autofill (ver README). Em iPhone não há app: use Partilhar →
+                                "Adicionar ao ecrã principal" + Acesso Guiado.
+                            </Typography>
+                        </Box>
+                    </Stack>
                 </Paper>
             )}
         </Stack>

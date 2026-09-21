@@ -188,6 +188,9 @@ app.get("/health", (req, res) => {
 // Terminal app (static build served by the API — same origin, no CORS)
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const terminalDist = path.resolve(__dirname, '../terminal/dist');
+// bare root → terminal: typing "192.168.x.x:9393" on a phone (e.g. as the
+// Fully Kiosk start URL) is enough, no path needed
+app.get('/', (req, res) => res.redirect('/terminal/'));
 app.use('/terminal', express.static(terminalDist));
 app.get('/terminal/*', (req, res) => {
     const index = path.join(terminalDist, 'index.html');

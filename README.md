@@ -135,12 +135,15 @@ Operational notes:
 The terminal is a fullscreen PWA — on phones use **"Add to Home Screen"** and it
 opens like an app (no URL bar, portrait locked).
 
-> ⚠️ **"Installs" but opens as a browser page?** That's Chrome's rule: a full PWA
-> requires HTTPS, and the terminal is served over `http://<IP>` on the LAN.
+> ⚠️ **"Installs" but opens as a browser page? / "Não é possível instalar esta app"?**
+> That's Chrome's rule: installing a full PWA requires a secure context (HTTPS or
+> `localhost`), and the terminal is served over `http://<IP>` on the LAN — so the
+> Install option is refused and only "Create shortcut" works.
 > Workarounds: use the **Fully Kiosk Browser** (no PWA needed — below), or,
-> per phone, enable the `chrome://flags/#unsafely-treat-insecure-origin-as-secure`
-> flag with the value `http://<PC-IP>:9393` and restart Chrome — "Install app"
-> then works fullscreen (requires a static/reserved IP on the router).
+> per device, open `chrome://flags/#unsafely-treat-insecure-origin-as-secure`,
+> put `http://<PC-IP>:9393` in the text box, set the flag to **Enabled** and
+> restart Chrome — "Install app" then works fullscreen (requires a
+> static/reserved IP on the router, or the flag breaks when the IP changes).
 
 To keep users from leaving the app:
 
@@ -150,7 +153,7 @@ To keep users from leaving the app:
   triple-click inside the app locks the device to it, with a passcode to exit.
 - **Dedicated devices (recommended)** — [Fully Kiosk Browser](https://www.fully-kiosk.com)
   (Android, one-time license per device). Recommended configuration:
-  - **Start URL**: `http://<PC-IP>:9393/terminal/`
+  - **Start URL**: `http://<PC-IP>:9393` (the root redirects to the terminal)
   - **Kiosk Mode**: enabled, with an exit PIN
   - **Launch on Boot** + **Keep Screen On** (wake lock during the shift)
   - **Auto Reload on Errors/Idle**: enabled (recovers from Wi-Fi drops)
