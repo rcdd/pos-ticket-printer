@@ -13,8 +13,8 @@ Includes:
 - 🖥️ **Frontend**: React (build served via PM2)
 - 🗄️ **Database**: MySQL
 - 🛠️ **Administration**: phpMyAdmin (port 8080)
-- 💻 **Interface**: automatic **kiosk mode** in Microsoft Edge
-- 🖼️ **Experience**: clean splash screen, no console window visible
+- 💻 **Interface**: automatic **kiosk mode** (Microsoft Edge, falls back to Chrome)
+- 🖼️ **Experience**: branded splash screen showing the running version, no console window visible
 
 ---
 
@@ -40,8 +40,8 @@ This script will:
 - Register and prepare services in PM2
 - Create a **Desktop shortcut** (`POS Ticket.lnk`) for quick startup
 
-> 📌 First-time installation may take several minutes.  
-> Always run `install.bat` again after a **fresh setup** or **version update**.
+> 📌 First-time installation may take several minutes. To update an existing installation
+> afterwards, use `update.bat` instead (see §3) — don't re-run `install.bat`.
 
 ---
 
@@ -75,22 +75,21 @@ This will:
 
 ## 🔄 3. Updating the system
 
-To update to a new version:
-
-1. Replace the old folder with the new `.zip` contents (or pull latest from Git).
-2. Run:
+`install.bat` is only for a **brand-new machine**. To update an existing installation, run:
 
 ```bat
-install.bat
+update.bat
 ```
 
-This will:
-- Update dependencies if required
-- Reapply DB and `.env` configuration
-- Rebuild API/UI if needed
-- Keep shortcuts and data intact
+This pulls the latest code (Git or the release `.zip`), then for each of **API**, **UI** and **Terminal**
+asks S/N whether to rebuild it, and:
+- Syncs files, preserving `api/.env` and any local data (never overwritten)
+- Reinstalls dependencies with `npm ci` (uses the committed `package-lock.json`, so every machine
+  gets the exact dependency set that was tested upstream — never a fresh, untested resolution)
+- Rebuilds the UI and/or Terminal only for the components you confirmed
+- Keeps the desktop shortcut and refreshes its icon if it changed (no reboot needed)
 
-No need to uninstall or manually clean up.
+No need to uninstall or manually clean up. Restart via the desktop shortcut afterwards.
 
 ---
 
@@ -99,9 +98,39 @@ No need to uninstall or manually clean up.
 | Service       | URL                                                              |
 |---------------|------------------------------------------------------------------|
 | POS UI        | [http://localhost:3000](http://localhost:3000)                   |
-| Express API   | [http://localhost:9393/api](http://localhost:9393/api)           |
+| Express API   | [http://localhost:9393](http://localhost:9393)                   |
 | phpMyAdmin    | [http://localhost:8080](http://localhost:8080)                   |
-| Terminals     | [http://localhost:9393/terminal](http://localhost:9393/terminal) |
+| Terminals     | [http://localhost:9393/terminal](http://localhost:9393/terminal) (`/` also redirects here) |
+
+---
+
+## ✨ Feature highlights (v3.0.4)
+
+Beyond basic ticket printing, the system now covers:
+
+- **Printing, per printer model** (Configurações → Impressora → Definições avançadas): header
+  position, cut mode, feed lines, explicit columns-per-line, character encoding, drawer pin, small
+  font — because thermal printers vary a lot in what they support. "Testar impressão" and
+  "Testar gaveta" buttons validate a change without a real sale.
+- **Ticket layout** (Configurações → Talões): independent text size per element (product name,
+  totals, table/order number, kitchen notes, destination line), with a live preview and a
+  "Imprimir exemplo" per ticket type.
+- **Orders (register, Pedidos page)**: **Mover** an order to another table/new group/standalone
+  (prints a correction ticket for the kitchen); **Modificar** lets you set what an order should end
+  up with ("3 coffees → 2") instead of thinking in cancellations; **Anular** cancels the whole
+  order. Every action is audited.
+- **Kitchen tickets split by product zone** (bar/kitchen), each with a destination line, toggle in
+  Configurações → Terminais.
+- **Split payments**: "Dividir conta" splits the bill across N people, each with its own amount and
+  payment method (cash/MBWay/card); change is computed only over the cash portion, with a final
+  summary showing it.
+- **Live terminal sync**: product/price/zone edits at the register reach connected phones instantly,
+  without losing an order in progress.
+- **Session reports**: historical values use the price at sale time (changing prices later doesn't
+  rewrite old reports); CSV export follows whatever filters/columns are active on screen; test or
+  training sessions can be marked at close and are hidden from reports by default.
+- **Kiosk app control**: a working "Fechar aplicação" button in kiosk mode, and the desktop
+  shortcut refuses to open a second instance if double-clicked while already starting.
 
 ---
 
@@ -164,7 +193,8 @@ To keep users from leaving the app:
     Clear Cookies + Delete Web Storage → Reload
 
 Development on Mac/Linux: `docker compose up -d mysqldb` + `npm run dev` in `api/` +
-`npm run dev` in `terminal/` (proxies to the API). Tests: `npm test` in `api/` and `terminal/`.
+`npm run dev` in `terminal/` (proxies to the API). Tests: `npm test` in `api/` and `terminal/`;
+`CI=true npx react-scripts test --watchAll=false` in `ui/`.
 
 ---
 
@@ -172,9 +202,11 @@ Development on Mac/Linux: `docker compose up -d mysqldb` + `npm run dev` in `api
 
 | File / Script         | Purpose                                 |
 |------------------------|-----------------------------------------|
-| `install.bat`          | Prepares environment & dependencies     |
+| `install.bat`          | First-time setup on a new machine (Chocolatey, DB, `.env`) |
 | `install_script.ps1`   | Full installation logic (PowerShell)    |
-| `startup.ps1`          | Launches API, UI, phpMyAdmin, Edge      |
+| `update.bat`           | Updates an existing installation (see §3) |
+| `update_script.ps1`    | Update logic — sync, `npm ci`, per-component rebuild (PowerShell) |
+| `startup.ps1`          | Launches API, UI, phpMyAdmin, kiosk browser (single-instance guarded) |
 | `startup.launcher.vbs` | Hidden launcher (suppresses console)    |
 | `logs/startup-*.log`   | Startup logs (for debugging)            |
 
