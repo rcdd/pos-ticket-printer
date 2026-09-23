@@ -1,0 +1,29 @@
+[
+  {
+    "id": "deploy-demo",
+    "execute-command": "/scripts/deploy.sh",
+    "command-working-directory": "/scripts",
+    "response-message": "Deploying...\n",
+    "pass-environment-to-command": [
+      { "source": "payload", "name": "release.tag_name", "envname": "RELEASE_TAG" }
+    ],
+    "trigger-rule": {
+      "and": [
+        {
+          "match": {
+            "type": "payload-hmac-sha256",
+            "secret": "REPLACE_WITH_A_LONG_RANDOM_SECRET",
+            "parameter": { "source": "header", "name": "X-Hub-Signature-256" }
+          }
+        },
+        {
+          "match": {
+            "type": "value",
+            "value": "published",
+            "parameter": { "source": "payload", "name": "action" }
+          }
+        }
+      ]
+    }
+  }
+]

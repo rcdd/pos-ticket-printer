@@ -1,0 +1,20 @@
+# Runs the auto-deploy webhook receiver on Ruben's server (separate from the
+# app stack in docker-compose.services.yaml). Start with:
+#   docker compose -f deploy/docker-compose.webhook.yaml up -d --build
+#
+# Before starting:
+# 1. Edit hooks.json: replace REPLACE_WITH_A_LONG_RANDOM_SECRET with a real
+#    random secret (e.g. `openssl rand -hex 32`) — the SAME value goes into
+#    the GitHub webhook secret field (see checklist).
+# 2. Replace REPO_HOST_PATH below with the actual path to this repo's
+#    checkout on the server (the one docker-compose.services.yaml lives in).
+services:
+  deploy-webhook:
+    build: .
+    container_name: pos-deploy-webhook
+    restart: unless-stopped
+    ports:
+      - "9000:9000" # only reachable from the host/NPM, not directly from the internet
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - REPO_HOST_PATH:/repo

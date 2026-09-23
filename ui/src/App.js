@@ -30,7 +30,9 @@ function AppEventsBridge() {
 
     return (
         <VirtualKeyboardProvider>
-            <BrowserRouter>
+            {/* PUBLIC_URL is empty for the local/kiosk deploy (served at "/") and
+                "/demo" for the public demo container — CRA injects it at build time */}
+            <BrowserRouter basename={process.env.PUBLIC_URL || '/'}>
                 <HomePage/>
             </BrowserRouter>
         </VirtualKeyboardProvider>
