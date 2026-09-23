@@ -4,7 +4,6 @@
 [![MySQL](https://img.shields.io/badge/MySQL-8.x-blue?logo=mysql)](https://www.mysql.com/)
 [![PHP](https://img.shields.io/badge/PHP-8.x-purple?logo=php)](https://www.php.net/)
 [![PM2](https://img.shields.io/badge/PM2-Process%20Manager-orange)](https://pm2.keymetrics.io/)
-[![License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
 A lightweight **Point of Sale (POS)** system, designed to run **100% offline**, with automatic startup and kiosk-ready interface.
 
@@ -211,6 +210,14 @@ Development on Mac/Linux: `docker compose up -d mysqldb` + `npm run dev` in `api
 | `logs/startup-*.log`   | Startup logs (for debugging)            |
 
 ---
+
+## 📄 License
+
+This is proprietary software — there is no open-source license, and no permission is granted to
+reuse, redistribute, or resell it. The source is public so technical users can read it, run it for
+their own understanding, and open issues or pull requests; contributions are welcome, but at the
+maintainer's sole discretion. Commercial use, hosting, or redistribution requires a separate
+agreement — get in touch (below).
 
 ## 📧 Support
 
