@@ -23,8 +23,14 @@ RUN npm run build
 # Stage 2
 FROM nginx:1.27.0-alpine
 
-COPY --from=build-stage /ui/build /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# --chmod forces sane permissions regardless of whatever mode the source
+# files in ui/public/ carry after checkout on a given host (this is the
+# same bug class fixed in pos-ticket-printer-website's Dockerfile: some
+# assets came out 700/owner-only, unreadable by nginx's non-root worker,
+# hence 403s). 755 (not 644) because this COPY includes directories
+# (static/, static/css/, static/js/) that need +x to be traversable.
+COPY --from=build-stage --chmod=755 /ui/build /usr/share/nginx/html
+COPY --chmod=644 nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
 
 CMD nginx -g 'daemon off;'
