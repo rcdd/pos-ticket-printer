@@ -1,6 +1,6 @@
 {
   "name": "pos-ticket-print",
-  "version": "3.0.1",
+  "version": "3.0.5",
   "description": "POS Ticket Print project with Docker, Express API, and React UI",
   "author": {
     "name": "Ruben Domingues",
