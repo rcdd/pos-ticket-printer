@@ -1391,5 +1391,15 @@ else
     Write-Warn "Failed to create desktop shortcut."
 }
 
-Write-Ok "Installation complete. Please restart your computer to ensure all changes take effect."
-Pause
+Write-Ok "Installation complete."
+$answer = Read-Host "Reiniciar o computador agora para garantir que tudo fica corretamente aplicado? (S/n)"
+if ([string]::IsNullOrWhiteSpace($answer) -or $answer -match '^[Ss]')
+{
+    Write-Info "A reiniciar o computador..."
+    Restart-Computer -Force
+}
+else
+{
+    Write-Warn "Reinicie o computador manualmente assim que possivel para garantir que todas as alteracoes ficam aplicadas."
+    Pause
+}
