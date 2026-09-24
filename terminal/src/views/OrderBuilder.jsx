@@ -313,10 +313,16 @@ export function OrderBuilder({table, canOrder, onCancel, onSent, onViewTable, re
         <div class="screen">
             <div class="page-header">
                 <button class="back-btn" aria-label="Voltar" onClick={handleBack}>←</button>
-                <h3 style="margin:0; flex:1">{table ? `Mesa ${table.displayName || table.number} — novo pedido` : 'Pedido avulso'}</h3>
+                <h3 style="margin:0; flex:1; display:flex; align-items:center; gap:8px">
+                    {table ? (
+                        <>
+                            <span style="font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px">Mesa</span>
+                            <span class="table-badge">{table.displayName || table.number}</span>
+                        </>
+                    ) : 'Pedido avulso'}
+                </h3>
                 {table && onViewTable && (
-                    <button class="btn ghost" style="width:auto; padding:8px 12px; font-size:14px"
-                            onClick={onViewTable}>
+                    <button class="header-action" onClick={onViewTable}>
                         Conta 🧾
                     </button>
                 )}

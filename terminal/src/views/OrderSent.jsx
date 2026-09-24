@@ -32,8 +32,14 @@ export function OrderSent({result, table, onNewOrder, onViewTable, onHome}) {
                         {result.duplicate ? 'Pedido já registado' : 'Pedido registado'}
                     </p>
                     <div class="big-number">{formatNumber(order.number)}</div>
-                    <p style="margin:4px 0">
-                        {table ? `Mesa ${table.displayName || table.number}` : 'Pedido avulso'} · {centsToEuros(order.total)}
+                    <p style="margin:4px 0; display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap">
+                        {table ? (
+                            <>
+                                <span style="font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px">Mesa</span>
+                                <span class="table-badge">{table.displayName || table.number}</span>
+                            </>
+                        ) : <span>Pedido avulso</span>}
+                        <span>· {centsToEuros(order.total)}</span>
                     </p>
                     {printed ? (
                         <p style={`color:var(--success); font-weight:600`}>🖨️ Talão impresso</p>

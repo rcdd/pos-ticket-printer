@@ -34,33 +34,36 @@ function CancelItemDialog({order, item, currentUser, onDone, onClose}) {
     };
 
     return (
-        <div class="card" style="position:fixed; inset:auto 14px 14px; z-index:30; box-shadow:0 -4px 24px rgba(0,0,0,0.25)">
-            <h3>Anular item</h3>
-            <p style="margin:4px 0 10px">
-                Pedido #{String(order.number).padStart(3, '0')} — <b>{item.quantity}x {item.nameSnapshot}</b>
-            </p>
-            {isAdmin ? (
-                <p class="muted">Vai ser impresso um talão de anulação para a cozinha.</p>
-            ) : (
-                <>
-                    <p class="muted" style="margin-bottom:8px">Requer aprovação de um administrador:</p>
-                    <div style="display:flex; flex-direction:column; gap:8px">
-                        <input placeholder="Utilizador admin" autocapitalize="none" value={username}
-                               onInput={(e) => setUsername(e.currentTarget.value)}/>
-                        <PasswordInput value={password}
-                                       onInput={(e) => setPassword(e.currentTarget.value)}/>
-                    </div>
-                </>
-            )}
-            {error && <p class="error-text" style="margin-top:8px">{error}</p>}
-            <div style="display:flex; gap:8px; margin-top:12px">
-                <button class="btn secondary" onClick={onClose} disabled={busy}>Voltar</button>
-                <button class="btn danger" onClick={confirm}
-                        disabled={busy || (!isAdmin && (!username || !password))}>
-                    {busy ? 'A anular…' : 'Anular item'}
-                </button>
+        <>
+            <div class="sheet-backdrop" onClick={() => !busy && onClose()}/>
+            <div class="card" style="position:fixed; inset:auto 14px 14px; z-index:41; box-shadow:0 -4px 24px rgba(0,0,0,0.25)">
+                <h3>Anular item</h3>
+                <p style="margin:4px 0 10px">
+                    Pedido #{String(order.number).padStart(3, '0')} — <b>{item.quantity}x {item.nameSnapshot}</b>
+                </p>
+                {isAdmin ? (
+                    <p class="muted">Vai ser impresso um talão de anulação para a cozinha.</p>
+                ) : (
+                    <>
+                        <p class="muted" style="margin-bottom:8px">Requer aprovação de um administrador:</p>
+                        <div style="display:flex; flex-direction:column; gap:8px">
+                            <input placeholder="Utilizador admin" autocapitalize="none" value={username}
+                                   onInput={(e) => setUsername(e.currentTarget.value)}/>
+                            <PasswordInput value={password}
+                                           onInput={(e) => setPassword(e.currentTarget.value)}/>
+                        </div>
+                    </>
+                )}
+                {error && <p class="error-text" style="margin-top:8px">{error}</p>}
+                <div style="display:flex; gap:8px; margin-top:12px">
+                    <button class="btn secondary" onClick={onClose} disabled={busy}>Voltar</button>
+                    <button class="btn danger" onClick={confirm}
+                            disabled={busy || (!isAdmin && (!username || !password))}>
+                        {busy ? 'A anular…' : 'Anular item'}
+                    </button>
+                </div>
             </div>
-        </div>
+        </>
     );
 }
 
@@ -116,7 +119,10 @@ export function TableView({liveTick, tableId, currentUser, onBack, onClosed}) {
         <div class="screen">
             <div class="page-header">
                 <button class="back-btn" aria-label="Voltar" onClick={onBack}>←</button>
-                <h2 style="margin:0">Mesa {table.displayName || table.number}</h2>
+                <h2 style="margin:0; flex:1; display:flex; align-items:center; gap:8px">
+                    <span style="font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px">Mesa</span>
+                    <span class="table-badge">{table.displayName || table.number}</span>
+                </h2>
                 <span class="muted">{isClosed ? 'Fechada' : `Por pagar: ${centsToEuros(table.unpaidTotal)}`}</span>
             </div>
             {table.openedBy && (
