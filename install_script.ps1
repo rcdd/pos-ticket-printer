@@ -1187,7 +1187,15 @@ else
 # UI: deps/build (port 3000)
 # ========================
 $uiPath = Join-Path $ScriptRoot 'ui'
-if (Test-Path (Join-Path $uiPath 'package.json'))
+if (Test-Path (Join-Path $uiPath 'build'))
+{
+    # Release package (via bootstrap/update) ships ui/build pre-compiled.
+    # ui/node_modules is never needed at runtime either way — PM2 serves the
+    # build with the globally-installed `serve` (see below), not a local one —
+    # so a pre-built folder means there is nothing left to install here.
+    Write-Ok "UI build already present (pre-built) - a saltar npm install/build da UI."
+}
+elseif (Test-Path (Join-Path $uiPath 'package.json'))
 {
     if (-not (Test-Path (Join-Path $uiPath 'node_modules')))
     {
@@ -1239,22 +1247,15 @@ if (Test-Path (Join-Path $uiPath 'package.json'))
             Pop-Location
         }
     }
-    if (-not (Test-Path (Join-Path $uiPath 'build')))
+    Write-Info "Building UI..."
+    Push-Location $uiPath
+    try
     {
-        Write-Info "Building UI..."
-        Push-Location $uiPath
-        try
-        {
-            & $NpmCmd run build
-        }
-        finally
-        {
-            Pop-Location
-        }
+        & $NpmCmd run build
     }
-    else
+    finally
     {
-        Write-Ok "UI build already present."
+        Pop-Location
     }
 }
 else
@@ -1268,13 +1269,19 @@ else
 $terminalPath = Join-Path $ScriptRoot 'terminal'
 if (Test-Path (Join-Path $terminalPath 'package.json'))
 {
-    if (-not (Test-Path (Join-Path $terminalPath 'node_modules')))
+    if (Test-Path (Join-Path $terminalPath 'dist'))
     {
-        Write-Info "Installing Terminal dependencies..."
-        Invoke-NpmCiOrInstall $NpmCmd $terminalPath | Out-Null
+        # Same reasoning as the UI above: dist is served by the API via
+        # express.static, terminal/node_modules is never touched at runtime.
+        Write-Ok "Terminal build already present (pre-built) - a saltar npm install/build do Terminal."
     }
-    if (-not (Test-Path (Join-Path $terminalPath 'dist')))
+    else
     {
+        if (-not (Test-Path (Join-Path $terminalPath 'node_modules')))
+        {
+            Write-Info "Installing Terminal dependencies..."
+            Invoke-NpmCiOrInstall $NpmCmd $terminalPath | Out-Null
+        }
         Write-Info "Building Terminal app..."
         Push-Location $terminalPath
         try
@@ -1285,10 +1292,6 @@ if (Test-Path (Join-Path $terminalPath 'package.json'))
         {
             Pop-Location
         }
-    }
-    else
-    {
-        Write-Ok "Terminal build already present."
     }
 
     # Firewall: phones/tablets need to reach the API (port 9393) on the
