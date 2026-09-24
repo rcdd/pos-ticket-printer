@@ -1,6 +1,8 @@
 Param(
     [string]$RepoUrl,
     [string]$Branch,
+    [string]$ReleaseUrl,
+    [bool]  $UseSource,
     [string]$Target,
     [bool]  $Backup,
     [bool]  $DryRun
@@ -9,6 +11,9 @@ Param(
 $ErrorActionPreference = 'Stop'
 
 # ---------- Defaults ----------
+# Legacy path (only used with -UseSource, or as an automatic fallback if the
+# release package below can't be reached): clones/downloads raw source and
+# builds ui/api/terminal locally on the client machine.
 if (-not $PSBoundParameters.ContainsKey('RepoUrl'))
 {
     $RepoUrl = if ($env:REPO_URL)
@@ -29,6 +34,32 @@ if (-not $PSBoundParameters.ContainsKey('Branch'))
     else
     {
         'main'
+    }
+}
+# Default path: a pre-built package (ui/build and terminal/dist already
+# compiled by the release-zip GitHub Action) served from Ruben's own domain,
+# so client machines don't need a matching local Node/npm toolchain just to
+# rebuild static assets that never change per-machine.
+if (-not $PSBoundParameters.ContainsKey('ReleaseUrl'))
+{
+    $ReleaseUrl = if ($env:RELEASE_URL)
+    {
+        $env:RELEASE_URL
+    }
+    else
+    {
+        'https://pos.rubendomingues.pt/download'
+    }
+}
+if (-not $PSBoundParameters.ContainsKey('UseSource'))
+{
+    $UseSource = if ($env:USE_SOURCE)
+    {
+        [bool]::Parse($env:USE_SOURCE)
+    }
+    else
+    {
+        $false
     }
 }
 if (-not $PSBoundParameters.ContainsKey('Target'))
@@ -115,6 +146,28 @@ function Get-SourceTree
             Move-Item -Path $_.FullName -Destination $src
         }
     }
+    return @{ Tmp = $tmp; Src = $src }
+}
+
+# Same package the one-file installer (Instalar-POS-Ticket.bat) downloads —
+# a flat zip of the repo root (no wrapping folder) with ui/build and
+# terminal/dist already compiled, produced by .github/workflows/release-zip.yml.
+function Get-ReleasePackage
+{
+    param([string]$ReleaseUrl)
+    $tmp = New-TempDir
+    $src = Join-Path $tmp 'src'
+    $zip = Join-Path $tmp 'pos-ticket.zip'
+
+    Write-Host "Download do pacote de release ($ReleaseUrl)..."
+    Invoke-WebRequest -Uri $ReleaseUrl -OutFile $zip
+    Expand-Archive -Path $zip -DestinationPath $src -Force
+
+    if (-not (Test-Path (Join-Path $src 'package.json')))
+    {
+        throw "Pacote de release com estrutura inesperada (falta package.json na raiz)."
+    }
+
     return @{ Tmp = $tmp; Src = $src }
 }
 
@@ -241,9 +294,12 @@ function Sync-Into
     Write-Host "A sincronizar ficheiros para $Target"
 
     $xf = @('*.env', '*.env.*')
+    # ui\build and terminal\dist are NOT excluded here on purpose: the
+    # release package ships them pre-built, and this is exactly what lets
+    # the client machine skip building those locally (see Get-ReleasePackage).
     $xd = @('.git', '.idea', '.vscode',
-    'node_modules', 'dist', 'build', '.next', '.cache', 'logs', 'data',
-    'api\node_modules', 'ui\node_modules', 'terminal\node_modules', 'api\dist', 'ui\dist', 'terminal\dist', 'api\build', 'ui\build', 'api\.next', 'ui\.next', 'api\.cache', 'ui\.cache')
+    'node_modules', '.next', '.cache', 'logs', 'data',
+    'api\node_modules', 'ui\node_modules', 'terminal\node_modules', 'api\dist', 'api\build', 'api\.next', 'ui\.next', 'api\.cache', 'ui\.cache')
 
     $args = @("$SourceRoot", "$Target", "/E", "/R:1", "/W:1", "/IS", "/IT", "/FFT", "/NFL", "/NDL", "/NP")
     if ($DryRun)
@@ -374,7 +430,28 @@ if (-not (Test-Command npm))
     Write-Host "Aviso: npm nao encontrado. A ignorar installs/builds."
 }
 
-$pull = Get-SourceTree -RepoUrl $RepoUrl -Branch $Branch
+if ($UseSource)
+{
+    Write-Host "Modo: codigo-fonte ($RepoUrl, $Branch) + build local"
+    $pull = Get-SourceTree -RepoUrl $RepoUrl -Branch $Branch
+    $sourceMode = 'source'
+}
+else
+{
+    try
+    {
+        Write-Host "Modo: pacote de release pre-compilado ($ReleaseUrl)"
+        $pull = Get-ReleasePackage -ReleaseUrl $ReleaseUrl
+        $sourceMode = 'release'
+    }
+    catch
+    {
+        Write-Host ("(aviso) Falha a obter o pacote de release: " + $_.Exception.Message)
+        Write-Host "A tentar via codigo-fonte (GitHub) como alternativa..."
+        $pull = Get-SourceTree -RepoUrl $RepoUrl -Branch $Branch
+        $sourceMode = 'source'
+    }
+}
 $srcRoot = $pull.Src
 $tmpRoot = $pull.Tmp
 
@@ -401,25 +478,32 @@ try
                 Npm-Install-And-Build -projPath $apiPath -DoRebuild
             }
         }
-        $answer = Read-Host "Pretende atualizar a UI? (S/N)"
-        if ($answer -match '^[Ss]')
+        if ($sourceMode -eq 'source')
         {
-            $uiPath = Join-Path $Target 'ui'
-            if ((Test-Path $uiPath) -and (Test-Command npm))
+            $answer = Read-Host "Pretende atualizar a UI? (S/N)"
+            if ($answer -match '^[Ss]')
             {
-                Reset-NpmArtifacts -projPath $uiPath
-                Npm-Install-And-Build -projPath $uiPath
+                $uiPath = Join-Path $Target 'ui'
+                if ((Test-Path $uiPath) -and (Test-Command npm))
+                {
+                    Reset-NpmArtifacts -projPath $uiPath
+                    Npm-Install-And-Build -projPath $uiPath
+                }
+            }
+            $answer = Read-Host "Pretende atualizar o Terminal (multiposto)? (S/N)"
+            if ($answer -match '^[Ss]')
+            {
+                $terminalPath = Join-Path $Target 'terminal'
+                if ((Test-Path $terminalPath) -and (Test-Command npm))
+                {
+                    Reset-NpmArtifacts -projPath $terminalPath
+                    Npm-Install-And-Build -projPath $terminalPath
+                }
             }
         }
-        $answer = Read-Host "Pretende atualizar o Terminal (multiposto)? (S/N)"
-        if ($answer -match '^[Ss]')
+        else
         {
-            $terminalPath = Join-Path $Target 'terminal'
-            if ((Test-Path $terminalPath) -and (Test-Command npm))
-            {
-                Reset-NpmArtifacts -projPath $terminalPath
-                Npm-Install-And-Build -projPath $terminalPath
-            }
+            Write-Host "UI e Terminal ja vieram compilados no pacote de release - nada a compilar localmente."
         }
     }
 
