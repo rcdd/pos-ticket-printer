@@ -9,6 +9,15 @@ name: Attach release zip
 on:
   release:
     types: [published]
+  # Manual fallback: a release published before this workflow existed on the
+  # default branch never fires the trigger above and ends up with no asset
+  # (this happened to v3.0.4). Backfill it with:
+  #   gh workflow run release-zip.yml -f tag=v3.0.4
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing release tag to build and attach the zip to'
+        required: true
 
 permissions:
   contents: write
@@ -16,10 +25,12 @@ permissions:
 jobs:
   build-and-attach:
     runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.inputs.tag || github.event.release.tag_name }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ env.TAG }}
 
       - uses: actions/setup-node@v4
         with:
@@ -47,4 +58,4 @@ jobs:
       - name: Attach to the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "${{ github.event.release.tag_name }}" pos-ticket.zip --clobber
+        run: gh release upload "${{ env.TAG }}" pos-ticket.zip --clobber
