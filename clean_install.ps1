@@ -117,6 +117,26 @@ function Stop-And-Delete-DbServices
         }
     }
 
+    # Stop-Service returning doesn't guarantee mysqld/mariadbd has actually
+    # released its data-directory file handles yet. Purging data right after
+    # used to silently leave locked files behind (Remove-Item's
+    # -ErrorAction SilentlyContinue swallows "file in use" errors), letting
+    # the OLD data directory - and OLD pos_user password - survive a "clean"
+    # reinstall, since MySQL reuses an existing data dir instead of
+    # reinitializing it.
+    Do-Step {
+        $deadline = (Get-Date).AddSeconds(20)
+        while ((Get-Date) -lt $deadline)
+        {
+            if (-not (Get-Process -Name 'mysqld', 'mariadbd' -ErrorAction SilentlyContinue))
+            {
+                break
+            }
+            Start-Sleep -Milliseconds 500
+        }
+        Get-Process -Name 'mysqld', 'mariadbd' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    } 'Wait for mysqld/mariadbd to fully exit' -SilentOk
+
     # Apaga registos de serviço
     foreach ($s in $svcs)
     {
@@ -237,14 +257,25 @@ if ($RemoveChocoPkgs)
 if ($PurgeMySqlData)
 {
     W-Warn 'Purging MySQL/MariaDB data (destructive)...'
-    @(
+    # Wildcards instead of pinned version numbers (8.0/8.4/9.0 missed e.g.
+    # 8.1-8.3, 9.1+) - Test-Path/Remove-Item resolve these natively.
+    $purgePaths = @(
         'C:\ProgramData\MySQL',
         'C:\ProgramData\MariaDB',
-        'C:\Program Files\MySQL\MySQL Server 8.0\data',
-        'C:\Program Files\MySQL\MySQL Server 8.4\data',
-        'C:\Program Files\MySQL\MySQL Server 9.0\data',
+        'C:\Program Files\MySQL\MySQL Server*\data',
         'C:\Program Files\MariaDB\MariaDB*\data'
-    ) | ForEach-Object { Remove-DirSafe $_ }
+    )
+    $purgePaths | ForEach-Object { Remove-DirSafe $_ }
+
+    if ($Execute)
+    {
+        $remaining = $purgePaths | Where-Object { Test-Path $_ }
+        if ($remaining)
+        {
+            W-Warn ("Some MySQL/MariaDB data survived the purge (still locked?): " + ($remaining -join ', '))
+            W-Warn "A reinstall may reuse this old data (and its old credentials) instead of starting fresh. Re-run this script, or remove it manually, before reinstalling."
+        }
+    }
 }
 
 # -------- npm globais --------
