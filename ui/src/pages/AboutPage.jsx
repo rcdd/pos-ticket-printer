@@ -1,4 +1,5 @@
 import * as React from 'react';
+import packageInfo from '../../package.json';
 
 const contactItems = [
     {
@@ -10,6 +11,11 @@ const contactItems = [
         label: "Telefone",
         value: "918 182 831",
         href: "tel:+351918182831",
+    },
+    {
+        label: "Site",
+        value: "pos.rubendomingues.pt",
+        href: "https://pos.rubendomingues.pt",
     },
     {
         label: "GitHub",
@@ -28,6 +34,7 @@ export default function AboutPage() {
                     <p className="about__subtitle">
                         Gestão simples de talões e impressões para pontos de venda.
                     </p>
+                    <p className="about__version">Versão {packageInfo.version}</p>
                 </header>
 
                 <div className="about__content">

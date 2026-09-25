@@ -173,6 +173,12 @@ code {
     color: #475467;
 }
 
+.about__version {
+    margin: 0;
+    font-size: 13px;
+    color: #98a2b3;
+}
+
 .about__content {
     display: grid;
     gap: 20px;
