@@ -266,9 +266,9 @@ test('unknown or legacy stored values fall back to the element default', async (
 
 // --- Zone split (one order ticket per product section) ---
 
-test('groupItemsByZone splits per zone, sorted, no-zone group last', async () => {
-    const {groupItemsByZone} = await import('../services/printing/zoneSplit.js');
-    const zones = new Map([[1, 'Cozinha'], [2, 'Bar'], [3, null]]);
+test('planPrintGroups splits per zone, sorted, no-zone group last (single printer)', async () => {
+    const {planPrintGroups} = await import('../services/printing/zoneSplit.js');
+    const zones = new Map([[1, {id: 10, name: 'Cozinha'}], [2, {id: 20, name: 'Bar'}], [3, null]]);
     const items = [
         {productId: 1, nameSnapshot: 'Bifana'},
         {productId: 2, nameSnapshot: 'Imperial'},
@@ -276,8 +276,9 @@ test('groupItemsByZone splits per zone, sorted, no-zone group last', async () =>
         {productId: 3, nameSnapshot: 'Extra'},
         {productId: 99, nameSnapshot: 'Fantasma'}, // unknown product → no zone
     ];
-    const groups = groupItemsByZone(items, zones);
+    const groups = planPrintGroups(items, zones);
     assert.deepEqual(groups.map((g) => g.zoneLabel), ['Bar', 'Cozinha', null]);
+    assert.deepEqual(groups.map((g) => g.printerId), ['main', 'main', 'main']);
     assert.deepEqual(groups[0].items.map((i) => i.nameSnapshot), ['Imperial']);
     assert.deepEqual(groups[1].items.map((i) => i.nameSnapshot), ['Bifana', 'Borrego']);
     assert.deepEqual(groups[2].items.map((i) => i.nameSnapshot), ['Extra', 'Fantasma']);

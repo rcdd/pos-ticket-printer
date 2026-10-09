@@ -42,7 +42,13 @@ export function OrderSent({result, table, onNewOrder, onViewTable, onHome}) {
                         <span>· {centsToEuros(order.total)}</span>
                     </p>
                     {printed ? (
-                        <p style={`color:var(--success); font-weight:600`}>🖨️ Talão impresso</p>
+                        <>
+                            <p style={`color:var(--success); font-weight:600`}>🖨️ Talão impresso</p>
+                            {/* printed, but an additional printer failed: it came out on the main one */}
+                            {printError && (
+                                <p class="error-text">⚠️ {printError} Saiu na impressora principal.</p>
+                            )}
+                        </>
                     ) : (
                         <>
                             <p class="error-text">⚠️ O talão não foi impresso{printError ? `: ${printError}` : '.'}</p>

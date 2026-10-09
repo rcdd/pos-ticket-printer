@@ -44,10 +44,23 @@ const pushZoneLabel = (parts, zoneLabel) => {
     parts.push(bold(0));
 };
 
-export function renderOrderTicketRaw({number, tableNumber, items = [], note, waiterName, reprint = false, zoneLabel = null}) {
+// Printed at the top when a ticket meant for another printer came out on the
+// main one because that printer failed — someone has to carry it over.
+const pushFallbackNotice = (parts, fallbackFrom) => {
+    if (!fallbackFrom) return;
+    parts.push(align(1));
+    parts.push(bold(1));
+    parts.push(textPrintLine(`!! IMPRESSORA ${String(fallbackFrom).toUpperCase()} FALHOU !!`));
+    parts.push(textPrintLine('Entregar este talao no destino'));
+    parts.push(bold(0));
+    parts.push(horizontalLine());
+};
+
+export function renderOrderTicketRaw({number, tableNumber, items = [], note, waiterName, reprint = false, zoneLabel = null, fallbackFrom = null}) {
     const parts = [];
     parts.push(escInit());
     parts.push(escSelectCodepage());
+    pushFallbackNotice(parts, fallbackFrom);
 
     parts.push(align(1));
     if (reprint) {
@@ -108,10 +121,11 @@ export function renderOrderTicketRaw({number, tableNumber, items = [], note, wai
 // Correction ticket: tells the kitchen/bar that an order changed table, so
 // the food is delivered to the right place (their original ticket still says
 // the old table).
-export function renderOrderMoveRaw({number, fromLabel, toLabel, movedByName}) {
+export function renderOrderMoveRaw({number, fromLabel, toLabel, movedByName, fallbackFrom = null}) {
     const parts = [];
     parts.push(escInit());
     parts.push(escSelectCodepage());
+    pushFallbackNotice(parts, fallbackFrom);
 
     parts.push(align(1));
     parts.push(bold(1));
@@ -133,10 +147,11 @@ export function renderOrderMoveRaw({number, fromLabel, toLabel, movedByName}) {
 }
 
 // Void ticket: tells the kitchen that items of an order were cancelled.
-export function renderOrderVoidRaw({number, tableNumber, items = [], approvedByName, zoneLabel = null}) {
+export function renderOrderVoidRaw({number, tableNumber, items = [], approvedByName, zoneLabel = null, fallbackFrom = null}) {
     const parts = [];
     parts.push(escInit());
     parts.push(escSelectCodepage());
+    pushFallbackNotice(parts, fallbackFrom);
 
     parts.push(align(1));
     parts.push(bold(1));
@@ -162,6 +177,44 @@ export function renderOrderVoidRaw({number, tableNumber, items = [], approvedByN
     parts.push(newLine());
     parts.push(align(1));
     parts.push(textPrintLine(refParts.join(' · ')));
+    parts.push(align(0));
+
+    return Buffer.concat(parts);
+}
+
+// Customer's pickup ticket (direct sale with items routed to another
+// printer): the order went straight to that station, the customer keeps
+// the number and collects it there.
+export function renderPickupTicketRaw({number, items = [], zoneLabel = null}) {
+    const parts = [];
+    parts.push(escInit());
+    parts.push(escSelectCodepage());
+
+    parts.push(align(1));
+    parts.push(bold(1));
+    parts.push(orderLabelSize());
+    parts.push(textPrintLine('PEDIDO'));
+    parts.push(orderValueSize());
+    parts.push(textPrintLine(formatOrderNumber(number)));
+    parts.push(sizeNormal());
+    parts.push(bold(0));
+    if (zoneLabel) {
+        parts.push(textPrintLine('Levantar em:'));
+        pushZoneLabel(parts, zoneLabel);
+    }
+
+    parts.push(horizontalLine());
+    parts.push(align(0));
+
+    const endItemsStyle = pushOrderItemsStyle(parts);
+    for (const item of items) {
+        parts.push(textPrintLine(`${item.quantity}x ${item.nameSnapshot ?? item.name ?? ''}`));
+    }
+    endItemsStyle();
+
+    parts.push(newLine());
+    parts.push(align(1));
+    parts.push(textPrintLine('Aguarde a chamada do seu numero'));
     parts.push(align(0));
 
     return Buffer.concat(parts);

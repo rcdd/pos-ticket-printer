@@ -8,8 +8,10 @@ export default (sequelize, Sequelize) => {
         name: {
             type: Sequelize.STRING
         },
+        // TEXT: some options hold JSON (additional printers, zone routes)
+        // longer than a VARCHAR(255) — see ensureWidenedColumns in app.js
         value: {
-            type: Sequelize.STRING
+            type: Sequelize.TEXT
         },
     });
 };

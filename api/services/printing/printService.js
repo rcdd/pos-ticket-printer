@@ -4,7 +4,7 @@ import {
 } from './receiptRenderer.js';
 import {EscposStrategy} from "./escposStrategy.js";
 import {openCashDrawer, fullCut, feed, configurePrint, DEFAULT_TICKET_LAYOUT} from "./printCommands.js";
-import {renderOrderTicketRaw, renderOrderVoidRaw, renderOrderMoveRaw} from "./orderRenderer.js";
+import {renderOrderTicketRaw, renderOrderVoidRaw, renderOrderMoveRaw, renderPickupTicketRaw} from "./orderRenderer.js";
 
 const escpos = new EscposStrategy();
 
@@ -29,7 +29,9 @@ export const DEFAULT_PRINT_PROFILE = Object.freeze({
 
 // Normalizes the profile and applies the character/width/drawer settings to
 // printCommands. Buffer assembly is synchronous after this call, so the
-// module-level settings cannot be raced by another request.
+// module-level settings cannot be raced by another request — keep it that
+// way: never await between applyProfile() and building the buffers (with
+// several printers, each one has its own profile).
 const applyProfile = (profile) => {
     const prof = {...DEFAULT_PRINT_PROFILE, ...(profile ?? {})};
     configurePrint({
@@ -97,14 +99,19 @@ async function sendJobs(printerName, jobs, jobName, profile) {
     await escpos.printRawByName(printerName, Buffer.concat(jobs), jobName);
 }
 
-export async function printTicketRequest({printerName, headers, items, totalAmount, printType, openDrawer, isTest, receiptTitle, payments, profile}) {
+// ticketLines (optional): the individual tickets to print instead of one per
+// item of `items` — a direct sale with items routed to another printer only
+// prints tickets for what is collected at the register; the totals receipt
+// still lists everything.
+export async function printTicketRequest({printerName, headers, items, ticketLines, totalAmount, printType, openDrawer, isTest, receiptTitle, payments, profile}) {
     const prof = applyProfile(profile);
     const totalEuros = toEuros(totalAmount);
-    const expanded = expandItems(items);
+    const expanded = ticketLines ?? expandItems(items);
     const jobPrefix = 'POS';
 
     if (isTest) {
         const printerDetails = await escpos.getPrinterDetails(printerName);
+        applyProfile(profile); // re-applied: the lookup above awaited
         if (isTrailingHeader(prof)) {
             const buf = Buffer.concat([
                 renderTestRaw(headers, printType, openDrawer, printerDetails),
@@ -251,4 +258,22 @@ export function buildOrderMoveJob({headers, profile, ...content}) {
 export async function printOrderMove({printerName, profile, ...job}) {
     const prof = applyProfile(profile);
     await sendJobs(printerName, [buildOrderMoveJob({profile: prof, ...job})], `POS Correcao ${job.number}`, prof);
+}
+
+// Customer's pickup ticket (direct sale, items prepared at another printer)
+export function buildPickupTicketJob({headers, profile, ...content}) {
+    const prof = applyProfile(profile);
+    if (isTrailingHeader(prof)) {
+        return Buffer.concat([
+            renderPickupTicketRaw(content),
+            renderFooterRaw(headers),
+            renderHeaderRaw(headers),
+        ]);
+    }
+    return standardTicket(prof, headers, renderPickupTicketRaw(content));
+}
+
+export async function printPickupTicket({printerName, profile, ...job}) {
+    const prof = applyProfile(profile);
+    await sendJobs(printerName, [buildPickupTicketJob({profile: prof, ...job})], `POS Levantamento ${job.number}`, prof);
 }

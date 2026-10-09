@@ -298,6 +298,241 @@ test('orders and tables API (integration)', async (t) => {
         assert.equal(res.body.order.printedAt, null);
     });
 
+    await t.test('multi-printer: config API, zone routing to a LAN printer, fallback', async () => {
+        const net = await import('net');
+        const jobs = [];
+        const kitchen = net.createServer((socket) => {
+            const chunks = [];
+            socket.on('data', (c) => chunks.push(c));
+            socket.on('end', () => jobs.push(Buffer.concat(chunks).toString('latin1')));
+        });
+        await new Promise((r) => kitchen.listen(0, '127.0.0.1', r));
+        const kitchenPort = kitchen.address().port;
+        const waitJobs = async (n) => {
+            const until = Date.now() + 2000;
+            while (jobs.length < n && Date.now() < until) await new Promise((r) => setTimeout(r, 10));
+        };
+        const closeKitchen = () => new Promise((r) => (kitchen.listening ? kitchen.close(() => r()) : r()));
+        try {
+
+        const food = await db.zones.create({name: 'Restaurante'});
+        const bifana = await db.products.create({name: 'Bifana', price: 350, zoneId: food.id});
+
+        // waiters can read but not change the configuration
+        const forbidden = await authWaiter(request(app).post('/printers'))
+            .send({name: 'Cozinha', connection: {type: 'network', host: '127.0.0.1', port: kitchenPort}});
+        assert.equal(forbidden.status, 403);
+
+        const invalid = await authAdmin(request(app).post('/printers'))
+            .send({name: '', connection: {type: 'network', host: '127.0.0.1'}});
+        assert.equal(invalid.status, 400);
+
+        const created = await authAdmin(request(app).post('/printers'))
+            .send({name: 'Cozinha', connection: {type: 'network', host: '127.0.0.1', port: kitchenPort}, profile: {columns: 42}});
+        assert.equal(created.status, 201, JSON.stringify(created.body));
+        assert.equal(created.body.enabled, false, 'multi-printer is off by default');
+        const printerId = created.body.printers[0].id;
+
+        const dup = await authAdmin(request(app).post('/printers'))
+            .send({name: 'cozinha', connection: {type: 'network', host: '127.0.0.2'}});
+        assert.equal(dup.status, 400);
+
+        const routed = await authAdmin(request(app).post('/printers/routes'))
+            .send({routes: {[food.id]: printerId, [zone.id]: 'main'}});
+        assert.equal(routed.status, 200, JSON.stringify(routed.body));
+        assert.deepEqual(routed.body.routes, {[food.id]: printerId});
+
+        // switch off: routes are kept but everything goes to the main printer
+        // (which is a phantom here, so printing fails)
+        const offOrder = await authWaiter(request(app).post('/order'))
+            .send({clientRequestId: 'mp-off', items: [{productId: bifana.id, quantity: 1}]});
+        assert.equal(offOrder.status, 201);
+        assert.equal(offOrder.body.printed, false);
+        assert.equal(jobs.length, 0);
+
+        const on = await authAdmin(request(app).post('/printers/enabled')).send({enabled: true});
+        assert.equal(on.body.enabled, true);
+
+        // food → kitchen printer over TCP
+        const foodOrder = await authWaiter(request(app).post('/order'))
+            .send({clientRequestId: 'mp-on', items: [{productId: bifana.id, quantity: 2}]});
+        assert.equal(foodOrder.status, 201);
+        assert.equal(foodOrder.body.printed, true, JSON.stringify(foodOrder.body));
+        await waitJobs(1);
+        assert.match(jobs[0], /2x Bifana/);
+        assert.match(jobs[0], /RESTAURANTE/);
+
+        // voiding a kitchen item notifies the kitchen too
+        const itemId = foodOrder.body.order.items[0].id;
+        const voided = await authAdmin(request(app).post(`/order/${foodOrder.body.order.id}/cancel-items`))
+            .send({items: [{id: itemId, quantity: 1}]});
+        assert.equal(voided.status, 200, JSON.stringify(voided.body));
+        await waitJobs(2);
+        assert.match(jobs[1], /ANULACAO/);
+
+        // kitchen offline → falls back to the main printer (phantom → fails)
+        await closeKitchen();
+        const fallback = await authWaiter(request(app).post('/order'))
+            .send({clientRequestId: 'mp-down', items: [{productId: bifana.id, quantity: 1}]});
+        assert.equal(fallback.status, 201);
+        assert.equal(fallback.body.printed, false);
+        assert.match(fallback.body.printError, /Cozinha/);
+
+        // direct sale with a routed item while the main printer fails: the
+        // sale is not concluded, so its pickup number must not stay as PAID
+        const paidBefore = await db.orders.count({where: {status: 'paid'}});
+        const sale = await authAdmin(request(app).post('/printer/print-ticket'))
+            .send({directSale: true, items: [{id: bifana.id, name: 'Bifana', price: 350, quantity: 1}], totalAmount: '3.50'});
+        assert.equal(sale.status, 500);
+        assert.equal(await db.orders.count({where: {status: 'paid'}}), paidBefore);
+
+        // removing the printer drops its routes
+        const removed = await authAdmin(request(app).delete(`/printers/${printerId}`));
+        assert.equal(removed.status, 200);
+        assert.deepEqual(removed.body.routes, {});
+        await authAdmin(request(app).post('/printers/enabled')).send({enabled: false});
+        } finally {
+            await closeKitchen();
+        }
+    });
+
+    await t.test('unified printers: main on the LAN, direct sale routed with a pickup number', async () => {
+        const net = await import('net');
+        const startFake = async () => {
+            const jobs = [];
+            const server = net.createServer((socket) => {
+                const chunks = [];
+                socket.on('data', (c) => chunks.push(c));
+                socket.on('end', () => jobs.push(Buffer.concat(chunks).toString('latin1')));
+            });
+            await new Promise((r) => server.listen(0, '127.0.0.1', r));
+            return {server, jobs, port: server.address().port};
+        };
+        const waitJobs = async (fake, n) => {
+            const until = Date.now() + 2000;
+            while (fake.jobs.length < n && Date.now() < until) await new Promise((r) => setTimeout(r, 10));
+        };
+        const mainFake = await startFake();
+        const kitchenFake = await startFake();
+        try {
+            const before = await authAdmin(request(app).get('/printers/config'));
+            assert.equal(before.status, 200);
+            assert.equal(before.body.main.connection.type, 'system');
+
+            const badMain = await authAdmin(request(app).put('/printers/main'))
+                .send({connection: {type: 'network', host: ''}});
+            assert.equal(badMain.status, 400);
+
+            const mainRes = await authAdmin(request(app).put('/printers/main')).send({
+                connection: {type: 'network', host: '127.0.0.1', port: mainFake.port},
+                profile: {...before.body.main.profile, columns: 44},
+                printType: 'both',
+                openDrawer: false,
+            });
+            assert.equal(mainRes.status, 200, JSON.stringify(mainRes.body));
+            assert.equal(mainRes.body.main.connection.port, mainFake.port);
+            assert.equal(mainRes.body.main.profile.columns, 44);
+            assert.equal(mainRes.body.main.printType, 'both');
+
+            // draft sample: prints with UNSAVED settings
+            const sample = await authAdmin(request(app).post('/printers/sample')).send({
+                printerId: 'main',
+                connection: {type: 'network', host: '127.0.0.1', port: mainFake.port},
+                profile: {columns: 32},
+                ticketType: 'order',
+            });
+            assert.equal(sample.status, 200, JSON.stringify(sample.body));
+            await waitJobs(mainFake, 1);
+            assert.match(mainFake.jobs[0], /_{32}\n/);
+            assert.doesNotMatch(mainFake.jobs[0], /_{33}/);
+
+            // main header: own lines or none — never "same as main"
+            const mainBody = (header) => ({
+                connection: {type: 'network', host: '127.0.0.1', port: mainFake.port},
+                profile: {...before.body.main.profile, columns: 44},
+                printType: 'both',
+                header,
+            });
+            const sameAsMain = await authAdmin(request(app).put('/printers/main')).send(mainBody({mode: 'main'}));
+            assert.equal(sameAsMain.status, 400);
+            const festa = await authAdmin(request(app).put('/printers/main'))
+                .send(mainBody({mode: 'custom', firstLine: 'Festa da Aldeia'}));
+            assert.equal(festa.status, 200, JSON.stringify(festa.body));
+            assert.deepEqual(festa.body.main.header, {mode: 'custom', firstLine: 'Festa da Aldeia', secondLine: ''});
+
+            const noHeader = await authAdmin(request(app).post('/printers/sample'))
+                .send({printerId: 'main', ticketType: 'order', ...mainBody({mode: 'none', firstLine: 'Festa da Aldeia'})});
+            assert.equal(noHeader.status, 200);
+            await waitJobs(mainFake, 2);
+            assert.doesNotMatch(mainFake.jobs[1], /Festa da Aldeia/); // draft says none
+
+            const noLines = await authAdmin(request(app).post('/printers'))
+                .send({name: 'Cozinha', connection: {type: 'network', host: '127.0.0.1', port: kitchenFake.port}, header: {mode: 'custom'}});
+            assert.equal(noLines.status, 400);
+
+            const kitchen = await authAdmin(request(app).post('/printers'))
+                .send({
+                    name: 'Cozinha',
+                    connection: {type: 'network', host: '127.0.0.1', port: kitchenFake.port},
+                    header: {mode: 'custom', firstLine: 'COZINHA'},
+                });
+            assert.equal(kitchen.status, 201);
+            assert.equal(kitchen.body.printers[0].header.firstLine, 'COZINHA');
+            const food = await db.zones.findOne({where: {name: 'Restaurante'}});
+            const bifana = await db.products.findOne({where: {name: 'Bifana'}});
+            await authAdmin(request(app).post('/printers/routes'))
+                .send({routes: {[food.id]: kitchen.body.printers[0].id}});
+            await authAdmin(request(app).post('/printers/enabled')).send({enabled: true});
+
+            const mainJobsBefore = mainFake.jobs.length;
+            const sale = await authAdmin(request(app).post('/printer/print-ticket')).send({
+                directSale: true,
+                printType: 'both',
+                items: [
+                    {id: bifana.id, name: 'Bifana', price: 350, quantity: 2},
+                    {id: beer.id, name: 'Imperial', price: 150, quantity: 1},
+                ],
+                totalAmount: '8.50',
+            });
+            assert.equal(sale.status, 200, JSON.stringify(sale.body));
+            assert.ok(sale.body.pickup?.number > 0);
+            assert.deepEqual(sale.body.pickup.destinations, ['Restaurante']);
+            assert.deepEqual(sale.body.warnings, []);
+
+            await waitJobs(kitchenFake, 1);
+            assert.match(kitchenFake.jobs[0], /2x Bifana/);
+            assert.match(kitchenFake.jobs[0], /BALCAO/);
+            assert.match(kitchenFake.jobs[0], /COZINHA/); // its own header
+            assert.doesNotMatch(kitchenFake.jobs[0], /Festa da Aldeia/);
+            assert.doesNotMatch(kitchenFake.jobs[0], /Imperial/);
+
+            const number = `#${String(sale.body.pickup.number).padStart(3, '0')}`;
+            // (main printer's saved header is "Festa da Aldeia")
+            await waitJobs(mainFake, mainJobsBefore + 1);
+            const mainText = mainFake.jobs.slice(mainJobsBefore).join('');
+            assert.match(mainText, /Imperial/);        // local ticket + receipt
+            assert.match(mainText, /Levantar em:/);    // pickup ticket
+            assert.ok(mainText.includes(number), 'pickup ticket carries the number');
+            assert.match(mainText, /Festa da Aldeia/);
+
+            const pickupOrder = await db.orders.findOne({where: {number: sale.body.pickup.number, sessionId}});
+            assert.equal(pickupOrder.status, 'paid');
+            assert.equal(pickupOrder.tableId, null);
+        } finally {
+            // back to the phantom OS printer for the remaining tests
+            const cfg = await authAdmin(request(app).get('/printers/config'));
+            for (const p of cfg.body.printers ?? []) await authAdmin(request(app).delete(`/printers/${p.id}`));
+            await authAdmin(request(app).post('/printers/enabled')).send({enabled: false});
+            await authAdmin(request(app).put('/printers/main')).send({
+                connection: {type: 'system', systemName: 'ImpressoraFantasma'},
+                profile: {},
+                printType: 'totals',
+            });
+            await new Promise((r) => mainFake.server.close(r));
+            await new Promise((r) => kitchenFake.server.close(r));
+        }
+    });
+
     await t.test('reprint: 404 for a missing order, best-effort for an existing one', async () => {
         const missing = await authWaiter(request(app).post('/order/99999/reprint'));
         assert.equal(missing.status, 404);

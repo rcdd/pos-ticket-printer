@@ -5,6 +5,7 @@ import fs from 'fs';
 import {fileURLToPath} from 'url';
 
 import * as printer from "./db/controllers/printer/printer.controller.js";
+import * as printers from "./db/controllers/printer/printers.controller.js";
 import * as options from "./db/controllers/options.controller.js";
 import * as products from "./db/controllers/products.controller.js";
 import * as inventory from "./db/controllers/inventory.controller.js";
@@ -111,9 +112,31 @@ async function ensureAddedColumns() {
     }
 }
 
+// Same idea for columns whose TYPE grew: existing installs keep the old
+// type until we alter it explicitly (options.value VARCHAR(255) → TEXT, for
+// the JSON of the additional printers).
+async function ensureWidenedColumns() {
+    const queryInterface = db.sequelize.getQueryInterface();
+    const widened = [
+        {table: 'options', column: 'value', model: db.options, from: /^VARCHAR/i},
+    ];
+    for (const {table, column, model, from} of widened) {
+        try {
+            const description = await queryInterface.describeTable(table);
+            if (description[column] && from.test(String(description[column].type))) {
+                await queryInterface.changeColumn(table, column, model.rawAttributes[column]);
+                console.log(`[db] Widened column ${table}.${column}`);
+            }
+        } catch (error) {
+            console.warn(`[db] Could not widen column ${table}.${column}:`, error?.message || error);
+        }
+    }
+}
+
 export async function ensureDatabaseSchema() {
     await ensureDatabaseTables();
     await ensureAddedColumns();
+    await ensureWidenedColumns();
 }
 
 async function ensureDatabaseTables() {
@@ -252,8 +275,22 @@ app.get('/printer/list', printer.getPrinterList);
 app.post('/printer/test-drawer', printer.testDrawer);
 app.post('/printer/test-layout', printer.printLayoutSample);
 
+// Várias impressoras (additional printers + zone routes)
+const adminOnly = requireRole(UserRoles.ADMIN);
+app.get('/printers/config', printers.getConfig);
+app.post('/printers/enabled', adminOnly, printers.setEnabled);
+app.post('/printers/routes', adminOnly, printers.setRoutes);
+app.get('/printers/discover', adminOnly, printers.discover);
+app.post('/printers/test-connection', adminOnly, printers.testConnection);
+app.put('/printers/main', adminOnly, printers.updateMain);
+app.post('/printers/sample', adminOnly, printers.printDraftSample);
+app.post('/printers', adminOnly, printers.create);
+app.put('/printers/:id', adminOnly, printers.update);
+app.delete('/printers/:id', adminOnly, printers.remove);
+app.post('/printers/:id/test', adminOnly, printers.testPrint);
+
 app.post('/printer/print-ticket', async (req, res) => {
-    const printNameOption = await options.getPrinterVariable();
+    const printNameOption = await options.getMainPrinterTarget();
     if (printNameOption === null || printNameOption === undefined || printNameOption === "") {
         return res.status(404).send("Printer not defined");
     }
@@ -274,7 +311,7 @@ app.post('/printer/print-ticket', async (req, res) => {
 });
 
 app.post('/printer/print-session', async (req, res) => {
-    const printNameOption = await options.getPrinterVariable();
+    const printNameOption = await options.getMainPrinterTarget();
     if (printNameOption === null || printNameOption === undefined || printNameOption === "") {
         return res.status(404).send("Printer not defined");
     }

@@ -23,6 +23,9 @@ export function renderHeaderContentRaw(headers) {
     const parts = [];
     parts.push(escInit());
     parts.push(escSelectCodepage());
+    // a printer without header (e.g. a kitchen one) prints nothing here —
+    // not even the separator line
+    if (!headers?.firstLine && !headers?.secondLine) return Buffer.concat(parts);
     parts.push(align(1)); // center
     parts.push(bold(1));
     if (headers?.firstLine) parts.push(textPrintLine(headers.firstLine));

@@ -140,8 +140,19 @@ function POSPage({user}) {
                 totalAmount: (finalAmount / 100).toFixed(2),
                 openDrawer: openDrawer,
                 payments: payments ?? undefined,
+                // lets the API send items of zones routed to another printer
+                // there (with a pickup number for the customer)
+                directSale: true,
             };
-            await PrinterService.printTicket(printPayload);
+            const {data: printResult} = await PrinterService.printTicket(printPayload);
+            if (printResult?.pickup) {
+                const number = `#${String(printResult.pickup.number).padStart(3, '0')}`;
+                const where = (printResult.pickup.destinations || []).join(' / ');
+                pushMessage('success', `Pedido ${number} enviado${where ? ` para ${where}` : ''}.`);
+            }
+            for (const warning of printResult?.warnings ?? []) {
+                pushError(warning, {title: 'Impressora sem resposta — avise o destino'});
+            }
 
             const invoiceId = await InvoiceService.addInvoice(
                 session.id,

@@ -103,7 +103,9 @@ const isRetryableDbError = (error) => {
 // Creates the order in a transaction, assigning the session's sequential
 // number. The session-row lock serializes numbering across terminals; the
 // unique (sessionId, number) index and the retry are the safety net.
-const createOrderWithNumber = async ({sessionId, tableId, userId, note, clientRequestId, items}) => {
+// status: direct sales routed to another printer create an already-PAID
+// order (no table) just to share the numbering with terminal orders.
+export const createOrderWithNumber = async ({sessionId, tableId, userId, note, clientRequestId, items, status = OrderStatus.SENT}) => {
     let lastError = null;
     for (let attempt = 0; attempt < MAX_NUMBER_RETRIES; attempt += 1) {
         try {
@@ -119,7 +121,7 @@ const createOrderWithNumber = async ({sessionId, tableId, userId, note, clientRe
                     userId,
                     note: note || null,
                     clientRequestId: clientRequestId || null,
-                    status: OrderStatus.SENT,
+                    status,
                     total: computeTotal(items),
                 }, {transaction});
 

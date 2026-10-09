@@ -11,13 +11,12 @@ import {
 import TabContext from '@mui/lab/TabContext';
 import TabList from '@mui/lab/TabList';
 import TabPanel from '@mui/lab/TabPanel';
-import PrinterPage from "./PrinterPage";
 import OptionService from "../../services/option.service";
 import LoadingButton from "@mui/lab/LoadingButton";
 import Switch from "@mui/material/Switch";
 import {useVirtualKeyboard} from "../../context/VirtualKeyboardContext.jsx";
 import TerminalsSettings from "../../components/Admin/TerminalsSettings.jsx";
-import TicketLayoutSettings from "../../components/Admin/TicketLayoutSettings.jsx";
+import PrintersSettings from "../../components/Admin/PrintersSettings.jsx";
 
 function SetupPage() {
     const [tabPosition, setTabPosition] = React.useState("1");
@@ -93,19 +92,14 @@ function SetupPage() {
                 <TabContext value={tabPosition}>
                     <Box sx={{borderBottom: 1, borderColor: 'divider'}}>
                         <TabList onChange={handleTabChange} aria-label="lab API tabs example">
-                            <Tab label="Impressora" value="1"/>
-                            <Tab label="Talões" value="4"/>
+                            <Tab label="Impressoras" value="1"/>
                             <Tab label="Programa" value="2"/>
                             <Tab label="Terminais" value="3"/>
                         </TabList>
                     </Box>
 
                     <TabPanel value="1">
-                        <PrinterPage/>
-                    </TabPanel>
-
-                    <TabPanel value="4">
-                        <TicketLayoutSettings/>
+                        <PrintersSettings/>
                     </TabPanel>
 
                     <TabPanel value="3">

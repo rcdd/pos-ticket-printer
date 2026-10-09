@@ -2,6 +2,7 @@ import {execFile} from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import {sendRawTcp} from './networkPrinter.js';
 
 export class EscposStrategy {
     async listPrinters() {
@@ -12,7 +13,17 @@ export class EscposStrategy {
         return listViaCUPS();
     }
 
+    // printerName: the OS printer name (string), or a target object —
+    // {type: 'network', host, port} for an ESC/POS printer on the LAN (raw
+    // TCP, usually port 9100) or {type: 'system', systemName}.
     async printRawByName(printerName, buffer, jobName = 'POS Ticket') {
+        if (printerName && typeof printerName === 'object') {
+            if (printerName.type === 'network') {
+                await sendRawTcp(printerName, buffer);
+                return;
+            }
+            printerName = printerName.systemName;
+        }
         if (process.platform === 'win32') {
             await printViaWindows(printerName, buffer, jobName);
             return;
@@ -22,6 +33,17 @@ export class EscposStrategy {
     }
 
     async getPrinterDetails(printerName) {
+        if (printerName && typeof printerName === 'object') {
+            if (printerName.type !== 'network') return this.getPrinterDetails(printerName.systemName);
+            return {
+                name: `${printerName.host}:${printerName.port}`,
+                systemName: null,
+                driverName: 'Rede (RAW TCP)',
+                uri: `tcp://${printerName.host}:${printerName.port}`,
+                state: 'n/a',
+                stateReasons: [],
+            };
+        }
         const list = await this.listPrinters();
         if (!Array.isArray(list)) return null;
 

@@ -1,6 +1,7 @@
 import db from "../index.js";
 import {ensureLicenseState} from "../../services/license.service.js";
 import {TICKET_LAYOUT_OPTIONS, normalizeTicketLayout} from "../../services/printing/printCommands.js";
+import {normalizePort} from "../../services/printing/networkPrinter.js";
 
 const Option = db.options;
 
@@ -24,6 +25,14 @@ const optionOrderSplitByZone = 'order_split_by_zone'; // one order ticket per pr
 const optionPrinterCodepage = 'printer_codepage';
 const optionPrinterDrawerPin = 'printer_drawer_pin';
 const optionPrinterFontSmall = 'printer_font_small';
+// main printer on the LAN (raw TCP) instead of an OS printer — 'system' by
+// default, which keeps using the historical 'printer' option (OS name)
+const optionPrinterConnection = 'printer_connection';
+const optionPrinterHost = 'printer_host';
+const optionPrinterPort = 'printer_port';
+// main printer header: 'custom' (default — the firstLine/secondLine options)
+// or 'none' (no header at all; the lines are kept for switching back)
+const optionHeaderMode = 'printer_header_mode';
 
 export const readOnboardingStatus = async () => {
     const existing = await Option.findOne({where: {name: optionOnboarding}});
@@ -731,12 +740,90 @@ export const getPrinterVariable = async () => {
     return row?.value ?? null;
 }
 
+// What the main printer jobs are sent to: the OS printer name (string — the
+// historical form, still the default) or a LAN target {type:'network', ...}.
+// null when not configured.
+export const getMainPrinterTarget = async () => {
+    const [type, name, host, port] = await Promise.all([
+        readOptionValue(optionPrinterConnection),
+        readOptionValue(optionPrintName),
+        readOptionValue(optionPrinterHost),
+        readOptionValue(optionPrinterPort),
+    ]);
+    if (type === 'network') {
+        return host ? {type: 'network', host, port: normalizePort(port)} : null;
+    }
+    return name || null;
+};
+
+// Everything the unified printer dialog edits for the main printer.
+export const getMainPrinterSettings = async () => {
+    const [type, name, host, port, profile, printType, openDrawer, header] = await Promise.all([
+        readOptionValue(optionPrinterConnection),
+        readOptionValue(optionPrintName),
+        readOptionValue(optionPrinterHost),
+        readOptionValue(optionPrinterPort),
+        getPrintProfileVariable(),
+        getPrintTypeVariable(),
+        getOpenDrawerVariable(),
+        getMainHeaderSettings(),
+    ]);
+    return {
+        connection: type === 'network'
+            ? {type: 'network', host: host ?? '', port: normalizePort(port)}
+            : {type: 'system', systemName: name ?? ''},
+        profile,
+        printType: ['totals', 'tickets', 'both'].includes(printType) ? printType : 'totals',
+        openDrawer,
+        header,
+    };
+};
+
+// Input already validated (printerConfig.validateMainPrinter). The OS name
+// is kept when switching to network, so switching back restores it.
+export const writeMainPrinterSettings = async ({connection, profile, printType, openDrawer, header}) => {
+    const writes = [
+        writeOptionValue(optionPrinterConnection, connection.type),
+        writeOptionValue(optionPrinterLegacyCut, profile.headerPosition === 'trailing' ? 'true' : 'false'),
+        writeOptionValue(optionPrinterFeedLines, profile.feedLines),
+        writeOptionValue(optionPrinterCutMode, profile.cutMode),
+        writeOptionValue(optionPrinterColumns, profile.columns),
+        writeOptionValue(optionPrinterCodepage, profile.codepage),
+        writeOptionValue(optionPrinterDrawerPin, profile.drawerPin),
+        writeOptionValue(optionPrinterFontSmall, profile.fontSmall ? 'true' : 'false'),
+        writeOptionValue(optionTicketLayout, JSON.stringify(profile.layout)),
+        writeOptionValue(optionPrintType, printType),
+        writeOptionValue(optionOpenDrawer, openDrawer ? 'true' : 'false'),
+    ];
+    if (header) {
+        writes.push(writeOptionValue(optionHeaderMode, header.mode));
+        writes.push(writeOptionValue(optionFirstLine, header.firstLine));
+        writes.push(writeOptionValue(optionSecondLine, header.secondLine));
+    }
+    if (connection.type === 'network') {
+        writes.push(writeOptionValue(optionPrinterHost, connection.host));
+        writes.push(writeOptionValue(optionPrinterPort, connection.port));
+    } else {
+        writes.push(writeOptionValue(optionPrintName, connection.systemName));
+    }
+    await Promise.all(writes);
+};
+
+// The main printer's header as configured (mode + stored lines)
+export const getMainHeaderSettings = async () => {
+    const [mode, firstLine, secondLine] = await Promise.all([
+        readOptionValue(optionHeaderMode),
+        readOptionValue(optionFirstLine),
+        readOptionValue(optionSecondLine),
+    ]);
+    return {mode: mode === 'none' ? 'none' : 'custom', firstLine: firstLine ?? '', secondLine: secondLine ?? ''};
+};
+
+// The header lines the main printer actually prints (none → no lines)
 export const getHeadersVariable = async () => {
-    const rowFirstLine = await Option.findOne({where: {name: optionFirstLine}});
-
-    const rowSecondLine = await Option.findOne({where: {name: optionSecondLine}});
-
-    return {firstLine: rowFirstLine?.value ?? null, secondLine: rowSecondLine?.value ?? null};
+    const header = await getMainHeaderSettings();
+    if (header.mode === 'none') return {firstLine: null, secondLine: null};
+    return {firstLine: header.firstLine || null, secondLine: header.secondLine || null};
 }
 
 export const getOnboardingStatus = async (req, res) => {
