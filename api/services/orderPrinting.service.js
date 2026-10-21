@@ -105,7 +105,7 @@ export async function tryPrintOrderMove(order, fromLabel, toLabel, movedByName) 
     }
 }
 
-export async function tryPrintOrderVoid(order, cancelledItems, approvedByName) {
+export async function tryPrintOrderVoid(order, cancelledItems, cancelledByName) {
     try {
         const setup = await loadPrintSetup();
         const groups = await planFor(setup, cancelledItems);
@@ -117,7 +117,7 @@ export async function tryPrintOrderVoid(order, cancelledItems, approvedByName) {
             tableNumber: tableLabel(order),
             items: group.items,
             zoneLabel: group.zoneLabel,
-            approvedByName,
+            cancelledByName,
             cancelledAt: new Date(),
             fallbackFrom,
         }));

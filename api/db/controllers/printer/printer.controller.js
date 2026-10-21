@@ -1,6 +1,7 @@
 import db from '../../index.js';
 
 const Option = db.options;
+const Product = db.products;
 
 import {
     listPrinters, printTicketRequest, printSessionRequest, kickDrawer, printOrderTicket, printPickupTicket,
@@ -9,6 +10,7 @@ import {getPrintProfileVariable, getHeadersVariable, readOrderSplitSetting, getM
 import {paymentsByMethod} from '../../../services/payments.util.js';
 import {loadPrintSetup} from '../../../services/printing/printerRegistry.js';
 import {planPrintGroups, MAIN_PRINTER_ID} from '../../../services/printing/zoneSplit.js';
+import {bundlesFromProducts} from '../../../services/printing/ticketBundles.js';
 import {zonesByProductId, printRoutedOrderTickets} from '../../../services/orderPrinting.service.js';
 import {createOrderWithNumber, getActiveSession} from '../orders.controller.js';
 import {OrderStatus} from '../../models/order.model.js';
@@ -71,8 +73,13 @@ export const printTicket = async (req, res) => {
             return res.status(404).send('Printer not defined');
         }
 
+        // individual tickets ("Metro de Cerveja") only on direct sales: a
+        // table/order paid at the register prints just its receipt
+        const bundles = req.body.directSale && !isTest
+            ? await loadTicketBundles(items)
+            : new Map();
         const routing = req.body.directSale && !isTest
-            ? await planDirectSaleRouting(items)
+            ? await planDirectSaleRouting(items, bundles)
             : null;
 
         if (!routing) {
@@ -80,6 +87,7 @@ export const printTicket = async (req, res) => {
                 printerName,
                 headers,
                 items,
+                bundles,
                 totalAmount,
                 printType,
                 openDrawer,
@@ -111,6 +119,7 @@ export const printTicket = async (req, res) => {
                 headers,
                 items,
                 ticketLines: routing.localLines,
+                bundles,
                 totalAmount,
                 printType,
                 openDrawer,
@@ -178,13 +187,29 @@ const cartLines = (items) => {
     return lines;
 };
 
+// Bundle config read from the DB (not from the cart the client sent): the
+// products of this cart that print several individual tickets per unit.
+const loadTicketBundles = async (items) => {
+    const ids = [...new Set(cartLines(items).map((l) => l.productId).filter(Boolean))];
+    if (ids.length === 0) return new Map();
+    const products = await Product.findAll({
+        where: {id: ids},
+        attributes: ['id', 'name', 'ticketsPerUnit', 'ticketLabel'],
+    });
+    return bundlesFromProducts(products);
+};
+
 // null when nothing in the cart goes to another printer (or the multi-printer
-// mode is off) — then the sale prints exactly as it always did.
-const planDirectSaleRouting = async (items) => {
+// mode is off) — then the sale prints exactly as it always did. Bundle
+// products always stay at the register: the customer takes the individual
+// tickets and redeems them later, nothing is prepared now.
+const planDirectSaleRouting = async (items, bundles) => {
     const setup = await loadPrintSetup();
     if (!setup.enabled || Object.keys(setup.routes).length === 0) return null;
 
-    const lines = cartLines(items);
+    const allLines = cartLines(items);
+    const bundleLines = allLines.filter((l) => bundles.has(l.productId));
+    const lines = allLines.filter((l) => !bundles.has(l.productId));
     const plan = planPrintGroups(
         lines,
         await zonesByProductId(lines.map((l) => l.productId)),
@@ -197,10 +222,9 @@ const planDirectSaleRouting = async (items) => {
     if (!session) return null; // no session: no numbering — print as before
 
     const localLines = [];
-    for (const group of plan.filter((g) => g.printerId === MAIN_PRINTER_ID)) {
-        for (const line of group.items) {
-            for (let i = 0; i < line.quantity; i++) localLines.push({name: line.name});
-        }
+    const mainLines = plan.filter((g) => g.printerId === MAIN_PRINTER_ID).flatMap((g) => g.items);
+    for (const line of [...bundleLines, ...mainLines]) {
+        for (let i = 0; i < line.quantity; i++) localLines.push({productId: line.productId, name: line.name});
     }
 
     return {

@@ -27,6 +27,19 @@ export default (sequelize, Sequelize) => {
             type: Sequelize.STRING,
             allowNull: true
         },
+        // "Metro de Cerveja": a direct sale of one unit prints this many
+        // individual tickets (senhas) instead of one; 1 = the usual behaviour
+        ticketsPerUnit: {
+            type: Sequelize.INTEGER,
+            allowNull: false,
+            defaultValue: 1
+        },
+        // text printed on each of those tickets (e.g. "Cerveja"); null = the
+        // product name
+        ticketLabel: {
+            type: Sequelize.STRING,
+            allowNull: true
+        },
         isDeleted: {
             type: Sequelize.BOOLEAN,
             defaultValue: false

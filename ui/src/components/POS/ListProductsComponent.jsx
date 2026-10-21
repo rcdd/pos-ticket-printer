@@ -2,7 +2,7 @@ import React, {useEffect, useState} from 'react'
 import {ProductComponent} from "../Common/ProductComponent";
 import {Box} from "@mui/material";
 
-export function ListProductsComponent({products, addToCart}) {
+export function ListProductsComponent({products, addToCart, showPrices = true}) {
     const [windowsWidth, setWindowsWidth] = useState(window.innerWidth);
 
     useEffect(() => {
@@ -25,10 +25,8 @@ export function ListProductsComponent({products, addToCart}) {
                 {products.length !== 0 ? products
                     .sort((a, b) => a.position - b.position)
                     .map((item) => (
-                        <div key={item.id}
-                             onClick={() => addToCart(item)}>
-                            <ProductComponent item={item}/>
-                        </div>
+                        <ProductComponent key={item.id} item={item} showPrice={showPrices}
+                                          onClick={() => addToCart(item)}/>
                     )) : <h4>Sem produtos</h4>}
             </Box>
         </div>

@@ -65,6 +65,7 @@ test('orders and tables API (integration)', async (t) => {
     const waiterLogin = await request(app).post('/user/login')
         .send({username: 'joao', password: 'segredo123'});
     const waiterToken = waiterLogin.body.token;
+    const waiterUser = waiterLogin.body.user;
     const authWaiter = (req) => req.set('Authorization', `Bearer ${waiterToken}`);
 
     // Test products and menu (straight into the DB — not what these tests target)
@@ -604,7 +605,7 @@ test('orders and tables API (integration)', async (t) => {
         await authWaiter(request(app).post(`/table/${reopened.body.id}/close-empty`));
     });
 
-    await t.test('item cancellation: requires admin approval and recomputes the total', async () => {
+    await t.test('item cancellation: the waiter voids an unpaid item without admin approval', async () => {
         const created = await authWaiter(request(app).post('/order')).send({
             clientRequestId: 'cancel-1',
             items: [
@@ -617,33 +618,21 @@ test('orders and tables API (integration)', async (t) => {
         const beerItem = order.items.find((i) => i.productId === beer.id);
         const dishItem = order.items.find((i) => i.productId === dish.id);
 
-        // no credentials and not an admin → 401
-        const noCreds = await authWaiter(request(app).post(`/order/${order.id}/cancel-items`))
-            .send({itemIds: [beerItem.id]});
-        assert.equal(noCreds.status, 401);
-
-        // wrong credentials → 401
-        const badCreds = await authWaiter(request(app).post(`/order/${order.id}/cancel-items`))
-            .send({itemIds: [beerItem.id], adminUsername: 'chefe', adminPassword: 'errada'});
-        assert.equal(badCreds.status, 401);
-
-        // non-admin credentials → 403
-        const notAdmin = await authWaiter(request(app).post(`/order/${order.id}/cancel-items`))
-            .send({itemIds: [beerItem.id], adminUsername: 'joao', adminPassword: 'segredo123'});
-        assert.equal(notAdmin.status, 403);
-
-        // approved by the admin → item cancelled, total recomputed, audit fields filled
+        // the waiter voids it himself — no admin credentials; total
+        // recomputed, the waiter recorded as who cancelled it
         const ok = await authWaiter(request(app).post(`/order/${order.id}/cancel-items`))
-            .send({itemIds: [beerItem.id], adminUsername: 'chefe', adminPassword: 'segredo123'});
+            .send({itemIds: [beerItem.id]});
         assert.equal(ok.status, 200, JSON.stringify(ok.body));
         assert.equal(ok.body.fullyCancelled, false);
         assert.equal(ok.body.order.total, 950);
         const cancelledItem = ok.body.order.items.find((i) => i.id === beerItem.id);
         assert.equal(cancelledItem.status, 'cancelled');
-        assert.equal(cancelledItem.cancelledById, adminUser.id);
+        assert.equal(cancelledItem.cancelledById, waiterUser.id);
         assert.ok(cancelledItem.cancelledAt);
+        const event = await db.orderEvents.findOne({where: {orderId: order.id, type: 'items_cancelled'}});
+        assert.equal(event.payload.cancelledById, waiterUser.id);
 
-        // an authenticated admin needs no credentials; cancelling everything cancels the order
+        // cancelling everything cancels the order
         const rest = await authAdmin(request(app).post(`/order/${order.id}/cancel-items`))
             .send({itemIds: [dishItem.id]});
         assert.equal(rest.status, 200);

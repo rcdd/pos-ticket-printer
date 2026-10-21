@@ -236,7 +236,6 @@ export function App() {
             <TableView
                 liveTick={liveTick}
                 tableId={screen.tableId}
-                currentUser={user}
                 onBack={goBack}
                 onClosed={goHome}
             />

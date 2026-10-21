@@ -1,4 +1,3 @@
-import bcrypt from 'bcrypt';
 import db from "../index.js";
 import {emitEvent, EventTypes} from "../../services/events.service.js";
 import {tryPrintOrderTicket, tryPrintOrderVoid, tryPrintOrderMove} from "../../services/orderPrinting.service.js";
@@ -280,35 +279,17 @@ export const findOne = async (req, res) => {
     }
 };
 
-// Admin approval for cancellations: either the authenticated user is an
-// admin, or admin credentials come in the body (terminal flow, where the
-// authenticated user is the waiter).
-const resolveApprovingAdmin = async (req) => {
-    if (req.user?.role === db.UserRoles.ADMIN) {
-        const self = await db.users.findByPk(req.user.id);
-        if (self && !self.isDeleted) return self;
-    }
-
-    const username = String(req.body?.adminUsername || '').trim();
-    const password = String(req.body?.adminPassword || '');
-    if (!username || !password) {
-        const err = new Error("A anulação requer aprovação de um administrador.");
+// Who voids items of an open order: the authenticated user (waiter, cashier
+// or admin). No admin approval — nothing is billed before payment, and paid
+// orders are refused below; the user is recorded for the audit trail.
+const resolveCancellingUser = async (req) => {
+    const user = req.user?.id ? await db.users.findByPk(req.user.id) : null;
+    if (!user || user.isDeleted) {
+        const err = new Error("Sessão inválida — volte a entrar.");
         err.statusCode = 401;
         throw err;
     }
-
-    const admin = await db.users.findOne({where: {username, isDeleted: false}});
-    if (!admin || !(await bcrypt.compare(password, admin.password))) {
-        const err = new Error("Credenciais de administrador inválidas.");
-        err.statusCode = 401;
-        throw err;
-    }
-    if (admin.role !== db.UserRoles.ADMIN) {
-        const err = new Error("O utilizador indicado não é administrador.");
-        err.statusCode = 403;
-        throw err;
-    }
-    return admin;
+    return user;
 };
 
 // Moves an OPEN order to another table group, a new group or standalone.
@@ -406,11 +387,11 @@ export const move = async (req, res) => {
     }
 };
 
-// Cancels items of an already-sent order (admin approved) and prints a
+// Cancels items of an already-sent (unpaid) order and prints a
 // void ticket for the kitchen. Cancelling everything cancels the order.
 export const cancelItems = async (req, res) => {
     try {
-        const admin = await resolveApprovingAdmin(req);
+        const actor = await resolveCancellingUser(req);
 
         const itemIds = Array.isArray(req.body?.itemIds) ? req.body.itemIds.map(Number) : [];
         // partial quantities: [{id, quantity}] cancels only part of a line
@@ -468,7 +449,7 @@ export const cancelItems = async (req, res) => {
                 }
                 if (keep === 0) {
                     await item.update(
-                        {status: db.OrderItemStatus.CANCELLED, cancelledById: admin.id, cancelledAt: now},
+                        {status: db.OrderItemStatus.CANCELLED, cancelledById: actor.id, cancelledAt: now},
                         {transaction},
                     );
                     cancelledItems.push(item.toJSON());
@@ -484,7 +465,7 @@ export const cancelItems = async (req, res) => {
                         quantity: qty,
                         price: item.price,
                         status: db.OrderItemStatus.CANCELLED,
-                        cancelledById: admin.id,
+                        cancelledById: actor.id,
                         cancelledAt: now,
                     }, {transaction});
                     cancelledItems.push(split.toJSON());
@@ -504,7 +485,7 @@ export const cancelItems = async (req, res) => {
                 type: 'items_cancelled',
                 payload: {
                     items: cancelledItems.map((it) => ({id: it.id, name: it.nameSnapshot, quantity: it.quantity})),
-                    approvedById: admin.id,
+                    cancelledById: actor.id,
                 },
                 userId: req.user?.id ?? null,
             }, {transaction});
@@ -519,7 +500,7 @@ export const cancelItems = async (req, res) => {
         const voidPrint = await tryPrintOrderVoid(
             result.order,
             result.cancelledItems,
-            admin.name || admin.username,
+            actor.name || actor.username,
         );
 
         emitEvent(EventTypes.ORDER_UPDATED, {orderId: result.order.id, cancelled: true});

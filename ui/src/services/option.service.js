@@ -67,6 +67,14 @@ class OptionService {
         return http.post(this.BASE_URL + "/option/virtual-keyboard", {enabled});
     }
 
+    getPosShowPrices() {
+        return http.get(this.BASE_URL + "/option/pos-show-prices");
+    }
+
+    setPosShowPrices(enabled) {
+        return http.post(this.BASE_URL + "/option/pos-show-prices", {enabled});
+    }
+
     getFavoritesSettings() {
         return http.get(this.BASE_URL + "/option/favorites");
     }

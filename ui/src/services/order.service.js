@@ -16,6 +16,11 @@ class OrderService {
         return http.get(this.BASE_URL + `/orders?status=${encodeURIComponent(status)}`);
     }
 
+    // every order of a session, any status (reports / export)
+    getSessionOrders(sessionId) {
+        return http.get(this.BASE_URL + `/orders?sessionId=${encodeURIComponent(sessionId)}`);
+    }
+
     getOrder(id) {
         return http.get(this.BASE_URL + `/order/${id}`);
     }
@@ -39,8 +44,7 @@ class OrderService {
         return http.post(this.BASE_URL + `/order/${id}/move`, body);
     }
 
-    // body: {all: true} | {itemIds: [...]} | {items: [{id, quantity}]};
-    // + adminUsername/adminPassword when the caller is not an admin
+    // body: {all: true} | {itemIds: [...]} | {items: [{id, quantity}]}
     cancelItems(id, body) {
         return http.post(this.BASE_URL + `/order/${id}/cancel-items`, body);
     }

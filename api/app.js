@@ -98,6 +98,8 @@ async function ensureAddedColumns() {
     const queryInterface = db.sequelize.getQueryInterface();
     const added = [
         {table: 'sessions', column: 'isTest', model: db.sessions},
+        {table: 'products', column: 'ticketsPerUnit', model: db.products},
+        {table: 'products', column: 'ticketLabel', model: db.products},
     ];
     for (const {table, column, model} of added) {
         try {
@@ -378,6 +380,8 @@ app.get("/option/multi-terminal", options.getMultiTerminal);
 app.post("/option/multi-terminal", requireRole(UserRoles.ADMIN), options.setMultiTerminal);
 app.get("/option/order-split", options.getOrderSplit);
 app.post("/option/order-split", requireRole(UserRoles.ADMIN), options.setOrderSplit);
+app.get("/option/pos-show-prices", options.getPosShowPrices);
+app.post("/option/pos-show-prices", requireRole(UserRoles.ADMIN), options.setPosShowPrices);
 app.get("/option/favorites", options.getFavoritesSettings);
 app.post("/option/favorites", options.setFavoritesSettings);
 

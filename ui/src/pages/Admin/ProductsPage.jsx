@@ -367,7 +367,7 @@ function ProductsPage() {
                             </Stack>
                             <Typography variant="body2" color="text.secondary">
                                 {selectedProducts.length > 0
-                                    ? selectedZone ? 'Arraste um produto para alterar a ordem apresentada no POS.' : 'Edite os produtos para atribuir uma zona.'
+                                    ? selectedZone ? 'Use "Ordenar" (ou mantenha um produto premido) para alterar a ordem apresentada no POS.' : 'Edite os produtos para atribuir uma zona.'
                                     : 'Ainda não existem produtos nesta área.'}
                             </Typography>
                         </Stack>

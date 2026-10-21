@@ -41,7 +41,9 @@ export default function ImportExportPage() {
                 price: (p.price / 100).toFixed(2),
                 zone_name: p.zone?.name ?? "",
                 theme: p.theme || "default",
-                position: p.position ?? ""
+                position: p.position ?? "",
+                tickets_per_unit: p.ticketsPerUnit ?? 1,
+                ticket_label: p.ticketLabel ?? ""
             }));
             download("products.csv", out);
         } catch (e) {
@@ -73,8 +75,9 @@ export default function ImportExportPage() {
     };
     const handleProductDownloadTemplate = () => {
         const sample = [
-            {type: "product", name: "Imperial", price: "1.10", zone_name: "Bar", theme: "green", position: 10},
+            {type: "product", name: "Imperial", price: "1.10", zone_name: "Bar", theme: "green", position: 10, tickets_per_unit: 1, ticket_label: ""},
             {type: "product", name: "Bifana", price: "3.50", zone_name: "Cozinha", theme: "orange"},
+            {type: "product", name: "Metro de Cerveja", price: "10.00", zone_name: "Bar", theme: "green", tickets_per_unit: 10, ticket_label: "Cerveja"},
         ];
         download("template_import_products.csv", sample);
     };
@@ -150,6 +153,17 @@ export default function ImportExportPage() {
                 theme = "default";
             }
 
+            // senhas individuais (optional columns: absent = keep what the product has)
+            let ticketsPerUnit;
+            if (raw.tickets_per_unit !== undefined && raw.tickets_per_unit !== "") {
+                ticketsPerUnit = parseInt(raw.tickets_per_unit, 10);
+                if (!Number.isFinite(ticketsPerUnit) || ticketsPerUnit < 1 || ticketsPerUnit > 50) {
+                    issues.push({row: i + 1, level: "warning", msg: `tickets_per_unit '${raw.tickets_per_unit}' inválido (1 a 50), a usar 1`});
+                    ticketsPerUnit = 1;
+                }
+            }
+            const ticketLabel = typeof raw.ticket_label === "string" ? raw.ticket_label.trim() : undefined;
+
             // zona
             let zoneId = raw.zone_id ? parseInt(raw.zone_id, 10) : null; // legacy support
             let zoneName = typeof raw.zone_name === "string" ? raw.zone_name.trim() : null;
@@ -216,6 +230,8 @@ export default function ImportExportPage() {
                 zoneId: zoneRecord?.id ?? zoneId ?? null,
                 zoneName: resolvedZoneName,
                 position,
+                ticketsPerUnit,
+                ticketLabel,
                 zoneKey,
                 existingProductId: existingProduct?.id ?? null
             });
@@ -317,7 +333,9 @@ export default function ImportExportPage() {
                     price: p.price_cents,
                     zoneId: zoneIdResolved,
                     theme: p.theme.trim().toLowerCase(),
-                    position: p.position
+                    position: p.position,
+                    ticketsPerUnit: p.ticketsPerUnit,
+                    ticketLabel: p.ticketLabel
                 };
 
                 const existingId = p.id || p.existingProductId;

@@ -46,13 +46,16 @@ export function renderHeaderRaw(headers) {
     ]);
 }
 
-export function renderItemTicketRaw(productName) {
+// subtitle (optional): small line under the name — on the individual tickets
+// of a bundle product, e.g. "Metro de Cerveja 3/10"
+export function renderItemTicketRaw(productName, subtitle = null) {
     const parts = [];
     parts.push(size(SIZE_BYTES[layoutValue('itemName')]));
     parts.push(bold(1));
     parts.push(textPrintLine(`1 ${productName ?? ''}`));
     parts.push(sizeNormal());
     parts.push(bold(0));
+    if (subtitle) parts.push(textPrintLine(subtitle));
     parts.push(textPrintLine(''));
     return Buffer.concat(parts);
 }

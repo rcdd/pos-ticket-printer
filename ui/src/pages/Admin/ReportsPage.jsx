@@ -38,6 +38,7 @@ import {
     gridVisibleColumnFieldsSelector,
 } from '@mui/x-data-grid';
 import DownloadIcon from '@mui/icons-material/Download';
+import TableViewIcon from '@mui/icons-material/TableView';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -52,9 +53,11 @@ import SessionService from '../../services/session.service';
 import CashMovementService from '../../services/cashMovement.service';
 import PrinterService from '../../services/printer.service';
 import UserService from '../../services/user.service';
+import OrderService from '../../services/order.service';
 import {PaymentMethods} from '../../enums/PaymentMethodsEnum';
 import {useToast} from "../../components/Common/ToastProvider";
 import {computeSessionAggregates} from "../../utils/sessionAggregates";
+import {buildSessionExport, downloadSessionWorkbook} from "../../utils/sessionExport";
 
 function ReportsPage() {
     // data
@@ -500,6 +503,63 @@ function ReportsPage() {
         load();
     }, [viewSession?.id, invoices, viewSession?.initialAmount]);
 
+    // Excel export of whole sessions (the end-of-session ticket, in sheets):
+    // one session from the drawer, or every session the list is showing
+    const [exportingSessions, setExportingSessions] = React.useState(false);
+    const exportSessions = React.useCallback(async (sessionList, filename) => {
+        if (exportingSessions || sessionList.length === 0) return;
+        setExportingSessions(true);
+        try {
+            const ids = sessionList.map((s) => s.id);
+            const [movementLists, orderLists, users, multi] = await Promise.all([
+                Promise.all(ids.map((id) => CashMovementService.getFromSession(id))),
+                Promise.all(ids.map((id) => OrderService.getSessionOrders(id).then((r) => r.data ?? []))),
+                UserService.getAll().then((r) => (Array.isArray(r) ? r : r?.data ?? [])).catch(() => []),
+                OrderService.getMultiTerminalOption().then((r) => Boolean(r.data?.enabled)).catch(() => false),
+            ]);
+            const movementsBySession = new Map(ids.map((id, i) => [id, movementLists[i] ?? []]));
+            const ordersBySession = new Map(ids.map((id, i) => [id, orderLists[i]]));
+
+            // names of every user referenced (deleted users are not in the
+            // list — resolved one by one)
+            const names = new Map(users.map((u) => [u.id, u.name?.trim() || u.username]));
+            const sessionInvoices = invoices.filter((inv) => ids.some((id) => String(id) === String(inv.sessionId)));
+            const referenced = new Set([
+                ...sessionList.flatMap((s) => [s.userOpenId, s.userCloseId]),
+                ...sessionInvoices.map((inv) => inv.userId),
+                ...orderLists.flat().flatMap((o) => [o.userId, ...(o.items ?? []).map((it) => it.cancelledById)]),
+            ].filter((id) => id && !names.has(id)));
+            for (const id of referenced) names.set(id, await resolveUserName(id));
+
+            const data = buildSessionExport({
+                sessions: sessionList,
+                invoices: sessionInvoices,
+                movementsBySession,
+                ordersBySession,
+                userName: (id) => (id ? names.get(id) ?? `Utilizador #${id}` : ''),
+                includeVoids: multi,
+            });
+            await downloadSessionWorkbook(data, filename);
+        } catch (error) {
+            console.error("Erro ao exportar sessões:", error?.response?.data || error);
+            pushNetworkError(error, {title: "Não foi possível exportar as sessões"});
+        } finally {
+            setExportingSessions(false);
+        }
+    }, [exportingSessions, invoices, resolveUserName, pushNetworkError]);
+
+    const exportFilteredSessions = () => {
+        const list = sessionsRows
+            .map((row) => sessions.find((s) => s.id === row.id))
+            .filter(Boolean);
+        const day = (d) => new Date(d).toLocaleDateString('sv-SE'); // YYYY-MM-DD
+        const opened = list.map((s) => new Date(s.openedAt).getTime());
+        const from = dateFrom || (opened.length ? day(Math.min(...opened)) : '');
+        const to = dateTo || (opened.length ? day(Math.max(...opened)) : '');
+        const name = list.length === 1 ? `sessao-${list[0].id}.xlsx` : `sessoes-${from}_a_${to}.xlsx`;
+        exportSessions(list, name);
+    };
+
     const handleReprintSession = React.useCallback(async () => {
         if (!viewSession?.id) return;
         if (sessionDrawerLoading || printingSession) return;
@@ -840,17 +900,31 @@ function ReportsPage() {
                         />
                     </Stack>
 
-                    <Button
-                        startIcon={<DownloadIcon/>}
-                        variant="outlined"
-                        onClick={() => {
-                            if (tab === 'sessions') downloadCSV('sessoes.csv', sessionsCols);
-                            if (tab === 'invoices') downloadCSV('faturas.csv', invoicesCols);
-                            if (tab === 'products') downloadCSV('produtos.csv', productsCols);
-                        }}
-                    >
-                        Exportar CSV
-                    </Button>
+                    <Stack direction="row" spacing={1}>
+                        <Tooltip title="Sessões completas da lista (filtros de data/sessão aplicados): resumo, produtos, faturas, movimentos de caixa e anulações">
+                            <span>
+                                <Button
+                                    startIcon={<TableViewIcon/>}
+                                    variant="contained"
+                                    disabled={exportingSessions || loading || sessionsRows.length === 0}
+                                    onClick={exportFilteredSessions}
+                                >
+                                    {exportingSessions ? 'A exportar…' : `Exportar Excel (${sessionsRows.length} ${sessionsRows.length === 1 ? 'sessão' : 'sessões'})`}
+                                </Button>
+                            </span>
+                        </Tooltip>
+                        <Button
+                            startIcon={<DownloadIcon/>}
+                            variant="outlined"
+                            onClick={() => {
+                                if (tab === 'sessions') downloadCSV('sessoes.csv', sessionsCols);
+                                if (tab === 'invoices') downloadCSV('faturas.csv', invoicesCols);
+                                if (tab === 'products') downloadCSV('produtos.csv', productsCols);
+                            }}
+                        >
+                            Exportar CSV
+                        </Button>
+                    </Stack>
                 </Stack>
 
                 {tab === 'sessions' && (
@@ -1131,6 +1205,17 @@ function ReportsPage() {
                             justifyContent="flex-end"
                             sx={{pt: 1}}
                         >
+                            <Button
+                                variant="outlined"
+                                startIcon={<TableViewIcon/>}
+                                disabled={exportingSessions || !sessions.some((s) => s.id === viewSession.id)}
+                                onClick={() => exportSessions(
+                                    sessions.filter((s) => s.id === viewSession.id),
+                                    `sessao-${viewSession.id}.xlsx`,
+                                )}
+                            >
+                                {exportingSessions ? 'A exportar…' : 'Exportar Excel'}
+                            </Button>
                             {String(viewSession.status || '').toLowerCase() === 'closed' && (
                                 <Button
                                     variant="contained"

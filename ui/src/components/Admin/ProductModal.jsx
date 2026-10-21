@@ -2,7 +2,7 @@ import React, {useEffect, useMemo, useState} from 'react';
 import {
     Dialog, DialogTitle, DialogContent, DialogActions,
     Box, CardActionArea, IconButton, InputAdornment, Typography,
-    Button, MenuItem, InputLabel, Select
+    Button, MenuItem, InputLabel, Select, FormControlLabel, Switch
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import ProductService from '../../services/product.service';
@@ -18,6 +18,10 @@ function ProductModal({open, close, selectedZone, zones = [], product = null}) {
     const [newPrice, setNewPrice] = useState('0.00');
     const [newZoneId, setNewZoneId] = useState(selectedZone ?? null);
     const [newTheme, setNewTheme] = useState('default');
+    // "senhas individuais": one sale of this product prints N tickets
+    const [splitTickets, setSplitTickets] = useState(false);
+    const [ticketCount, setTicketCount] = useState('10');
+    const [ticketLabel, setTicketLabel] = useState('');
 
     useEffect(() => {
         if (!open) return;
@@ -27,7 +31,17 @@ function ProductModal({open, close, selectedZone, zones = [], product = null}) {
         );
         setNewZoneId(product?.zoneId ?? selectedZone ?? null);
         setNewTheme(product?.theme ?? 'default');
+        setSplitTickets((product?.ticketsPerUnit ?? 1) > 1);
+        setTicketCount(String((product?.ticketsPerUnit ?? 1) > 1 ? product.ticketsPerUnit : 10));
+        setTicketLabel(product?.ticketLabel ?? '');
     }, [open, product, selectedZone]);
+
+    const parsedTicketCount = parseInt(ticketCount, 10);
+    const ticketCountValid = !splitTickets || (parsedTicketCount >= 2 && parsedTicketCount <= 50);
+    const ticketFields = () => ({
+        ticketsPerUnit: splitTickets ? parsedTicketCount : 1,
+        ticketLabel: splitTickets ? ticketLabel.trim() : '',
+    });
 
     const parsePriceToCents = (v) => {
         const num = parseFloat(String(v).replace(',', '.'));
@@ -36,8 +50,9 @@ function ProductModal({open, close, selectedZone, zones = [], product = null}) {
     };
 
     const isValid = useMemo(() => {
-        return (newName?.trim().length ?? 0) > 0 && parsePriceToCents(newPrice) >= 0 && newZoneId !== null;
-    }, [newName, newPrice, newZoneId]);
+        return (newName?.trim().length ?? 0) > 0 && parsePriceToCents(newPrice) >= 0 && newZoneId !== null
+            && ticketCountValid;
+    }, [newName, newPrice, newZoneId, ticketCountValid]);
 
     const handleRemoveProduct = async () => {
         if (!product?.id) return close(false);
@@ -59,6 +74,7 @@ function ProductModal({open, close, selectedZone, zones = [], product = null}) {
             price: parsePriceToCents(newPrice),
             zoneId: newZoneId,
             theme: newTheme,
+            ...ticketFields(),
         };
         try {
             await ProductService.create(bodyRequest);
@@ -84,6 +100,7 @@ function ProductModal({open, close, selectedZone, zones = [], product = null}) {
             price: parsePriceToCents(newPrice),
             zoneId: newZoneId,
             theme: newTheme,
+            ...ticketFields(),
         };
         try {
             await ProductService.update(bodyRequest);
@@ -188,6 +205,49 @@ function ProductModal({open, close, selectedZone, zones = [], product = null}) {
                             endAdornment: <InputAdornment position="end">€</InputAdornment>,
                         }}
                     />
+
+                    <FormControlLabel
+                        sx={{mt: 2}}
+                        control={<Switch checked={splitTickets} onChange={(e) => setSplitTickets(e.target.checked)}/>}
+                        label="Imprimir senhas individuais"
+                    />
+                    <Typography variant="body2" color="text.secondary" sx={{maxWidth: 360}}>
+                        Ex.: "Metro de Cerveja" — cada venda imprime várias senhas para o cliente ir usando.
+                        Só na venda direta; saem mesmo que a caixa imprima apenas o talão de totais.
+                    </Typography>
+                    {splitTickets && (
+                        <>
+                            <InputLabel htmlFor="ticket-count" sx={{mt: 2}} required>Senhas por unidade</InputLabel>
+                            <NumericTextFieldWithKeypad
+                                value={ticketCount}
+                                onChange={(v) => setTicketCount(v)}
+                                maxLength={2}
+                                textFieldProps={{
+                                    id: 'ticket-count',
+                                    fullWidth: true,
+                                    inputMode: 'numeric',
+                                    autoComplete: 'off',
+                                    error: !ticketCountValid,
+                                    helperText: ticketCountValid ? 'Entre 2 e 50' : 'Indica um número entre 2 e 50',
+                                }}
+                            />
+
+                            <InputLabel htmlFor="ticket-label" sx={{mt: 2}}>Texto de cada senha</InputLabel>
+                            <TextFieldKeyboard
+                                value={ticketLabel}
+                                onChange={setTicketLabel}
+                                textFieldProps={{
+                                    id: 'ticket-label',
+                                    fullWidth: true,
+                                    autoComplete: 'off',
+                                    placeholder: newName || 'Nome do produto',
+                                    helperText: 'Ex.: Cerveja. Vazio = nome do produto',
+                                }}
+                                maxLength={20}
+                                showSymbols={true}
+                            />
+                        </>
+                    )}
 
                     <InputLabel htmlFor="theme" sx={{mt: 2}}>Tema</InputLabel>
                     <Box

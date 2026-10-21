@@ -22,6 +22,7 @@ const optionPrinterPaperWidth = 'printer_paper_width'; // legacy (80/58) — mig
 const optionPrinterColumns = 'printer_columns';
 const optionTicketLayout = 'printer_ticket_layout'; // JSON: per-element text sizes
 const optionOrderSplitByZone = 'order_split_by_zone'; // one order ticket per product zone
+const optionPosShowPrices = 'pos_show_prices'; // unit price on the POS product buttons
 const optionPrinterCodepage = 'printer_codepage';
 const optionPrinterDrawerPin = 'printer_drawer_pin';
 const optionPrinterFontSmall = 'printer_font_small';
@@ -296,6 +297,35 @@ export const getOrderSplit = async (req, res) => {
     } catch (error) {
         console.error('Error reading order split setting:', error);
         res.status(500).send({message: "Não foi possível obter a configuração de separação de talões."});
+    }
+};
+
+// Unit price on the POS product buttons: on by default.
+export const readPosShowPricesSetting = async () => {
+    const raw = await readOptionValue(optionPosShowPrices);
+    return parseBoolean(raw, true);
+};
+
+export const getPosShowPrices = async (req, res) => {
+    try {
+        res.send({enabled: await readPosShowPricesSetting()});
+    } catch (error) {
+        console.error('Error reading POS show prices setting:', error);
+        res.status(500).send({message: "Não foi possível obter a configuração dos preços no POS."});
+    }
+};
+
+export const setPosShowPrices = async (req, res) => {
+    try {
+        const parsed = parseBoolean(req.body?.enabled, null);
+        if (parsed === null) {
+            return res.status(400).send({message: "O campo 'enabled' é obrigatório e deve ser verdadeiro ou falso."});
+        }
+        await writeOptionValue(optionPosShowPrices, parsed ? 'true' : 'false');
+        res.send({enabled: await readPosShowPricesSetting()});
+    } catch (error) {
+        console.error('Error saving POS show prices setting:', error);
+        res.status(500).send({message: "Não foi possível guardar a configuração dos preços no POS."});
     }
 };
 

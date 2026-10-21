@@ -57,12 +57,10 @@ export default function OrdersPage() {
     const [isPrinted, setIsPrinted] = useState(false);
     const [invoiceId, setInvoiceId] = useState(null);
 
-    // whole-order cancellation (admin approval)
+    // whole-order cancellation (unpaid orders only — no admin approval, the
+    // API records who did it)
     const [cancelTarget, setCancelTarget] = useState(null);
-    const [adminUsername, setAdminUsername] = useState('');
-    const [adminPassword, setAdminPassword] = useState('');
     const [isCancelling, setIsCancelling] = useState(false);
-    const isAdmin = (AuthService.getUser()?.role || '') === 'admin';
 
     // order modification: the user edits the RESULTING quantities ("fica com
     // 2 cafés") and the diff is cancelled behind the scenes
@@ -272,28 +270,21 @@ export default function OrdersPage() {
         return {items, removedCount: items.reduce((acc, entry) => acc + entry.quantity, 0), isEverything, summary};
     }, [modifyTarget, keepQty]);
 
-    const closeApprovalDialogs = () => {
+    const closeCancelDialogs = () => {
         setCancelTarget(null);
         setModifyTarget(null);
-        setAdminUsername('');
-        setAdminPassword('');
     };
 
     const confirmCancelOrder = async () => {
         if (!cancelTarget || isCancelling) return;
         setIsCancelling(true);
         try {
-            const body = {all: true};
-            if (!isAdmin) {
-                body.adminUsername = adminUsername;
-                body.adminPassword = adminPassword;
-            }
-            const {data} = await OrderService.cancelItems(cancelTarget.id, body);
+            const {data} = await OrderService.cancelItems(cancelTarget.id, {all: true});
             pushMessage('success', `Pedido ${formatNumber(cancelTarget.number)} anulado.`);
             if (!data.voidPrinted) {
                 pushError(`Talão de anulação não impresso${data.voidPrintError ? `: ${data.voidPrintError}` : '.'}`);
             }
-            closeApprovalDialogs();
+            closeCancelDialogs();
             load();
         } catch (error) {
             pushNetworkError(error, {title: 'Não foi possível anular o pedido'});
@@ -307,10 +298,6 @@ export default function OrdersPage() {
         setIsCancelling(true);
         try {
             const body = modifyDiff.isEverything ? {all: true} : {items: modifyDiff.items};
-            if (!isAdmin) {
-                body.adminUsername = adminUsername;
-                body.adminPassword = adminPassword;
-            }
             const {data} = await OrderService.cancelItems(modifyTarget.id, body);
             pushMessage('success', modifyDiff.isEverything
                 ? `Pedido ${formatNumber(modifyTarget.number)} anulado.`
@@ -318,7 +305,7 @@ export default function OrdersPage() {
             if (!data.voidPrinted) {
                 pushError(`Talão de anulação não impresso${data.voidPrintError ? `: ${data.voidPrintError}` : '.'}`);
             }
-            closeApprovalDialogs();
+            closeCancelDialogs();
             load();
         } catch (error) {
             pushNetworkError(error, {title: 'Não foi possível modificar o pedido'});
@@ -645,25 +632,16 @@ export default function OrdersPage() {
             <Dialog open={Boolean(cancelTarget)} onClose={() => setCancelTarget(null)} fullWidth maxWidth="xs">
                 <DialogTitle>Anular pedido {cancelTarget ? formatNumber(cancelTarget.number) : ''}</DialogTitle>
                 <DialogContent>
-                    <DialogContentText sx={{mb: 2}}>
+                    <DialogContentText>
                         Todos os itens ficam anulados e é impresso um talão de anulação para a
                         cozinha/bar. Esta ação fica registada. Para corrigir apenas quantidades,
                         use "Modificar".
                     </DialogContentText>
-                    {!isAdmin && (
-                        <Stack spacing={2}>
-                            <DialogContentText>Requer aprovação de um administrador:</DialogContentText>
-                            <TextField label="Utilizador admin" size="small" value={adminUsername}
-                                       onChange={(e) => setAdminUsername(e.target.value)}/>
-                            <TextField label="Palavra-passe" type="password" size="small" value={adminPassword}
-                                       onChange={(e) => setAdminPassword(e.target.value)}/>
-                        </Stack>
-                    )}
                 </DialogContent>
                 <DialogActions>
                     <Button variant="contained" onClick={() => setCancelTarget(null)}>Voltar</Button>
                     <Button variant="contained" color="error" onClick={confirmCancelOrder}
-                            disabled={isCancelling || (!isAdmin && (!adminUsername || !adminPassword))}>
+                            disabled={isCancelling}>
                         Anular pedido
                     </Button>
                 </DialogActions>
@@ -717,20 +695,11 @@ export default function OrdersPage() {
                                 : `Fica: ${modifyDiff.summary.join(', ')}.`}
                         </DialogContentText>
                     )}
-                    {!isAdmin && (
-                        <Stack spacing={2}>
-                            <DialogContentText>Requer aprovação de um administrador:</DialogContentText>
-                            <TextField label="Utilizador admin" size="small" value={adminUsername}
-                                       onChange={(e) => setAdminUsername(e.target.value)}/>
-                            <TextField label="Palavra-passe" type="password" size="small" value={adminPassword}
-                                       onChange={(e) => setAdminPassword(e.target.value)}/>
-                        </Stack>
-                    )}
                 </DialogContent>
                 <DialogActions>
                     <Button variant="contained" onClick={() => setModifyTarget(null)}>Voltar</Button>
                     <Button variant="contained" color="warning" onClick={confirmModify}
-                            disabled={isCancelling || modifyDiff.removedCount === 0 || (!isAdmin && (!adminUsername || !adminPassword))}>
+                            disabled={isCancelling || modifyDiff.removedCount === 0}>
                         Guardar alterações
                     </Button>
                 </DialogActions>

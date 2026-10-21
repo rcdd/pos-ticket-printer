@@ -60,18 +60,18 @@ test('reprint is marked as a duplicate copy', () => {
     assert.match(text, /2. VIA/); // "2ª" in cp1252
 });
 
-test('void ticket: negative items, table and approver', () => {
+test('void ticket: negative items, table and who voided', () => {
     const text = asText(renderOrderVoidRaw({
         number: 42,
         tableNumber: '12B',
         items: [{quantity: 1, nameSnapshot: 'Imperial'}],
-        approvedByName: 'Chefe',
+        cancelledByName: 'Chefe',
     }));
 
     assert.match(text, /ANULACAO/);
     assert.match(text, /MESA 12B/);
     assert.match(text, /-1x Imperial/);
-    assert.match(text, /Pedido #042 · Aprovado por: Chefe/);
+    assert.match(text, /Pedido #042 · Anulado por: Chefe/);
 });
 
 test('renderers do not cut paper — the cut belongs to the full job', () => {

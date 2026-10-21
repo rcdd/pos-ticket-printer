@@ -1,13 +1,48 @@
 import React, {useEffect, useRef, useState} from 'react'
-import {arrayMove, rectSortingStrategy, SortableContext} from "@dnd-kit/sortable";
-import {closestCenter, DndContext, PointerSensor, TouchSensor, useSensor, useSensors} from "@dnd-kit/core";
+import {arrayMove, rectSortingStrategy, SortableContext, useSortable} from "@dnd-kit/sortable";
+import {closestCenter, DndContext, MouseSensor, TouchSensor, useSensor, useSensors} from "@dnd-kit/core";
+import {CSS} from "@dnd-kit/utilities";
+import {Box, Button, Stack, Typography} from "@mui/material";
+import SwapVertIcon from "@mui/icons-material/SwapVert";
+import CheckIcon from "@mui/icons-material/Check";
 import ProductService from "../../services/product.service";
 import {ProductComponent} from "../Common/ProductComponent";
-import {Box} from "@mui/material";
+
+// Touch: in the normal list a swipe always scrolls and only a long press
+// (Android-style) picks a product up; in "Ordenar" mode a short hold is
+// enough. Moving the finger before the delay cancels the drag, so swiping
+// still scrolls in both modes. Mouse: drag after a few pixels, a click edits.
+const LONG_PRESS = {delay: 450, tolerance: 8};
+const SORT_PRESS = {delay: 120, tolerance: 6};
+
+function SortableProductCard({item, sorting, onOpen}) {
+    const {attributes, listeners, setNodeRef, transform, transition, isDragging} = useSortable({id: item.id});
+
+    return (
+        <Box
+            ref={setNodeRef}
+            style={{transform: transform ? CSS.Transform.toString(transform) : undefined, transition}}
+            sx={{
+                position: 'relative',
+                zIndex: isDragging ? 2 : 'auto',
+                // let the browser scroll; the touch sensor takes over only
+                // once the hold delay has passed
+                touchAction: 'manipulation',
+            }}
+            {...attributes}
+            {...listeners}
+        >
+            <ProductComponent item={item} sorting={sorting} dragging={isDragging}
+                              onClick={sorting ? undefined : () => onOpen(item)}/>
+        </Box>
+    );
+}
 
 function ListProductComponent({products, editProduct, updateOrder}) {
     const [productsDraggable, setProductsDraggable] = useState(products);
-    const timeoutRef = useRef(null);
+    const [sorting, setSorting] = useState(false);
+    // a mouse drag ends with a click on the card: don't open the editor then
+    const justDraggedRef = useRef(false);
     const [windowsWidth, setWindowsWidth] = useState(window.innerWidth);
 
     useEffect(() => {
@@ -30,22 +65,16 @@ function ListProductComponent({products, editProduct, updateOrder}) {
     }, []);
 
     const handleDragStart = () => {
-        timeoutRef.current = setTimeout(() => {
-            timeoutRef.current = null;
-        }, 200);
-    }
+        justDraggedRef.current = true;
+        navigator.vibrate?.(25);
+    };
 
     const handleDragEnd = (event) => {
+        setTimeout(() => {
+            justDraggedRef.current = false;
+        }, 0);
+
         const {active, over} = event;
-
-        if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-            timeoutRef.current = null;
-
-            const product = productsDraggable.find((item) => item.id === active.id);
-            editProduct(product);
-        }
-
         if (!over || active.id === over.id) return;
         const oldIndex = productsDraggable.findIndex((item) => item.id === active.id);
         const newIndex = productsDraggable.findIndex((item) => item.id === over.id);
@@ -60,6 +89,11 @@ function ListProductComponent({products, editProduct, updateOrder}) {
         reorderProducts(newOrder);
     };
 
+    const handleOpen = (product) => {
+        if (justDraggedRef.current) return;
+        editProduct(product);
+    };
+
     const reorderProducts = (sortedProducts) => {
         ProductService.reorder(sortedProducts).then(() => {
             updateOrder();
@@ -72,41 +106,57 @@ function ListProductComponent({products, editProduct, updateOrder}) {
     }
 
     const sensors = useSensors(
-        useSensor(PointerSensor),
-        useSensor(TouchSensor, {
-            activationConstraint: {
-                delay: 150,
-                tolerance: 10,
-            },
-        })
+        useSensor(MouseSensor, {activationConstraint: {distance: 6}}),
+        useSensor(TouchSensor, {activationConstraint: sorting ? SORT_PRESS : LONG_PRESS})
     );
 
+    const compact = windowsWidth < 1200;
+
     return (
-        <DndContext sensors={sensors}
-                    collisionDetection={closestCenter}
-                    onDragStart={handleDragStart}
-                    onDragEnd={handleDragEnd}>
-            <SortableContext
-                items={productsDraggable.map(p => p.id)}
-                strategy={rectSortingStrategy}
-            >
-                <Box
-                    sx={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fill, minmax(' + (windowsWidth < 1200 ? '150px' : '250px') + ', 1fr))',
-                        gap: 1,
-                        px: 1,
-                        py: 2,
-                    }}
+        <>
+            <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}
+                   sx={{px: 1, pt: 1.5, flexWrap: 'wrap', rowGap: 1}}>
+                <Typography variant="body2" color="text.secondary">
+                    {sorting
+                        ? 'Arraste os produtos para a ordem que quer no POS.'
+                        : 'Toque para editar · mantenha premido para mover.'}
+                </Typography>
+                <Button
+                    size="small"
+                    variant={sorting ? 'contained' : 'outlined'}
+                    startIcon={sorting ? <CheckIcon/> : <SwapVertIcon/>}
+                    onClick={() => setSorting((s) => !s)}
                 >
-                    {productsDraggable
-                        .sort((a, b) => a.position - b.position)
-                        .map((item) => (
-                            <ProductComponent key={item.id} item={item} allowDrag={false}/>
-                        ))}
-                </Box>
-            </SortableContext>
-        </DndContext>
+                    {sorting ? 'Concluído' : 'Ordenar'}
+                </Button>
+            </Stack>
+            <DndContext sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragStart={handleDragStart}
+                        onDragEnd={handleDragEnd}
+                        onDragCancel={handleDragEnd}>
+                <SortableContext
+                    items={productsDraggable.map(p => p.id)}
+                    strategy={rectSortingStrategy}
+                >
+                    <Box
+                        sx={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(' + (compact ? '150px' : '250px') + ', 1fr))',
+                            gap: 1,
+                            px: 1,
+                            py: 2,
+                        }}
+                    >
+                        {[...productsDraggable]
+                            .sort((a, b) => a.position - b.position)
+                            .map((item) => (
+                                <SortableProductCard key={item.id} item={item} sorting={sorting} onOpen={handleOpen}/>
+                            ))}
+                    </Box>
+                </SortableContext>
+            </DndContext>
+        </>
     );
 }
 

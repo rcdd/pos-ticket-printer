@@ -1,4 +1,5 @@
 import db from "../index.js";
+import {ticketFields} from "../../services/printing/ticketBundles.js";
 
 const Product = db.products;
 const Op = db.Sequelize.Op;
@@ -39,6 +40,7 @@ export const create = (req, res) => {
             existingProduct.price = req.body.price;
             existingProduct.position = req.body.position ? req.body.position : existingProduct.position;
             existingProduct.theme = req.body.theme ? req.body.theme : existingProduct.theme;
+            Object.assign(existingProduct, ticketFields(req.body));
 
             existingProduct.save()
                 .then(data => {
@@ -60,6 +62,9 @@ export const create = (req, res) => {
         position: req.body.position ? req.body.position : 0,
         zoneId: req.body.zoneId,
         theme: req.body.theme ? req.body.theme : null,
+        ticketsPerUnit: 1,
+        ticketLabel: null,
+        ...ticketFields(req.body),
         isDeleted: false
     };
 
@@ -144,7 +149,7 @@ export const findOne = (req, res) => {
 // Update a Product by the id in the request
 export const update = (req, res) => {
     const id = req.body.id;
-    const payload = req.body;
+    const payload = {...req.body, ...ticketFields(req.body)};
     payload.isDeleted = false;
 
     Product.update(payload, {

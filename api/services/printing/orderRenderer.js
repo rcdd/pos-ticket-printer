@@ -147,7 +147,7 @@ export function renderOrderMoveRaw({number, fromLabel, toLabel, movedByName, fal
 }
 
 // Void ticket: tells the kitchen that items of an order were cancelled.
-export function renderOrderVoidRaw({number, tableNumber, items = [], approvedByName, zoneLabel = null, fallbackFrom = null}) {
+export function renderOrderVoidRaw({number, tableNumber, items = [], cancelledByName, zoneLabel = null, fallbackFrom = null}) {
     const parts = [];
     parts.push(escInit());
     parts.push(escSelectCodepage());
@@ -173,7 +173,7 @@ export function renderOrderVoidRaw({number, tableNumber, items = [], approvedByN
     endItemsStyle();
 
     const refParts = [`Pedido ${formatOrderNumber(number)}`];
-    if (approvedByName) refParts.push(`Aprovado por: ${approvedByName}`);
+    if (cancelledByName) refParts.push(`Anulado por: ${cancelledByName}`);
     parts.push(newLine());
     parts.push(align(1));
     parts.push(textPrintLine(refParts.join(' · ')));

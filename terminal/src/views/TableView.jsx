@@ -1,17 +1,13 @@
 import {useCallback, useEffect, useState} from 'preact/hooks';
 import {api} from '../api.js';
 import {centsToEuros} from '../money.js';
-import {PasswordInput} from './PasswordInput.jsx';
 
 const formatNumber = (number) => `#${String(number ?? 0).padStart(3, '0')}`;
 const STATUS_LABEL = {sent: 'Por pagar', paid: 'Pago', cancelled: 'Anulado'};
 
-// Voiding an item requires admin approval (the waiter hands the phone to
-// the person in charge, who types their own credentials).
-function CancelItemDialog({order, item, currentUser, onDone, onClose}) {
-    const isAdmin = currentUser?.role === 'admin';
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
+// Voiding an item of an unpaid order: the waiter's own call (nothing is
+// billed before payment); the API records who did it.
+function CancelItemDialog({order, item, onDone, onClose}) {
     const [error, setError] = useState(null);
     const [busy, setBusy] = useState(false);
 
@@ -20,12 +16,7 @@ function CancelItemDialog({order, item, currentUser, onDone, onClose}) {
         setBusy(true);
         setError(null);
         try {
-            const body = {itemIds: [item.id]};
-            if (!isAdmin) {
-                body.adminUsername = username;
-                body.adminPassword = password;
-            }
-            const result = await api(`/order/${order.id}/cancel-items`, {method: 'POST', body});
+            const result = await api(`/order/${order.id}/cancel-items`, {method: 'POST', body: {itemIds: [item.id]}});
             onDone(result);
         } catch (err) {
             setError(err.message);
@@ -41,24 +32,11 @@ function CancelItemDialog({order, item, currentUser, onDone, onClose}) {
                 <p style="margin:4px 0 10px">
                     Pedido #{String(order.number).padStart(3, '0')} — <b>{item.quantity}x {item.nameSnapshot}</b>
                 </p>
-                {isAdmin ? (
-                    <p class="muted">Vai ser impresso um talão de anulação para a cozinha.</p>
-                ) : (
-                    <>
-                        <p class="muted" style="margin-bottom:8px">Requer aprovação de um administrador:</p>
-                        <div style="display:flex; flex-direction:column; gap:8px">
-                            <input placeholder="Utilizador admin" autocapitalize="none" value={username}
-                                   onInput={(e) => setUsername(e.currentTarget.value)}/>
-                            <PasswordInput value={password}
-                                           onInput={(e) => setPassword(e.currentTarget.value)}/>
-                        </div>
-                    </>
-                )}
+                <p class="muted">Vai ser impresso um talão de anulação para a cozinha.</p>
                 {error && <p class="error-text" style="margin-top:8px">{error}</p>}
                 <div style="display:flex; gap:8px; margin-top:12px">
                     <button class="btn secondary" onClick={onClose} disabled={busy}>Voltar</button>
-                    <button class="btn danger" onClick={confirm}
-                            disabled={busy || (!isAdmin && (!username || !password))}>
+                    <button class="btn danger" onClick={confirm} disabled={busy}>
                         {busy ? 'A anular…' : 'Anular item'}
                     </button>
                 </div>
@@ -67,7 +45,7 @@ function CancelItemDialog({order, item, currentUser, onDone, onClose}) {
     );
 }
 
-export function TableView({liveTick, tableId, currentUser, onBack, onClosed}) {
+export function TableView({liveTick, tableId, onBack, onClosed}) {
     const [table, setTable] = useState(null);
     const [error, setError] = useState(null);
     const [closing, setClosing] = useState(false);
@@ -180,7 +158,6 @@ export function TableView({liveTick, tableId, currentUser, onBack, onClosed}) {
                 <CancelItemDialog
                     order={cancelTarget.order}
                     item={cancelTarget.item}
-                    currentUser={currentUser}
                     onClose={() => setCancelTarget(null)}
                     onDone={(result) => {
                         setCancelTarget(null);

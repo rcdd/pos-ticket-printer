@@ -26,6 +26,9 @@ function SetupPage() {
     const [favoritesLoaded, setFavoritesLoaded] = React.useState(false);
     const {enabled: virtualKeyboardEnabled, setEnabled: setVirtualKeyboardEnabled, loading: virtualKeyboardLoading} = useVirtualKeyboard();
     const [keyboardSaving, setKeyboardSaving] = React.useState(false);
+    const [showPrices, setShowPrices] = React.useState(true);
+    const [showPricesLoaded, setShowPricesLoaded] = React.useState(false);
+    const [showPricesSaving, setShowPricesSaving] = React.useState(false);
 
     const handleTabChange = (event, newValue) => {
         setTabPosition(newValue);
@@ -51,6 +54,37 @@ function SetupPage() {
             mounted = false;
         };
     }, []);
+
+    useEffect(() => {
+        let mounted = true;
+        OptionService.getPosShowPrices()
+            .then(({data}) => {
+                if (mounted) setShowPrices(data?.enabled !== false);
+            })
+            .catch(() => {})
+            .finally(() => {
+                if (mounted) setShowPricesLoaded(true);
+            });
+        return () => {
+            mounted = false;
+        };
+    }, []);
+
+    const handleToggleShowPrices = async (event) => {
+        const nextValue = event.target.checked;
+        const previous = showPrices;
+        setShowPrices(nextValue);
+        setShowPricesSaving(true);
+        try {
+            const {data} = await OptionService.setPosShowPrices(nextValue);
+            setShowPrices(data?.enabled !== false);
+        } catch (error) {
+            console.error("Failed to save POS show prices setting", error?.response?.data || error);
+            setShowPrices(previous);
+        } finally {
+            setShowPricesSaving(false);
+        }
+    };
 
     const handleSaveFavorites = async (event) => {
         event.preventDefault();
@@ -128,6 +162,26 @@ function SetupPage() {
                                     {(virtualKeyboardLoading || keyboardSaving) && (
                                         <CircularProgress size={18}/>
                                     )}
+                                </Stack>
+                            </Paper>
+
+                            <Paper elevation={0} sx={{p: 3, border: theme => `1px solid ${theme.palette.divider}`}}>
+                                <Typography variant="h6" fontWeight={700} gutterBottom>
+                                    Preços no POS
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary" sx={{mb: 2}}>
+                                    Mostra o preço unitário por baixo do nome em cada botão de produto do POS.
+                                </Typography>
+                                <Stack direction="row" spacing={2} alignItems="center">
+                                    <Switch
+                                        checked={showPrices}
+                                        onChange={handleToggleShowPrices}
+                                        disabled={!showPricesLoaded || showPricesSaving}
+                                    />
+                                    <Typography variant="body2">
+                                        {showPrices ? 'Preços visíveis' : 'Preços escondidos'}
+                                    </Typography>
+                                    {showPricesSaving && <CircularProgress size={18}/>}
                                 </Stack>
                             </Paper>
 

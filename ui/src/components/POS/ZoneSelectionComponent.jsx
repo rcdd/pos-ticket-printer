@@ -14,6 +14,7 @@ export function ZoneSelectionComponent({
                                            menus,
                                            favorites,
                                            favoritesEnabled,
+                                           showPrices,
                                            addProductToCart
                                        }) {
 
@@ -77,20 +78,20 @@ export function ZoneSelectionComponent({
                         {favoritesAvailable && (
                             <TabPanel style={{padding: 1}} key="favorites" value="favorites">
                                 <ListProductsComponent products={favorites}
-                                                       addToCart={addProductToCart}/>
+                                                       addToCart={addProductToCart} showPrices={showPrices}/>
                             </TabPanel>
                         )}
 
                         {zones && zones.map((zone) => (
                             <TabPanel style={{padding: 1}} key={zone.id} value={zone.name}>
                                 <ListProductsComponent products={products.filter(p => p.zoneId === zone.id)}
-                                                       addToCart={addProductToCart}/>
+                                                       addToCart={addProductToCart} showPrices={showPrices}/>
                             </TabPanel>
                         ))}
 
                         {hasMenus && (
                             <TabPanel style={{padding: 1}} value="menu">
-                                <ListProductsComponent products={menus} addToCart={addProductToCart}/>
+                                <ListProductsComponent products={menus} addToCart={addProductToCart} showPrices={showPrices}/>
                             </TabPanel>
                         )}
                     </TabContext>

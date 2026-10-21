@@ -1,25 +1,23 @@
-import {useSortable} from "@dnd-kit/sortable";
-import {CSS} from "@dnd-kit/utilities";
-import {Box, Card, Typography} from "@mui/material";
+import {Box, Card, Chip, Stack, Typography} from "@mui/material";
+import {keyframes} from "@mui/material/styles";
+import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import React, {useEffect, useState} from "react";
 import {CardThemes} from "../../enums/CardThemes";
 
-export function ProductComponent({item, allowDrag = true}) {
-    const {
-        attributes,
-        listeners,
-        setNodeRef,
-        transform,
-        transition,
-    } = useSortable({id: item.id});
+const formatPrice = (cents) => `${(Number(cents || 0) / 100).toFixed(2).replace('.', ',')} €`;
 
-    const style = {
-        transform: transform ? CSS.Transform.toString(transform) : undefined,
-        transition
-    };
+const wiggle = keyframes`
+    0%, 100% { transform: rotate(-0.6deg); }
+    50% { transform: rotate(0.6deg); }
+`;
 
-    const themeKey = item.theme && CardThemes[item.theme] ? item.theme : "default";
-    const themeStyles = CardThemes[themeKey];
+// The product button, the same in the POS grid and in Configurações →
+// Produtos: name, unit price and, for bundle products, how many tickets
+// (senhas) it prints. sorting/dragging are the admin reorder states;
+// showPrice follows the "Preços no POS" option (always on in Configurações).
+export function ProductComponent({item, onClick, showPrice = true, sorting = false, dragging = false}) {
+    const themeStyles = CardThemes[item.theme] ?? CardThemes.default;
+    const tickets = item.ticketsPerUnit > 1 ? item.ticketsPerUnit : 0;
 
     const [windowsWidth, setWindowsWidth] = useState(window.innerWidth);
 
@@ -29,34 +27,58 @@ export function ProductComponent({item, allowDrag = true}) {
         return () => window.removeEventListener("resize", handleResize);
     }, []);
 
+    const compact = windowsWidth < 1200;
+
     return (
-        <Box ref={setNodeRef} style={style} {...attributes} {...listeners}>
-            <Card variant="outlined"
-                  sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      p: 2,
-                      minHeight: windowsWidth <= 1200 ? 60: 90,
-                      borderRadius: 2,
-                      userSelect: "none",
-                      ...themeStyles,
-                      touchAction: allowDrag ? 'auto' : 'none',
-                      transition: "transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease",
-                      "&:hover": {
-                          filter: "brightness(0.98)",
-                          boxShadow: 3,
-                      },
-                      "&:active": {
-                          transform: "scale(0.99)",
-                          boxShadow: 1,
-                      },
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                  }}>
-                <Typography sx={{fontSize: windowsWidth <= 1200 ? '14px' : '24px'}} noWrap><b>{item.name}</b></Typography>
-            </Card>
-        </Box>
+        <Card
+            variant="outlined"
+            onClick={onClick}
+            sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                p: compact ? 1.5 : 2,
+                minHeight: compact ? 60 : 90,
+                borderRadius: 2,
+                userSelect: 'none',
+                WebkitTouchCallout: 'none',
+                cursor: sorting ? 'grab' : 'pointer',
+                ...themeStyles,
+                transition: 'transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease',
+                ...(sorting && !dragging && {
+                    animation: `${wiggle} 0.35s ease-in-out infinite`,
+                    '@media (prefers-reduced-motion: reduce)': {animation: 'none'},
+                    outline: '2px dashed',
+                    outlineColor: 'divider',
+                    outlineOffset: -2,
+                }),
+                ...(dragging && {
+                    transform: 'scale(1.05)',
+                    boxShadow: 8,
+                    cursor: 'grabbing',
+                }),
+                '&:active': dragging || sorting ? {} : {transform: 'scale(0.99)', boxShadow: 1},
+                overflow: 'hidden',
+            }}
+        >
+            {sorting && <DragIndicatorIcon sx={{opacity: 0.7, flexShrink: 0}}/>}
+            <Box sx={{minWidth: 0, flexGrow: 1, textAlign: sorting ? 'left' : 'center'}}>
+                <Typography sx={{fontSize: compact ? '14px' : '22px', fontWeight: 700, lineHeight: 1.2}} noWrap>
+                    {item.name}
+                </Typography>
+                {showPrice && (
+                    <Stack direction="row" spacing={0.75} alignItems="center"
+                           justifyContent={sorting ? 'flex-start' : 'center'} sx={{mt: 0.5}}>
+                        <Typography sx={{fontSize: compact ? '13px' : '17px', opacity: 0.85, flexShrink: 0}} noWrap>
+                            {formatPrice(item.price)}
+                        </Typography>
+                        {tickets > 0 && (
+                            <Chip size="small" label={`${tickets} senhas`}
+                                  sx={{height: 20, minWidth: 0, fontSize: '11px', bgcolor: 'rgba(0,0,0,0.12)', color: 'inherit'}}/>
+                        )}
+                    </Stack>
+                )}
+            </Box>
+        </Card>
     );
 }

@@ -5,6 +5,7 @@ import {
 import {EscposStrategy} from "./escposStrategy.js";
 import {openCashDrawer, fullCut, feed, configurePrint, DEFAULT_TICKET_LAYOUT} from "./printCommands.js";
 import {renderOrderTicketRaw, renderOrderVoidRaw, renderOrderMoveRaw, renderPickupTicketRaw} from "./orderRenderer.js";
+import {expandTicketBundles} from "./ticketBundles.js";
 
 const escpos = new EscposStrategy();
 
@@ -59,12 +60,12 @@ function expandItems(items = []) {
         if (type === 'menu' && Array.isArray(it?.products)) {
             for (let i = 0; i < qty; i++) {
                 for (const p of it.products) {
-                    lines.push({name: String(p?.name || '').trim()});
+                    lines.push({productId: Number(p?.id) || null, name: String(p?.name || '').trim()});
                 }
             }
         } else {
             for (let i = 0; i < qty; i++) {
-                lines.push({name: String(it?.name || '').trim()});
+                lines.push({productId: Number(it?.id) || null, name: String(it?.name || '').trim()});
             }
         }
     }
@@ -103,10 +104,16 @@ async function sendJobs(printerName, jobs, jobName, profile) {
 // item of `items` — a direct sale with items routed to another printer only
 // prints tickets for what is collected at the register; the totals receipt
 // still lists everything.
-export async function printTicketRequest({printerName, headers, items, ticketLines, totalAmount, printType, openDrawer, isTest, receiptTitle, payments, profile}) {
+// bundles (optional, direct sales only): Map productId → {count, label, name}
+// of the products sold as individual tickets ("Metro de Cerveja") — those
+// tickets print even when the print type is 'totals', it is the whole point
+// of the product.
+export async function printTicketRequest({printerName, headers, items, ticketLines, bundles, totalAmount, printType, openDrawer, isTest, receiptTitle, payments, profile}) {
     const prof = applyProfile(profile);
     const totalEuros = toEuros(totalAmount);
-    const expanded = ticketLines ?? expandItems(items);
+    const expanded = expandTicketBundles(ticketLines ?? expandItems(items), bundles);
+    const withTickets = printType === 'tickets' || printType === 'both';
+    const ticketsToPrint = withTickets ? expanded : expanded.filter((line) => line.bundle);
     const jobPrefix = 'POS';
 
     if (isTest) {
@@ -132,14 +139,12 @@ export async function printTicketRequest({printerName, headers, items, ticketLin
             buf = Buffer.concat([buf, openCashDrawer()]);
         }
 
-        if (printType === 'tickets' || printType === 'both') {
-            for (const line of expanded) {
-                buf = Buffer.concat([
-                    buf,
-                    renderItemTicketRaw(line.name || ''),
-                    renderFooterRaw(headers),
-                    renderHeaderRaw(headers)]);
-            }
+        for (const line of ticketsToPrint) {
+            buf = Buffer.concat([
+                buf,
+                renderItemTicketRaw(line.name || '', line.subtitle),
+                renderFooterRaw(headers),
+                renderHeaderRaw(headers)]);
         }
 
         if (printType === 'totals' || printType === 'both') {
@@ -156,10 +161,8 @@ export async function printTicketRequest({printerName, headers, items, ticketLin
     }
 
     const jobs = [];
-    if (printType === 'tickets' || printType === 'both') {
-        for (const line of expanded) {
-            jobs.push(standardTicket(prof, headers, renderItemTicketRaw(line.name || '')));
-        }
+    for (const line of ticketsToPrint) {
+        jobs.push(standardTicket(prof, headers, renderItemTicketRaw(line.name || '', line.subtitle)));
     }
     if (printType === 'totals' || printType === 'both') {
         jobs.push(standardTicket(prof, headers, renderTotalTicketRaw(items, totalEuros, receiptTitle || 'Pedido:', payments)));

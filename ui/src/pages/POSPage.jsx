@@ -33,6 +33,7 @@ function POSPage({user}) {
     const [isPrinted, setIsPrinted] = React.useState(false);
     const [initialCashValue, setInitialCashValue] = React.useState(0);
     const [favoritesConfig, setFavoritesConfig] = React.useState({enabled: false, count: 6});
+    const [showPrices, setShowPrices] = React.useState(true);
     const [favorites, setFavorites] = React.useState([]);
     const [loadingFavorites, setLoadingFavorites] = React.useState(false);
 
@@ -240,6 +241,12 @@ function POSPage({user}) {
             };
         }
 
+        OptionService.getPosShowPrices()
+            .then(({data}) => {
+                if (mounted) setShowPrices(data?.enabled !== false);
+            })
+            .catch(() => {});
+
         OptionService.getFavoritesSettings()
             .then(({data}) => {
                 if (!mounted) return;
@@ -308,6 +315,7 @@ function POSPage({user}) {
                         menus={menus}
                         favorites={favorites}
                         favoritesEnabled={favoritesConfig.enabled && !loadingFavorites}
+                        showPrices={showPrices}
                         addProductToCart={addProductToCart}/>
                 </div>
                 <div className='col-xl-4 col-lg-4 col-md-6 cart-wrapper'>
