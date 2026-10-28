@@ -1,5 +1,6 @@
 import axios from "axios";
 import AuthService from "./services/auth.service";
+import {API_BASE_URL} from "./apiBaseUrl";
 
 const AUTH_TOKEN_HEADER = "x-auth-token";
 const AUTH_EXPIRES_HEADER = "x-auth-expires-at";
@@ -21,7 +22,7 @@ const persistSessionFromHeaders = (headers) => {
 };
 
 const http = axios.create({
-    baseURL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:9393',
+    baseURL: API_BASE_URL,
     headers: {
         "Content-type": "application/json"
     }

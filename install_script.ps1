@@ -2,6 +2,38 @@
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
+# Clicking or tapping a console window puts it in QuickEdit selection mode,
+# which freezes this script at its next output until Enter/Esc is pressed (on
+# a touchscreen POS that looks like a hang). Turned off for this window only.
+function Disable-ConsoleQuickEdit
+{
+    try
+    {
+        if (-not ('PosTicket.ConsoleMode' -as [type]))
+        {
+            Add-Type -Namespace PosTicket -Name ConsoleMode -MemberDefinition @"
+[System.Runtime.InteropServices.DllImport("kernel32.dll")]
+public static extern System.IntPtr GetStdHandle(int nStdHandle);
+[System.Runtime.InteropServices.DllImport("kernel32.dll")]
+public static extern bool GetConsoleMode(System.IntPtr hConsoleHandle, out uint lpMode);
+[System.Runtime.InteropServices.DllImport("kernel32.dll")]
+public static extern bool SetConsoleMode(System.IntPtr hConsoleHandle, uint dwMode);
+"@
+        }
+        $stdin = [PosTicket.ConsoleMode]::GetStdHandle(-10)
+        $mode = [uint32]0
+        if ([PosTicket.ConsoleMode]::GetConsoleMode($stdin, [ref]$mode))
+        {
+            # Clear ENABLE_QUICK_EDIT_MODE (0x40); ENABLE_EXTENDED_FLAGS (0x80) makes it stick.
+            [void][PosTicket.ConsoleMode]::SetConsoleMode($stdin, [uint32](($mode -band (-bnot 0x40)) -bor 0x80))
+        }
+    }
+    catch
+    {
+    }
+}
+Disable-ConsoleQuickEdit
+
 # ========================
 # Helpers
 # ========================
@@ -1319,6 +1351,27 @@ if (Test-Path (Join-Path $terminalPath 'package.json'))
 else
 {
     Write-Warn "terminal\package.json not found; skipping Terminal build."
+}
+
+# Firewall: lets the admin manage the POS (products, CSV import...) from
+# another computer on the private network, at http://<pc-ip>:3000.
+Write-Info "Configuring firewall rule for remote admin (port 3000)..."
+try
+{
+    $ruleName = 'POS Ticket - Administracao (3000)'
+    if (-not (Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue))
+    {
+        New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3000 -Profile Private, Domain | Out-Null
+        Write-Ok "Firewall rule created ($ruleName)."
+    }
+    else
+    {
+        Write-Ok "Firewall rule already exists."
+    }
+}
+catch
+{
+    Write-Warn "Nao foi possivel criar a regra de firewall (execute como Administrador): $( $_.Exception.Message )"
 }
 
 # ========================

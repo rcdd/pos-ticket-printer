@@ -20,6 +20,7 @@ import {PaymentModalComponent} from '../components/POS/PaymentModalComponent';
 import {useToast} from '../components/Common/ToastProvider';
 import {useSession} from '../context/SessionContext.jsx';
 import AuthService from '../services/auth.service';
+import {API_BASE_URL} from '../apiBaseUrl';
 
 const eurFmt = new Intl.NumberFormat('pt-PT', {style: 'currency', currency: 'EUR'});
 const formatCents = (cents) => eurFmt.format((Number(cents) || 0) / 100);
@@ -107,7 +108,6 @@ export default function OrdersPage() {
         const token = AuthService.getToken();
         if (!token || typeof EventSource === 'undefined') return undefined;
 
-        const base = process.env.REACT_APP_API_BASE_URL || 'http://localhost:9393';
         let source;
         let retry;
         let stopped = false;
@@ -115,7 +115,7 @@ export default function OrdersPage() {
         const connect = () => {
             const current = AuthService.getToken();
             if (!current || stopped) return;
-            source = new EventSource(`${base}/events?token=${encodeURIComponent(current)}`);
+            source = new EventSource(`${API_BASE_URL}/events?token=${encodeURIComponent(current)}`);
             source.addEventListener('order.created', load);
             source.addEventListener('order.updated', load);
             source.addEventListener('table.updated', load);

@@ -11,6 +11,38 @@
 
 $ErrorActionPreference = 'Stop'
 
+# Clicking or tapping a console window puts it in QuickEdit selection mode,
+# which freezes this script at its next output until Enter/Esc is pressed (on
+# a touchscreen POS that looks like a hang). Turned off for this window only.
+function Disable-ConsoleQuickEdit
+{
+    try
+    {
+        if (-not ('PosTicket.ConsoleMode' -as [type]))
+        {
+            Add-Type -Namespace PosTicket -Name ConsoleMode -MemberDefinition @"
+[System.Runtime.InteropServices.DllImport("kernel32.dll")]
+public static extern System.IntPtr GetStdHandle(int nStdHandle);
+[System.Runtime.InteropServices.DllImport("kernel32.dll")]
+public static extern bool GetConsoleMode(System.IntPtr hConsoleHandle, out uint lpMode);
+[System.Runtime.InteropServices.DllImport("kernel32.dll")]
+public static extern bool SetConsoleMode(System.IntPtr hConsoleHandle, uint dwMode);
+"@
+        }
+        $stdin = [PosTicket.ConsoleMode]::GetStdHandle(-10)
+        $mode = [uint32]0
+        if ([PosTicket.ConsoleMode]::GetConsoleMode($stdin, [ref]$mode))
+        {
+            # Clear ENABLE_QUICK_EDIT_MODE (0x40); ENABLE_EXTENDED_FLAGS (0x80) makes it stick.
+            [void][PosTicket.ConsoleMode]::SetConsoleMode($stdin, [uint32](($mode -band (-bnot 0x40)) -bor 0x80))
+        }
+    }
+    catch
+    {
+    }
+}
+Disable-ConsoleQuickEdit
+
 # Kiosk machines usually have only a touchscreen, no keyboard: when the update
 # source isn't given on the command line, every question is asked in a window
 # with big buttons instead of Read-Host. Explicit parameters/env vars keep the
@@ -580,6 +612,30 @@ function Sync-ApiModules
     }
 }
 
+# Machines installed before remote admin existed lack the port 3000 rule
+# (install_script.ps1 creates it on new installs). update.bat isn't elevated,
+# so the rule is created through a one-off UAC prompt; declining it only
+# means the admin UI stays reachable from this PC alone.
+function Ensure-RemoteAdminFirewallRule
+{
+    $ruleName = 'POS Ticket - Administracao (3000)'
+    if (Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue)
+    {
+        return
+    }
+    Write-Host "A abrir a porta 3000 na firewall (gerir o POS a partir de outro computador da rede)..."
+    $command = "New-NetFirewallRule -DisplayName '$ruleName' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3000 -Profile Private, Domain"
+    try
+    {
+        Start-Process -FilePath 'powershell.exe' -Verb RunAs -Wait -WindowStyle Hidden `
+            -ArgumentList @('-NoProfile', '-Command', $command)
+    }
+    catch
+    {
+        Write-Host "(aviso) Regra de firewall nao criada: $( $_.Exception.Message )"
+    }
+}
+
 # Removes node_modules only. The repo's package-lock.json is kept ON PURPOSE:
 # Npm-Install-And-Build then runs `npm ci`, which installs the exact dependency
 # set that was tested upstream, instead of re-resolving version ranges on the
@@ -817,6 +873,8 @@ try
             {
                 Write-Host "UI e Terminal ja vieram compilados no pacote de release - nada a compilar localmente."
             }
+
+            Ensure-RemoteAdminFirewallRule
         }
 
         # Explorer caches shortcut icons aggressively; refreshing the general icon

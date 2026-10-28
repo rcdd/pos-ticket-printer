@@ -1,7 +1,8 @@
 import http from "../http";
+import {API_BASE_URL} from "../apiBaseUrl";
 
 class CashMovementService {
-    BASE_URL = (process.env.REACT_APP_API_BASE_URL || 'http://localhost:9393');
+    BASE_URL = API_BASE_URL;
 
     async create(data) {
         return http.post(this.BASE_URL + "/cash-movement", data);

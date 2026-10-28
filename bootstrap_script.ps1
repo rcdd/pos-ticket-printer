@@ -133,7 +133,11 @@ try
     Invoke-WebRequest -Uri $ReleaseUrl -OutFile $zip
 
     Write-Host "A extrair para $Target ..." -ForegroundColor Cyan
-    Expand-Archive -Path $zip -DestinationPath $Target -Force
+    # ZipFile is much faster than Expand-Archive on Windows PowerShell 5.1,
+    # and the package ships api\node_modules (thousands of files). $Target
+    # is known to be empty at this point, which ExtractToDirectory requires.
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($zip, $Target)
 
     if (-not (Test-Path (Join-Path $Target 'install_script.ps1')))
     {

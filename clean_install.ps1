@@ -1,4 +1,4 @@
-#Requires -RunAsAdministrator
+﻿#Requires -RunAsAdministrator
 param(
     [switch]$Execute,
     [switch]$RemoveChocoPkgs,
@@ -8,6 +8,38 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+# Clicking or tapping a console window puts it in QuickEdit selection mode,
+# which freezes this script at its next output until Enter/Esc is pressed (on
+# a touchscreen POS that looks like a hang). Turned off for this window only.
+function Disable-ConsoleQuickEdit
+{
+    try
+    {
+        if (-not ('PosTicket.ConsoleMode' -as [type]))
+        {
+            Add-Type -Namespace PosTicket -Name ConsoleMode -MemberDefinition @"
+[System.Runtime.InteropServices.DllImport("kernel32.dll")]
+public static extern System.IntPtr GetStdHandle(int nStdHandle);
+[System.Runtime.InteropServices.DllImport("kernel32.dll")]
+public static extern bool GetConsoleMode(System.IntPtr hConsoleHandle, out uint lpMode);
+[System.Runtime.InteropServices.DllImport("kernel32.dll")]
+public static extern bool SetConsoleMode(System.IntPtr hConsoleHandle, uint dwMode);
+"@
+        }
+        $stdin = [PosTicket.ConsoleMode]::GetStdHandle(-10)
+        $mode = [uint32]0
+        if ([PosTicket.ConsoleMode]::GetConsoleMode($stdin, [ref]$mode))
+        {
+            # Clear ENABLE_QUICK_EDIT_MODE (0x40); ENABLE_EXTENDED_FLAGS (0x80) makes it stick.
+            [void][PosTicket.ConsoleMode]::SetConsoleMode($stdin, [uint32](($mode -band (-bnot 0x40)) -bor 0x80))
+        }
+    }
+    catch
+    {
+    }
+}
+Disable-ConsoleQuickEdit
 
 function W-Info
 {
@@ -49,6 +81,21 @@ function Do-Step
     }
 }
 
+# npm, pm2 and choco print notices/warnings on stderr. With
+# ErrorActionPreference=Stop, Windows PowerShell 5.1 turns any stderr line
+# into an error (and can cut the command short), so only the exit code
+# decides success here.
+function Invoke-Native
+{
+    param([string]$Exe, [string[]]$Arguments, [switch]$IgnoreExitCode)
+    $ErrorActionPreference = 'Continue'
+    & $Exe @Arguments *> $null
+    if (-not $IgnoreExitCode -and $LASTEXITCODE -ne 0)
+    {
+        throw "exit code $LASTEXITCODE"
+    }
+}
+
 function Get-ExePath
 {
     param([string]$name)
@@ -67,7 +114,7 @@ function Kill-IfRunning
     param([string[]]$Names)
     foreach ($n in $Names)
     {
-        Do-Step { Get-Process -Name $n -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue } 'Kill process $n (if running)' -SilentOk
+        Do-Step { Get-Process -Name $n -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue } "Kill process $n (if running)" -SilentOk
     }
 }
 
@@ -76,7 +123,7 @@ function Remove-FileSafe
     param([string]$path)
     if (Test-Path $path)
     {
-        Do-Step { Remove-Item $path -Force -ErrorAction SilentlyContinue } 'Remove file: $path'
+        Do-Step { Remove-Item $path -Force -ErrorAction SilentlyContinue } "Remove file: $path"
     }
 }
 
@@ -85,7 +132,7 @@ function Remove-DirSafe
     param([string]$path)
     if (Test-Path $path)
     {
-        Do-Step { Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue } 'Remove dir:  $path'
+        Do-Step { Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue } "Remove dir:  $path"
     }
 }
 
@@ -109,7 +156,7 @@ function Stop-And-Delete-DbServices
     {
         if ($s.Status -ne 'Stopped')
         {
-            Do-Step { Stop-Service $s.Name -Force -ErrorAction SilentlyContinue } 'Stop service $( $s.Name )'
+            Do-Step { Stop-Service $s.Name -Force -ErrorAction SilentlyContinue } "Stop service $( $s.Name )"
         }
         else
         {
@@ -147,13 +194,18 @@ function Stop-And-Delete-DbServices
 function Choco-IsInstalled
 {
     param([string]$pkg)
-    $choco = Get-ExePath 'choco.exe'
-    if (-not $choco)
+    # Chocolatey 2 removed `choco list --local-only` (the old check never
+    # matched, so nothing was uninstalled). Every installed package has a
+    # folder under lib\, on any Chocolatey version.
+    $chocoRoot = if ($env:ChocolateyInstall)
     {
-        return $false
+        $env:ChocolateyInstall
     }
-    $out = & $choco list --local-only --exact $pkg 2> $null
-    return ($out -match ("(?im)^\s*{0}\s" -f [regex]::Escape($pkg)))
+    else
+    {
+        Join-Path $env:ProgramData 'chocolatey'
+    }
+    return (Test-Path (Join-Path $chocoRoot "lib\$pkg"))
 }
 
 function Choco-Uninstall
@@ -166,11 +218,18 @@ function Choco-Uninstall
     $choco = Get-ExePath 'choco.exe'
     if (-not $choco)
     {
-        W-Warn 'Chocolatey not found; skipping uninstall of $pkg'; return
+        W-Warn "Chocolatey not found; skipping uninstall of $pkg"; return
     }
     if (Choco-IsInstalled $pkg)
     {
-        Do-Step { & $choco uninstall $pkg -y --no-progress --remove-dependencies --limit-output *> $null } 'Chocolatey: uninstall $pkg'
+        # Announced up front: choco's own output is hidden and an uninstall
+        # (with dependencies such as vcredist) can take minutes, which
+        # otherwise looks like a hang.
+        W-Info "A desinstalar $pkg (Chocolatey, pode demorar alguns minutos)..."
+        # No --remove-dependencies: it also removed vcredist140, Chocolatey's
+        # own extensions and KB packages, which other software on a client's
+        # PC may rely on. Only our own packages go.
+        Do-Step { Invoke-Native $choco @('uninstall', $pkg, '-y', '--no-progress', '--limit-output') } "Chocolatey: uninstall $pkg"
     }
     else
     {
@@ -184,10 +243,10 @@ function Npm-UninstallGlobal
     $npm = Get-ExePath 'npm.cmd'
     if (-not $npm)
     {
-        W-Warn 'npm not found; skipping $pkg'; return
+        W-Warn "npm not found; skipping $pkg"; return
     }
     # usa sintaxe correta: uninstall -g <pkg>
-    Do-Step { & $npm uninstall -g $pkg --silent *> $null } 'npm -g uninstall $pkg'
+    Do-Step { Invoke-Native $npm @('uninstall', '-g', $pkg, '--silent') } "npm -g uninstall $pkg"
 }
 
 function Npm-CacheClean
@@ -197,7 +256,7 @@ function Npm-CacheClean
     {
         W-Warn 'npm not found; skipping cache clean'; return
     }
-    Do-Step { & $npm cache clean --force *> $null } 'npm cache clean --force'
+    Do-Step { Invoke-Native $npm @('cache', 'clean', '--force') } 'npm cache clean --force'
 }
 
 # -------- Banner --------
@@ -220,10 +279,10 @@ Write-Host ""
 W-Info 'Stopping PM2 apps...'
 $pm2 = Get-ExePath 'pm2.cmd'
 if ($pm2) {
-    Do-Step { & $pm2 delete api-pos  *> $null } 'pm2 delete api-pos'
-    Do-Step { & $pm2 delete ui-pos   *> $null } 'pm2 delete ui-pos'
-    Do-Step { & $pm2 delete pma-pos  *> $null } 'pm2 delete pma-pos'
-    Do-Step { & $pm2 kill            *> $null } 'pm2 kill daemon'
+    Do-Step { Invoke-Native $pm2 @('delete', 'api-pos') -IgnoreExitCode } 'pm2 delete api-pos'
+    Do-Step { Invoke-Native $pm2 @('delete', 'ui-pos') -IgnoreExitCode } 'pm2 delete ui-pos'
+    Do-Step { Invoke-Native $pm2 @('delete', 'pma-pos') -IgnoreExitCode } 'pm2 delete pma-pos'
+    Do-Step { Invoke-Native $pm2 @('kill') -IgnoreExitCode } 'pm2 kill daemon'
 } else {
     W-Warn 'pm2 not found - skipping pm2 delete/kill'
 }
@@ -238,6 +297,17 @@ Kill-IfRunning @('node', 'php', 'serve')
 # -------- DB services --------
 W-Info 'Stopping MySQL/MariaDB services (if any)...'
 Stop-And-Delete-DbServices
+
+# -------- npm globais --------
+# Before the Chocolatey section: uninstalling nodejs-lts removes npm, and
+# pm2/serve would then be left behind in %APPDATA%\npm.
+if ($RemoveGlobalNpm)
+{
+    W-Info 'Removing global npm binaries...'
+    Npm-UninstallGlobal 'pm2'
+    Npm-UninstallGlobal 'serve'
+    Npm-CacheClean
+}
 
 # -------- Chocolatey packages --------
 if ($RemoveChocoPkgs)
@@ -259,7 +329,11 @@ if ($PurgeMySqlData)
     W-Warn 'Purging MySQL/MariaDB data (destructive)...'
     # Wildcards instead of pinned version numbers (8.0/8.4/9.0 missed e.g.
     # 8.1-8.3, 9.1+) - Test-Path/Remove-Item resolve these natively.
+    # C:\tools\mysql is where the Chocolatey `mysql` package lives, data dir
+    # included (current\data); `choco uninstall` leaves it behind, and a
+    # reinstall then reuses the old data and the old pos_user password.
     $purgePaths = @(
+        'C:\tools\mysql',
         'C:\ProgramData\MySQL',
         'C:\ProgramData\MariaDB',
         'C:\Program Files\MySQL\MySQL Server*\data',
@@ -276,15 +350,6 @@ if ($PurgeMySqlData)
             W-Warn "A reinstall may reuse this old data (and its old credentials) instead of starting fresh. Re-run this script, or remove it manually, before reinstalling."
         }
     }
-}
-
-# -------- npm globais --------
-if ($RemoveGlobalNpm)
-{
-    W-Info 'Removing global npm binaries...'
-    Npm-UninstallGlobal 'pm2'
-    Npm-UninstallGlobal 'serve'
-    Npm-CacheClean
 }
 
 # -------- Project tree cleanup --------

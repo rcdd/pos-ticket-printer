@@ -21,6 +21,7 @@ import db from "./db/index.js";
 import {authenticate, optionalAuthenticate} from "./middleware/auth.js";
 import {requireRole} from "./middleware/authorization.js";
 import {enforceLicense} from "./services/license.service.js";
+import {DEFAULT_ORIGINS, isAllowedOrigin} from "./services/corsOrigin.js";
 import {AUTH_EXPIRES_HEADER, AUTH_TOKEN_HEADER} from "./services/token.service.js";
 import systemRoutes, {terminalStatus, closeKiosk} from "./routes/system.routes.js";
 import {emitEvent, EventTypes} from "./services/events.service.js";
@@ -197,7 +198,10 @@ async function ensureDatabaseTables() {
 }
 
 const corsOptions = {
-    origin: process.env.CLIENT_ORIGIN?.split(',') || ["http://localhost:8888", "http://127.0.0.1:8888", "http://localhost:3000"],
+    origin: (origin, callback) => {
+        const configured = process.env.CLIENT_ORIGIN?.split(',') || DEFAULT_ORIGINS;
+        callback(null, isAllowedOrigin(origin, configured));
+    },
     exposedHeaders: [AUTH_TOKEN_HEADER, AUTH_EXPIRES_HEADER],
 };
 
