@@ -1,4 +1,4 @@
-#Requires -RunAsAdministrator
+﻿#Requires -RunAsAdministrator
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
@@ -1392,8 +1392,14 @@ else
 }
 
 Write-Ok "Installation complete."
-$answer = Read-Host "Reiniciar o computador agora para garantir que tudo fica corretamente aplicado? (S/n)"
-if ([string]::IsNullOrWhiteSpace($answer) -or $answer -match '^[Ss]')
+# Asked in a window (not Read-Host): kiosk machines often have no keyboard.
+Add-Type -AssemblyName System.Windows.Forms
+$owner = New-Object System.Windows.Forms.Form
+$owner.TopMost = $true
+$answer = [System.Windows.Forms.MessageBox]::Show($owner,
+        "Instalação concluída.`n`nReiniciar o computador agora para garantir que tudo fica corretamente aplicado?",
+        'Instalador POS Ticket', 'YesNo', 'Question')
+if ($answer -eq 'Yes')
 {
     Write-Info "A reiniciar o computador..."
     Restart-Computer -Force

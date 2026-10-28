@@ -53,10 +53,23 @@ jobs:
           npm ci
           npm run build
 
+      # Shipped inside the zip so a client machine can update without internet
+      # (USB stick). Every API dependency is plain JS except bcrypt, whose npm
+      # package already carries a win32-x64 prebuild, so installing on this
+      # Linux runner is fine.
+      - name: Install API production dependencies
+        working-directory: api
+        # The check fails the release if any runtime dependency is missing,
+        # e.g. one also listed in devDependencies, which --omit=dev drops.
+        run: |
+          npm ci --omit=dev
+          node -e "const fs=require('fs');const deps=Object.keys(require('./package.json').dependencies);const missing=deps.filter(d=>!fs.existsSync('node_modules/'+d+'/package.json'));if(missing.length){console.error('Missing API dependencies:',missing.join(', '));process.exit(1)}"
+
       - name: Zip release package
         run: |
           zip -r -q pos-ticket.zip . \
-            -x "*.git/*" ".git*" "*node_modules/*" ".idea/*" ".vs/*" "*.DS_Store" \
+            -x "*.git/*" ".git*" "node_modules/*" "ui/node_modules/*" "terminal/node_modules/*" \
+            -x ".idea/*" ".vs/*" "*.DS_Store" \
             -x "scripts/generate-license.js" ".env" "api/.env" "docs/*" "logs/*" "*.log" \
             -x "pos.pm2.json" ".github/*"
 

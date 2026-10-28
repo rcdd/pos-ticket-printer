@@ -1,7 +1,8 @@
-Param(
+﻿Param(
     [string]$RepoUrl,
     [string]$Branch,
     [string]$ReleaseUrl,
+    [string]$ZipPath,
     [bool]  $UseSource,
     [string]$Target,
     [bool]  $Backup,
@@ -9,6 +10,15 @@ Param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+# Kiosk machines usually have only a touchscreen, no keyboard: when the update
+# source isn't given on the command line, every question is asked in a window
+# with big buttons instead of Read-Host. Explicit parameters/env vars keep the
+# old unattended console behaviour.
+$Interactive = -not ($PSBoundParameters.ContainsKey('ZipPath') -or
+        $PSBoundParameters.ContainsKey('ReleaseUrl') -or
+        $PSBoundParameters.ContainsKey('UseSource') -or
+        $env:RELEASE_URL -or $env:USE_SOURCE)
 
 # ---------- Defaults ----------
 # Legacy path (only used with -UseSource, or as an automatic fallback if the
@@ -62,16 +72,9 @@ if (-not $PSBoundParameters.ContainsKey('UseSource'))
         $false
     }
 }
-if (-not $PSBoundParameters.ContainsKey('Target'))
+if (-not $PSBoundParameters.ContainsKey('Target') -and $env:TARGET_DIR)
 {
-    $Target = if ($env:TARGET_DIR)
-    {
-        $env:TARGET_DIR
-    }
-    else
-    {
-        (Get-Location).Path
-    }
+    $Target = $env:TARGET_DIR
 }
 if (-not $PSBoundParameters.ContainsKey('DryRun'))
 {
@@ -82,19 +85,6 @@ if (-not $PSBoundParameters.ContainsKey('DryRun'))
     else
     {
         $false
-    }
-}
-
-if (-not $PSBoundParameters.ContainsKey('Backup'))
-{
-    $answer = Read-Host "Pretende criar backup antes de atualizar? (S/N)"
-    if ($answer -match '^[Ss]')
-    {
-        $Backup = $true
-    }
-    else
-    {
-        $Backup = $false
     }
 }
 
@@ -156,19 +146,273 @@ function Get-ReleasePackage
 {
     param([string]$ReleaseUrl)
     $tmp = New-TempDir
-    $src = Join-Path $tmp 'src'
     $zip = Join-Path $tmp 'pos-ticket.zip'
 
     Write-Host "Download do pacote de release ($ReleaseUrl)..."
     Invoke-WebRequest -Uri $ReleaseUrl -OutFile $zip
-    Expand-Archive -Path $zip -DestinationPath $src -Force
+    return Expand-ReleasePackage -Zip $zip -Tmp $tmp
+}
+
+# Offline path: the same release zip, copied by hand (e.g. on a USB stick).
+function Get-LocalReleasePackage
+{
+    param([string]$ZipPath)
+    if (-not (Test-Path $ZipPath))
+    {
+        throw "Ficheiro nao encontrado: $ZipPath"
+    }
+    Write-Host "Pacote local: $ZipPath"
+    return Expand-ReleasePackage -Zip $ZipPath -Tmp (New-TempDir)
+}
+
+function Expand-ReleasePackage
+{
+    param([string]$Zip, [string]$Tmp)
+    $src = Join-Path $Tmp 'src'
+
+    Write-Host "A extrair o pacote..."
+    # ZipFile is much faster than Expand-Archive on Windows PowerShell 5.1,
+    # which matters now that the package ships api\node_modules (~thousands of files).
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($Zip, $src)
 
     if (-not (Test-Path (Join-Path $src 'package.json')))
     {
         throw "Pacote de release com estrutura inesperada (falta package.json na raiz)."
     }
 
-    return @{ Tmp = $tmp; Src = $src }
+    return @{ Tmp = $Tmp; Src = $src }
+}
+
+function Get-PackageVersion
+{
+    param([string]$Root)
+    try
+    {
+        return (Get-Content (Join-Path $Root 'package.json') -Raw | ConvertFrom-Json).version
+    }
+    catch
+    {
+        return '?'
+    }
+}
+
+# ---------- Touch-friendly dialogs ----------
+function Show-Choice
+{
+    param([string]$Title, [string]$Message, [string[]]$Options)
+
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = $Title
+    $form.Font = New-Object System.Drawing.Font('Segoe UI', 13)
+    $form.StartPosition = 'CenterScreen'
+    $form.FormBorderStyle = 'FixedDialog'
+    $form.MaximizeBox = $false
+    $form.MinimizeBox = $false
+    $form.TopMost = $true
+    $form.Tag = -1
+
+    $label = New-Object System.Windows.Forms.Label
+    $label.Text = $Message
+    $label.Location = New-Object System.Drawing.Point(20, 20)
+    $label.MaximumSize = New-Object System.Drawing.Size(600, 0)
+    $label.AutoSize = $true
+    $form.Controls.Add($label)
+    $y = 40 + $label.GetPreferredSize((New-Object System.Drawing.Size(600, 0))).Height
+
+    for ($i = 0; $i -lt $Options.Count; $i++) {
+        $button = New-Object System.Windows.Forms.Button
+        $button.Text = $Options[$i]
+        $button.Tag = $i
+        $button.AutoEllipsis = $true
+        $button.Location = New-Object System.Drawing.Point(20, $y)
+        $button.Size = New-Object System.Drawing.Size(600, 64)
+        $button.Add_Click({
+            $owner = $this.FindForm()
+            $owner.Tag = $this.Tag
+            $owner.Close()
+        })
+        $form.Controls.Add($button)
+        $y += 76
+    }
+
+    $form.ClientSize = New-Object System.Drawing.Size(640, ($y + 8))
+    [void]$form.ShowDialog()
+    $choice = [int]$form.Tag
+    $form.Dispose()
+    return $choice
+}
+
+function Confirm-Choice
+{
+    param([string]$Message)
+    return (Show-Choice -Title 'POS Ticket' -Message $Message -Options @('Sim', 'Não')) -eq 0
+}
+
+function Ask-YesNo
+{
+    param([string]$Message)
+    if ($Interactive)
+    {
+        return Confirm-Choice $Message
+    }
+    return (Read-Host "$Message (S/N)") -match '^[Ss]'
+}
+
+function New-TopMostOwner
+{
+    $owner = New-Object System.Windows.Forms.Form
+    $owner.TopMost = $true
+    return $owner
+}
+
+function Get-RemovableRoots
+{
+    return [IO.DriveInfo]::GetDrives() |
+            Where-Object { $_.DriveType -eq 'Removable' -and $_.IsReady } |
+            ForEach-Object { $_.RootDirectory.FullName }
+}
+
+function Select-ZipFile
+{
+    $dialog = New-Object System.Windows.Forms.OpenFileDialog
+    $dialog.Title = 'Escolha o pacote de atualização (pos-ticket.zip)'
+    $dialog.Filter = 'Pacote POS Ticket (*.zip)|*.zip'
+    $start = @(Get-RemovableRoots) + @($PSScriptRoot) | Select-Object -First 1
+    $dialog.InitialDirectory = $start
+    if ($dialog.ShowDialog((New-TopMostOwner)) -eq 'OK')
+    {
+        return $dialog.FileName
+    }
+    return $null
+}
+
+function Select-InstallFolder
+{
+    $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+    $dialog.Description = 'Escolha a pasta onde o POS Ticket está instalado'
+    $dialog.ShowNewFolderButton = $false
+    if ($dialog.ShowDialog((New-TopMostOwner)) -eq 'OK')
+    {
+        return $dialog.SelectedPath
+    }
+    return $null
+}
+
+# A pos-ticket*.zip next to this script or at the root of a USB stick.
+function Find-LocalPackage
+{
+    $dirs = @($PSScriptRoot) + @(Get-RemovableRoots)
+    return $dirs |
+            ForEach-Object { Get-ChildItem -Path $_ -Filter 'pos-ticket*.zip' -File -ErrorAction SilentlyContinue } |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1 -ExpandProperty FullName
+}
+
+function Test-InstallDir
+{
+    param([string]$Path)
+    return ($Path -and (Test-Path (Join-Path $Path 'api\server.js')))
+}
+
+# update.bat can be run either from the installed folder or straight from a
+# USB stick (copied there together with the zip), so the install dir isn't
+# always the script's own folder.
+function Find-InstallDir
+{
+    $onRemovable = $false
+    try
+    {
+        $onRemovable = ([IO.DriveInfo]::new((Split-Path $PSScriptRoot -Qualifier)).DriveType -eq 'Removable')
+    }
+    catch
+    {
+    }
+    if (-not $onRemovable -and (Test-InstallDir $PSScriptRoot))
+    {
+        return $PSScriptRoot
+    }
+
+    $shortcut = "$env:USERPROFILE\Desktop\POS Ticket.lnk"
+    if (Test-Path $shortcut)
+    {
+        $workDir = (New-Object -ComObject WScript.Shell).CreateShortcut($shortcut).WorkingDirectory
+        if (Test-InstallDir $workDir)
+        {
+            return $workDir
+        }
+    }
+    if (Test-InstallDir 'C:\POS-Ticket')
+    {
+        return 'C:\POS-Ticket'
+    }
+    return $null
+}
+
+# Asks for the install dir and the package source. Returns $null on cancel.
+function Select-UpdatePlan
+{
+    param([string]$Target)
+
+    if (-not $Target)
+    {
+        $Target = Find-InstallDir
+    }
+    while (-not (Test-InstallDir $Target))
+    {
+        $choice = Show-Choice -Title 'Atualizar POS Ticket' `
+            -Message 'Não foi possível encontrar a instalação do POS Ticket.' `
+            -Options @('Escolher a pasta da instalação...', 'Cancelar')
+        if ($choice -ne 0)
+        {
+            return $null
+        }
+        $Target = Select-InstallFolder
+    }
+
+    $local = Find-LocalPackage
+    $actions = @()
+    $labels = @()
+    if ($local)
+    {
+        $actions += 'local'; $labels += "Usar o pacote encontrado: $local"
+    }
+    $actions += 'pick'; $labels += 'Escolher o ficheiro .zip (pen USB)...'
+    $actions += 'online'; $labels += 'Descarregar da internet'
+    $actions += 'cancel'; $labels += 'Cancelar'
+
+    $message = "Instalação: $Target (versão $( Get-PackageVersion $Target ))`n`nDe onde vem a atualização?"
+    while ($true)
+    {
+        $choice = Show-Choice -Title 'Atualizar POS Ticket' -Message $message -Options $labels
+        $action = if ($choice -ge 0)
+        {
+            $actions[$choice]
+        }
+        else
+        {
+            'cancel'
+        }
+        switch ($action)
+        {
+            'local' {
+                return @{ Target = $Target; ZipPath = $local }
+            }
+            'pick' {
+                $picked = Select-ZipFile
+                if ($picked)
+                {
+                    return @{ Target = $Target; ZipPath = $picked }
+                }
+            }
+            'online' {
+                return @{ Target = $Target; ZipPath = $null }
+            }
+            default {
+                return $null
+            }
+        }
+    }
 }
 
 function Make-Backup
@@ -323,6 +567,19 @@ function Sync-Into
     }
 }
 
+# The release package ships api\node_modules (installed with `npm ci` on the
+# release runner; bcrypt carries its own win32-x64 prebuild), so an update
+# needs no internet. Mirrored rather than merged so removed packages go away.
+function Sync-ApiModules
+{
+    param([string]$Source, [string]$Destination)
+    robocopy "$Source" "$Destination" /MIR /R:1 /W:1 /NFL /NDL /NP /NJH /NJS | Out-Null
+    if ($LASTEXITCODE -ge 8)
+    {
+        throw "Falha a copiar api\node_modules (robocopy codigo $LASTEXITCODE)."
+    }
+}
+
 # Removes node_modules only. The repo's package-lock.json is kept ON PURPOSE:
 # Npm-Install-And-Build then runs `npm ci`, which installs the exact dependency
 # set that was tested upstream, instead of re-resolving version ranges on the
@@ -420,132 +677,212 @@ function Npm-Install-And-Build
 }
 
 # --------- MAIN ---------
-Write-Host "Pre-checks"
-if (-not (Test-Command robocopy))
+if ($Interactive)
 {
-    throw "robocopy nao encontrado (deveria existir no Windows)."
+    Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+    [System.Windows.Forms.Application]::EnableVisualStyles()
+
+    $plan = Select-UpdatePlan -Target $Target
+    if (-not $plan)
+    {
+        Write-Host "Atualizacao cancelada."
+        exit 0
+    }
+    $Target = $plan.Target
+    $ZipPath = $plan.ZipPath
 }
-if (-not (Test-Command npm))
+elseif (-not $Target)
 {
-    Write-Host "Aviso: npm nao encontrado. A ignorar installs/builds."
+    $Target = (Get-Location).Path
 }
 
-if ($UseSource)
+if (-not $PSBoundParameters.ContainsKey('Backup'))
 {
-    Write-Host "Modo: codigo-fonte ($RepoUrl, $Branch) + build local"
-    $pull = Get-SourceTree -RepoUrl $RepoUrl -Branch $Branch
-    $sourceMode = 'source'
+    $Backup = Ask-YesNo 'Criar uma cópia de segurança antes de atualizar?'
 }
-else
-{
-    try
-    {
-        Write-Host "Modo: pacote de release pre-compilado ($ReleaseUrl)"
-        $pull = Get-ReleasePackage -ReleaseUrl $ReleaseUrl
-        $sourceMode = 'release'
-    }
-    catch
-    {
-        Write-Host ("(aviso) Falha a obter o pacote de release: " + $_.Exception.Message)
-        Write-Host "A tentar via codigo-fonte (GitHub) como alternativa..."
-        $pull = Get-SourceTree -RepoUrl $RepoUrl -Branch $Branch
-        $sourceMode = 'source'
-    }
-}
-$srcRoot = $pull.Src
-$tmpRoot = $pull.Tmp
 
 try
 {
-    if ($Backup)
+    Write-Host "Pre-checks"
+    if (-not (Test-Command robocopy))
     {
-        Make-Backup -Target $Target
+        throw "robocopy nao encontrado (deveria existir no Windows)."
     }
-    Sync-Into -SourceRoot $srcRoot -Target $Target -DryRun:$DryRun
-
-    if (-not $DryRun)
+    if (-not (Test-Command npm))
     {
-        Stop-ProjectProcesses -ProjectRoot $Target
-
-
-        $answer = Read-Host "Pretende atualizar a API? (S/N)"
-        if ($answer -match '^[Ss]')
-        {
-            $apiPath = Join-Path $Target 'api'
-            if ((Test-Path $apiPath) -and (Test-Command npm))
-            {
-                Reset-NpmArtifacts -projPath $apiPath
-                Npm-Install-And-Build -projPath $apiPath -DoRebuild
-            }
-        }
-        if ($sourceMode -eq 'source')
-        {
-            $answer = Read-Host "Pretende atualizar a UI? (S/N)"
-            if ($answer -match '^[Ss]')
-            {
-                $uiPath = Join-Path $Target 'ui'
-                if ((Test-Path $uiPath) -and (Test-Command npm))
-                {
-                    Reset-NpmArtifacts -projPath $uiPath
-                    Npm-Install-And-Build -projPath $uiPath
-                }
-            }
-            $answer = Read-Host "Pretende atualizar o Terminal (multiposto)? (S/N)"
-            if ($answer -match '^[Ss]')
-            {
-                $terminalPath = Join-Path $Target 'terminal'
-                if ((Test-Path $terminalPath) -and (Test-Command npm))
-                {
-                    Reset-NpmArtifacts -projPath $terminalPath
-                    Npm-Install-And-Build -projPath $terminalPath
-                }
-            }
-        }
-        else
-        {
-            Write-Host "UI e Terminal ja vieram compilados no pacote de release - nada a compilar localmente."
-        }
+        Write-Host "Aviso: npm nao encontrado. A ignorar installs/builds."
     }
 
-    # Explorer caches shortcut icons aggressively; refreshing the general icon
-    # cache (ie4uinit) is not enough for an unchanged .lnk. Rewriting the
-    # shortcut (same target) plus SHChangeNotify makes Explorer re-read the
-    # replaced favicon.ico without a reboot.
+    if ($ZipPath)
+    {
+        # Offline update: no fallback to GitHub, there's no internet anyway.
+        Write-Host "Modo: pacote de release local (sem internet)"
+        $pull = Get-LocalReleasePackage -ZipPath $ZipPath
+        $sourceMode = 'release'
+    }
+    elseif ($UseSource)
+    {
+        Write-Host "Modo: codigo-fonte ($RepoUrl, $Branch) + build local"
+        $pull = Get-SourceTree -RepoUrl $RepoUrl -Branch $Branch
+        $sourceMode = 'source'
+    }
+    else
+    {
+        try
+        {
+            Write-Host "Modo: pacote de release pre-compilado ($ReleaseUrl)"
+            $pull = Get-ReleasePackage -ReleaseUrl $ReleaseUrl
+            $sourceMode = 'release'
+        }
+        catch
+        {
+            Write-Host ("(aviso) Falha a obter o pacote de release: " + $_.Exception.Message)
+            Write-Host "A tentar via codigo-fonte (GitHub) como alternativa..."
+            $pull = Get-SourceTree -RepoUrl $RepoUrl -Branch $Branch
+            $sourceMode = 'source'
+        }
+    }
+    $srcRoot = $pull.Src
+    $tmpRoot = $pull.Tmp
+    $fromVersion = Get-PackageVersion $Target
+    $toVersion = Get-PackageVersion $srcRoot
+
+    # Checked before anything is stopped or overwritten: an incomplete bundle
+    # (e.g. a dependency left out by `npm ci --omit=dev`) must not leave the
+    # machine with an API that can't start.
+    $bundledModules = Join-Path $srcRoot 'api\node_modules'
+    if (Test-Path $bundledModules)
+    {
+        $apiDeps = (Get-Content (Join-Path $srcRoot 'api\package.json') -Raw | ConvertFrom-Json).dependencies.PSObject.Properties.Name
+        $missing = @($apiDeps | Where-Object { -not (Test-Path (Join-Path $bundledModules "$_\package.json")) })
+        if ($missing.Count -gt 0)
+        {
+            throw "Pacote incompleto: faltam dependencias da API ($( $missing -join ', ' )). Nada foi alterado."
+        }
+    }
+
     try
     {
-        $shortcutPath = "$env:USERPROFILE\Desktop\POS Ticket.lnk"
-        if (Test-Path $shortcutPath)
+        if ($Backup)
         {
-            $ws = New-Object -ComObject WScript.Shell
-            $s = $ws.CreateShortcut($shortcutPath)
-            $s.IconLocation = "$( Join-Path $Target 'favicon.ico' ),0"
-            $s.Save()
+            Make-Backup -Target $Target
         }
 
-        Add-Type -Namespace Native -Name Shell -MemberDefinition @"
+        # Stopped before syncing: a running API keeps native modules
+        # (bcrypt.node) locked, which would make the node_modules copy fail.
+        if (-not $DryRun)
+        {
+            Stop-ProjectProcesses -ProjectRoot $Target
+        }
+        Sync-Into -SourceRoot $srcRoot -Target $Target -DryRun:$DryRun
+
+        if (-not $DryRun)
+        {
+            $apiPath = Join-Path $Target 'api'
+            if (Test-Path $bundledModules)
+            {
+                Write-Host "Dependencias da API incluidas no pacote - a copiar (nao precisa de internet)..."
+                Sync-ApiModules -Source $bundledModules -Destination (Join-Path $apiPath 'node_modules')
+            }
+            elseif (Ask-YesNo 'Atualizar as dependências da API? (precisa de internet)')
+            {
+                if ((Test-Path $apiPath) -and (Test-Command npm))
+                {
+                    Reset-NpmArtifacts -projPath $apiPath
+                    Npm-Install-And-Build -projPath $apiPath -DoRebuild
+                }
+            }
+            if ($sourceMode -eq 'source')
+            {
+                if (Ask-YesNo 'Atualizar a UI?')
+                {
+                    $uiPath = Join-Path $Target 'ui'
+                    if ((Test-Path $uiPath) -and (Test-Command npm))
+                    {
+                        Reset-NpmArtifacts -projPath $uiPath
+                        Npm-Install-And-Build -projPath $uiPath
+                    }
+                }
+                if (Ask-YesNo 'Atualizar o Terminal (multiposto)?')
+                {
+                    $terminalPath = Join-Path $Target 'terminal'
+                    if ((Test-Path $terminalPath) -and (Test-Command npm))
+                    {
+                        Reset-NpmArtifacts -projPath $terminalPath
+                        Npm-Install-And-Build -projPath $terminalPath
+                    }
+                }
+            }
+            else
+            {
+                Write-Host "UI e Terminal ja vieram compilados no pacote de release - nada a compilar localmente."
+            }
+        }
+
+        # Explorer caches shortcut icons aggressively; refreshing the general icon
+        # cache (ie4uinit) is not enough for an unchanged .lnk. Rewriting the
+        # shortcut (same target) plus SHChangeNotify makes Explorer re-read the
+        # replaced favicon.ico without a reboot.
+        try
+        {
+            $shortcutPath = "$env:USERPROFILE\Desktop\POS Ticket.lnk"
+            if (Test-Path $shortcutPath)
+            {
+                $ws = New-Object -ComObject WScript.Shell
+                $s = $ws.CreateShortcut($shortcutPath)
+                $s.IconLocation = "$( Join-Path $Target 'favicon.ico' ),0"
+                $s.Save()
+            }
+
+            Add-Type -Namespace Native -Name Shell -MemberDefinition @"
 [System.Runtime.InteropServices.DllImport("shell32.dll")]
 public static extern void SHChangeNotify(int wEventId, uint uFlags, System.IntPtr dwItem1, System.IntPtr dwItem2);
 "@
-        # SHCNE_ASSOCCHANGED (0x08000000): tells the shell that icons changed
-        [Native.Shell]::SHChangeNotify(0x08000000, 0x0000, [IntPtr]::Zero, [IntPtr]::Zero)
+            # SHCNE_ASSOCCHANGED (0x08000000): tells the shell that icons changed
+            [Native.Shell]::SHChangeNotify(0x08000000, 0x0000, [IntPtr]::Zero, [IntPtr]::Zero)
 
-        $ie4 = Join-Path $env:WINDIR 'System32\ie4uinit.exe'
-        if (Test-Path $ie4)
-        {
-            & $ie4 -show 2>$null
+            $ie4 = Join-Path $env:WINDIR 'System32\ie4uinit.exe'
+            if (Test-Path $ie4)
+            {
+                & $ie4 -show 2>$null
+            }
+            Write-Host "Cache de icones atualizada."
         }
-        Write-Host "Cache de icones atualizada."
+        catch
+        {
+            Write-Host "Nao foi possivel atualizar a cache de icones (o icone novo aparece apos reiniciar)."
+        }
+
+        Write-Host "Update concluido."
     }
-    catch
+    finally
     {
-        Write-Host "Nao foi possivel atualizar a cache de icones (o icone novo aparece apos reiniciar)."
+        Remove-Item -Recurse -Force $tmpRoot
     }
-
-    Write-Host "Update concluido."
 }
-finally
+catch
 {
-    Remove-Item -Recurse -Force $tmpRoot
+    if (-not $Interactive)
+    {
+        throw
+    }
+    Write-Host ("ERRO: " + $_.Exception.Message)
+    [void](Show-Choice -Title 'Atualizar POS Ticket' -Message ("A atualização falhou:`n`n" + $_.Exception.Message) -Options @('Fechar'))
+    exit 1
 }
 
-Pause
+if ($Interactive -and -not $DryRun)
+{
+    $choice = Show-Choice -Title 'Atualizar POS Ticket' `
+        -Message "Atualização concluída (versão $fromVersion -> $toVersion)." `
+        -Options @('Abrir o POS Ticket', 'Fechar')
+    if ($choice -eq 0)
+    {
+        Start-Process -FilePath (Join-Path $env:WINDIR 'System32\wscript.exe') `
+            -ArgumentList "`"$( Join-Path $Target 'startup.launcher.vbs' )`"" -WorkingDirectory $Target
+    }
+}
+else
+{
+    Pause
+}

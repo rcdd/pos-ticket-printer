@@ -3,6 +3,7 @@ node_modules/
 
 # Never publish the license generator (public repo)
 scripts/generate-license.js
+scripts/license-usb/
 
 # Credentials/config per machine — never in the public repo
 .env
