@@ -1083,10 +1083,23 @@ function Ensure-MySqlProvision
     }
 
     $rootPass = $env:POS_DB_ROOT_PASS
+    $savedRootFile = Join-Path $ScriptRoot ".secrets.root.txt"
+    if ( [string]::IsNullOrEmpty($rootPass) -and (Test-Path $savedRootFile))
+    {
+        # Re-running the installer on a machine it already set up
+        $rootPass = (Get-Content -Path $savedRootFile -Raw -ErrorAction SilentlyContinue)
+        if ($rootPass) { $rootPass = $rootPass.Trim() }
+    }
     $rootHasNoPass = $false
     try
     {
+        # Without POS_DB_ROOT_PASS this is the empty-password login of a fresh
+        # MySQL, which must still go through the "set a root password" step
         Invoke-MySql "SELECT 1;" $rootPass | Out-Null
+        if ( [string]::IsNullOrEmpty($rootPass))
+        {
+            $rootHasNoPass = $true; Write-Info "Root sem password (login OK)."
+        }
     }
     catch
     {
@@ -1112,7 +1125,7 @@ function Ensure-MySqlProvision
         Write-Info "Definindo password para root..."
         $sqlSetRoot = @"
 ALTER USER 'root'@'localhost' IDENTIFIED BY '$newRoot';
-ALTER USER 'root'@'127.0.0.1' IDENTIFIED BY '$newRoot';
+ALTER USER IF EXISTS 'root'@'127.0.0.1' IDENTIFIED BY '$newRoot';
 FLUSH PRIVILEGES;
 "@
         $tmpSetRoot = [System.IO.Path]::GetTempFileName()

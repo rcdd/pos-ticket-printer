@@ -433,10 +433,10 @@ function SectionProducts({ productsAgg, discountedProductsAgg, eur }) {
                             </TableRow>
                         ))}
                         {discountedProductsAgg.map((p) => (
-                            <TableRow key={`pd-${p.id}-${p.discount}`}>
+                            <TableRow key={`pd-${p.id}-${p.discount}-${p.note ?? ''}`}>
                                 <TableCell>
                                     {p.name}{" "}
-                                    <Chip size="small" label={`Desconto ${p.discount}%`} color="warning" variant="outlined" sx={{ ml: 1 }} />
+                                    <Chip size="small" label={`Desconto ${p.discount}%${p.note ? ` · ${p.note}` : ''}`} color="warning" variant="outlined" sx={{ ml: 1 }} />
                                 </TableCell>
                                 <TableCell>—</TableCell>
                                 <TableCell align="right">{p.quantity}</TableCell>

@@ -117,7 +117,7 @@ function POSPage({user}) {
         setOpenModal(true);
     };
 
-    const handlePrint = async (status = false, finalAmount = totalAmount, discount = 0, paymentMethod, openDrawer, payments = null) => {
+    const handlePrint = async (status = false, finalAmount = totalAmount, discount = 0, paymentMethod, openDrawer, payments = null, discountNote = null) => {
         if (!status) {
             setOpenModal(false);
             return;
@@ -162,7 +162,8 @@ function POSPage({user}) {
                 finalAmount,
                 discount,
                 paymentMethod,
-                payments ?? undefined
+                payments ?? undefined,
+                discountNote ?? undefined
             );
 
             setInvoiceId(invoiceId);

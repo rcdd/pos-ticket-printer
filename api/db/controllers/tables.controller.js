@@ -2,6 +2,7 @@ import db from "../index.js";
 import {emitEvent, EventTypes} from "../../services/events.service.js";
 import {getActiveSession, computeTotal} from "./orders.controller.js";
 import {normalizePayments} from "../../services/payments.util.js";
+import {normalizeDiscountNote} from "../../services/discountNote.js";
 
 const Table = db.tables;
 const Order = db.orders;
@@ -310,6 +311,7 @@ export const pay = async (req, res) => {
                 sessionId: table.sessionId,
                 paymentMethod: normalized.primaryMethod,
                 discountPercent,
+                discountNote: normalizeDiscountNote(req.body?.discountNote, discountPercent),
                 payments: normalized.payments,
                 records: activeItems.map((item) => ({
                     quantity: item.quantity,

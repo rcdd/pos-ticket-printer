@@ -206,7 +206,7 @@ export default function OrdersPage() {
         });
     };
 
-    const handlePay = async (status, finalAmount, discount, paymentMethod, openDrawer, payments = null) => {
+    const handlePay = async (status, finalAmount, discount, paymentMethod, openDrawer, payments = null, discountNote = null) => {
         if (!status) {
             setPayTarget(null);
             return;
@@ -216,7 +216,7 @@ export default function OrdersPage() {
         try {
             setIsPrinting(true);
 
-            const payload = {paymentMethod, discount, payments: payments ?? undefined};
+            const payload = {paymentMethod, discount, discountNote: discountNote ?? undefined, payments: payments ?? undefined};
             const {data} = payTarget.kind === 'table'
                 ? await OrderService.payTable(payTarget.id, payload)
                 : await OrderService.pay(payTarget.id, payload);

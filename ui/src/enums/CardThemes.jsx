@@ -29,4 +29,19 @@ export const CardThemes = {
         color: "white",
         "&:hover": { backgroundColor: "#333" },
     },
+    yellow: {
+        backgroundColor: "#fdd835",
+        color: "#000",
+        "&:hover": { backgroundColor: "#fbc02d" },
+    },
+    brown: {
+        backgroundColor: "#795548",
+        color: "white",
+        "&:hover": { backgroundColor: "#5d4037" },
+    },
+    gray: {
+        backgroundColor: "#757575",
+        color: "white",
+        "&:hover": { backgroundColor: "#616161" },
+    },
 };

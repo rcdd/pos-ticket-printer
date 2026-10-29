@@ -1,11 +1,13 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {
-    Box, Checkbox, FormControlLabel, InputAdornment, Dialog,
+    Box, Checkbox, Chip, FormControlLabel, InputAdornment, Dialog,
     DialogActions, DialogContent, DialogTitle, Button,
     Divider, Stack, Typography
 } from '@mui/material';
 import LoadingButton from '@mui/lab/LoadingButton';
 import NumericTextFieldWithKeypad from '../Common/NumericTextFieldKeypad';
+import TextFieldKeyboard from '../Common/TextFieldKeyboard';
+import InvoiceService from '../../services/invoice.service';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import {PaymentMethods} from "../../enums/PaymentMethodsEnum";
@@ -26,6 +28,10 @@ export function PaymentModalComponent({
                                       }) {
     const [discount, setDiscount] = useState(false);
     const [discountPctStr, setDiscountPctStr] = useState('100');
+    // why the sale is discounted (e.g. the band's dinner); recent reasons are
+    // offered as buttons because these machines rarely have a keyboard
+    const [discountNote, setDiscountNote] = useState('');
+    const [recentNotes, setRecentNotes] = useState([]);
     const [receivedStr, setReceivedStr] = useState('');
     const [paymentMethod, setPaymentMethod] = useState("cash");
 
@@ -128,6 +134,7 @@ export function PaymentModalComponent({
         if (!openModal) return;
         setDiscount(false);
         setDiscountPctStr('100');
+        setDiscountNote('');
         setReceivedStr(originalDue.toFixed(2).replace('.', ','));
         setPaymentMethod("cash");
         setSplitMode(false);
@@ -135,20 +142,36 @@ export function PaymentModalComponent({
         setParcels([]);
     }, [openModal, originalDue]);
 
+    useEffect(() => {
+        if (!openModal) return;
+        let canceled = false;
+        InvoiceService.getRecentDiscountNotes()
+            .then((notes) => {
+                if (!canceled) setRecentNotes(Array.isArray(notes) ? notes : []);
+            })
+            .catch(() => {
+                if (!canceled) setRecentNotes([]);
+            });
+        return () => {
+            canceled = true;
+        };
+    }, [openModal]);
+
     const canPrint = splitMode
         ? (parcelsDiff === 0 && discountedDue > 0 && (cashDue === 0 || effectiveReceived >= cashDue))
         : (effectiveReceived >= discountedDue && discountedDue >= 0);
 
     const sendToPrint = () => {
         const discountedCents = Math.round(discountedDue * 100);
+        const note = pct > 0 ? (discountNote.trim() || null) : null;
         if (splitMode) {
             const payments = parcels.map((p, i) => ({method: p.method, amount: parcelCents[i]}));
             const anyCash = payments.some((p) => p.method === 'cash' && p.amount > 0);
             const primary = [...payments].sort((a, b) => b.amount - a.amount)[0]?.method ?? 'cash';
-            handlePrint(true, discountedCents, pct, primary, anyCash, payments);
+            handlePrint(true, discountedCents, pct, primary, anyCash, payments, note);
             return;
         }
-        handlePrint(true, discountedCents, pct, paymentMethod, paymentMethod === 'cash', null);
+        handlePrint(true, discountedCents, pct, paymentMethod, paymentMethod === 'cash', null, note);
     };
 
     const setExact = () =>
@@ -195,6 +218,12 @@ export function PaymentModalComponent({
                                 <>
                                     <Typography variant="body2" color="text.secondary">Desconto aplicado</Typography>
                                     <Typography variant="body2" textAlign="right">{pct}%</Typography>
+                                </>
+                            )}
+                            {pct > 0 && discountNote.trim() && (
+                                <>
+                                    <Typography variant="body2" color="text.secondary">Motivo</Typography>
+                                    <Typography variant="body2" textAlign="right">{discountNote.trim()}</Typography>
                                 </>
                             )}
                             {splitMode ? parcels.map((parcel, index) => (
@@ -296,6 +325,41 @@ export function PaymentModalComponent({
                             />
                         )}
                     </Stack>
+
+                    {discount && (
+                        <Box sx={{mt: '0!important'}}>
+                            <Typography variant="subtitle2" gutterBottom>Motivo do desconto (opcional)</Typography>
+                            {recentNotes.length > 0 && (
+                                <Stack direction="row" flexWrap="wrap" gap={1} sx={{mb: 1}}>
+                                    {recentNotes.map((note) => {
+                                        const selected = discountNote.trim().toLowerCase() === note.toLowerCase();
+                                        return (
+                                            <Chip
+                                                key={note}
+                                                label={note}
+                                                clickable
+                                                color={selected ? 'primary' : 'default'}
+                                                variant={selected ? 'filled' : 'outlined'}
+                                                onClick={() => setDiscountNote(selected ? '' : note)}
+                                                sx={{height: 40, fontSize: 15, px: 0.5}}
+                                            />
+                                        );
+                                    })}
+                                </Stack>
+                            )}
+                            <TextFieldKeyboard
+                                value={discountNote}
+                                onChange={setDiscountNote}
+                                maxLength={120}
+                                textFieldProps={{
+                                    fullWidth: true,
+                                    size: 'small',
+                                    autoComplete: 'off',
+                                    placeholder: 'Ex.: Banda, Técnicos de som',
+                                }}
+                            />
+                        </Box>
+                    )}
 
                     <Box sx={{mt: 0}}>
                         <Stack direction="row" alignItems="center" justifyContent="space-between">

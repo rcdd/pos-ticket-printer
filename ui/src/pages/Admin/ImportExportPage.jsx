@@ -147,7 +147,8 @@ export default function ImportExportPage() {
             }
 
             // theme
-            let theme = (raw.theme || "default").toLowerCase();
+            let theme = (raw.theme || "default").trim().toLowerCase();
+            if (theme === "grey") theme = "gray";
             if (!Object.keys(CardThemes).includes(theme)) {
                 issues.push({row: i + 1, level: "warning", msg: `tema desconhecido '${raw.theme}', a usar 'default'`});
                 theme = "default";

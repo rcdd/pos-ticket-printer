@@ -3,6 +3,7 @@ import {emitEvent, EventTypes} from "../../services/events.service.js";
 import {tryPrintOrderTicket, tryPrintOrderVoid, tryPrintOrderMove} from "../../services/orderPrinting.service.js";
 import {openGroupTx} from "./tables.controller.js";
 import {normalizePayments} from "../../services/payments.util.js";
+import {normalizeDiscountNote} from "../../services/discountNote.js";
 
 const Order = db.orders;
 const OrderItem = db.orderItems;
@@ -575,6 +576,7 @@ export const pay = async (req, res) => {
                 sessionId: order.sessionId,
                 paymentMethod: normalized.primaryMethod,
                 discountPercent,
+                discountNote: normalizeDiscountNote(req.body?.discountNote, discountPercent),
                 payments: normalized.payments,
                 records: activeItems.map((item) => ({
                     quantity: item.quantity,

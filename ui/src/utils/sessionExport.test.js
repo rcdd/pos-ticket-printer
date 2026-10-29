@@ -20,7 +20,7 @@ const invoices = [
     {id: 102, sessionId: 1, total: 110, paymentMethod: 'mbway', isDeleted: true, userId: 1, createdAt: '2026-10-10T14:00:00Z',
         records: [{quantity: 1, price: 110, productItem: imperial}]},
     // session 2: discounted sale + a menu
-    {id: 200, sessionId: 2, total: 99, paymentMethod: 'mbway', discountPercent: 10, userId: 1, createdAt: '2026-10-11T12:00:00Z',
+    {id: 200, sessionId: 2, total: 99, paymentMethod: 'mbway', discountPercent: 10, discountNote: 'Banda', userId: 1, createdAt: '2026-10-11T12:00:00Z',
         records: [{quantity: 1, price: 110, productItem: imperial}]},
     {id: 201, sessionId: 2, total: 1200, paymentMethod: 'cash', userId: 1, createdAt: '2026-10-11T13:00:00Z',
         records: [{quantity: 1, price: 1200, menuItem: {id: 5, name: 'Menu Almoço'}}]},
@@ -76,7 +76,7 @@ test('products: per session, menus included, revoked invoices excluded, discount
     ]);
     const s2 = products.filter((p) => p.session === 2);
     expect(s2).toEqual(expect.arrayContaining([
-        expect.objectContaining({name: 'Imperial', discount: 10, total: 0.99}),
+        expect.objectContaining({name: 'Imperial', discount: 10, note: 'Banda', total: 0.99}),
         expect.objectContaining({name: 'Menu Almoço', kind: 'Menu', zone: 'Menus', total: 12}),
     ]));
     // across sessions: Imperial full price and Imperial -10% stay separate
@@ -89,6 +89,8 @@ test('invoices: every invoice with origin, split parcels per method and status',
     const split = rows.find((r) => r.invoice === 101);
     expect(split).toMatchObject({origin: 'Pedido #007 · Mesa 12', cash: 4, card: 6, user: 'Rui', status: 'Válida'});
     expect(rows.find((r) => r.invoice === 100).origin).toBe('Venda direta');
+    expect(rows.find((r) => r.invoice === 100).note).toBe('');
+    expect(rows.find((r) => r.invoice === 200)).toMatchObject({discount: 10, note: 'Banda'});
     expect(rows.find((r) => r.invoice === 102).status).toBe('Anulada');
 });
 

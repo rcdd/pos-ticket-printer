@@ -72,6 +72,20 @@ describe('computeSessionAggregates', () => {
         });
     });
 
+    it('keeps offers with different reasons on separate lines', () => {
+        const result = computeSessionAggregates([
+            makeInvoice({discountPercent: 100, discountNote: 'Banda', records: [{quantity: 2, productItem: dish}]}),
+            makeInvoice({discountPercent: 100, discountNote: 'Banda', records: [{quantity: 1, productItem: dish}]}),
+            makeInvoice({discountPercent: 100, discountNote: 'Técnicos de som', records: [{quantity: 1, productItem: dish}]}),
+        ], 0, []);
+
+        expect(result.discountedProductsAgg).toEqual(expect.arrayContaining([
+            expect.objectContaining({id: dish.id, note: 'Banda', quantity: 3, total: 0}),
+            expect.objectContaining({id: dish.id, note: 'Técnicos de som', quantity: 1, total: 0}),
+        ]));
+        expect(result.discountedProductsAgg).toHaveLength(2);
+    });
+
     it('cash-ins and cash-outs affect the final drawer value', () => {
         const result = computeSessionAggregates(
             [makeInvoice({total: 1000, paymentMethod: 'cash'})],

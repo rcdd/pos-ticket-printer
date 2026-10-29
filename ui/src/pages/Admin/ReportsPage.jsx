@@ -206,11 +206,12 @@ function ReportsPage() {
             : filteredInvoices;
         for (const inv of source) {
             const disc = inv?.discountPercent || 0;
+            const note = disc > 0 ? (inv?.discountNote ?? '') : '';
             for (const r of inv?.records ?? []) {
                 const item = r.productItem || r.menuItem;
                 if (!item) continue;
                 const id = r.productItem ? `p-${item.id}` : `m-${item.id}`;
-                const key = `${id}-${disc}`;
+                const key = `${id}-${disc}-${note}`;
                 // unit price recorded at sale time (current price only as
                 // fallback for legacy records) — product prices change
                 // between events and must not rewrite old reports
@@ -223,6 +224,7 @@ function ReportsPage() {
                     itemId: item.id,
                     name: item.name + (item.isDeleted ? ' (Eliminado)' : ''),
                     discount: disc,
+                    note,
                     quantity: 0,
                     unit,
                     total: 0,
@@ -393,6 +395,14 @@ function ReportsPage() {
                 <Chip size="small" color={p.value ? 'error' : 'success'} label={p.value ? 'Anulada' : 'Válida'}/>
             )
         },
+        {
+            field: 'discountPercent', headerName: 'Desc. (%)', width: 100,
+            valueFormatter: (v) => (v ? `${v}%` : ''),
+        },
+        {
+            field: 'discountNote', headerName: 'Motivo', minWidth: 140, flex: 1,
+            valueGetter: (value, row) => (row?.discountPercent > 0 ? (value ?? '') : ''),
+        },
         {field: 'total', headerName: 'Total', width: 140, valueFormatter: (v) => eur(v)},
         {
             field: 'action', headerName: 'Ver', width: 90, sortable: false, filterable: false, hideCsv: true,
@@ -411,6 +421,7 @@ function ReportsPage() {
         {field: 'zone', headerName: 'Zona', width: 110},
         {field: 'kind', headerName: 'Tipo', width: 110},
         {field: 'discount', headerName: 'Desc. (%)', width: 110},
+        {field: 'note', headerName: 'Motivo', width: 150},
         {field: 'quantity', headerName: 'Qt.', width: 100},
         {field: 'unit', headerName: 'Preço (un)', width: 130, valueFormatter: (v) => eur(v)},
         {field: 'total', headerName: 'Total', width: 140, valueFormatter: (v) => eur(v)},
@@ -736,13 +747,13 @@ function ReportsPage() {
                                     </TableRow>
                                 ))}
                                 {(discountedGroups[zoneName] || []).map((item) => (
-                                    <TableRow key={`disc-${zoneName}-${item.id}-${item.discount}`}>
+                                    <TableRow key={`disc-${zoneName}-${item.id}-${item.discount}-${item.note ?? ''}`}>
                                         <TableCell/>
                                         <TableCell>
                                             {item.name}{item.isDeleted ? ' (Eliminado)' : ''}{' '}
                                             <Chip
                                                 size="small"
-                                                label={`Desconto ${item.discount}%`}
+                                                label={`Desconto ${item.discount}%${item.note ? ` · ${item.note}` : ''}`}
                                                 color="warning"
                                                 variant="outlined"
                                                 sx={{ml: 1}}
@@ -1024,6 +1035,16 @@ function ReportsPage() {
                 )}
 
                 <Divider sx={{my: 1.5}}/>
+                {viewInvoice?.discountPercent > 0 && (
+                    <Stack direction="row" justifyContent="space-between" sx={{mb: 1}}>
+                        <Typography variant="body2" color="text.secondary">
+                            Desconto {viewInvoice.discountPercent}%
+                        </Typography>
+                        <Typography variant="body2" sx={{textAlign: 'right', ml: 2}}>
+                            {viewInvoice.discountNote || 'Sem motivo registado'}
+                        </Typography>
+                    </Stack>
+                )}
                 <Stack direction="row" justifyContent="space-between">
                     <Typography variant="subtitle1">Total</Typography>
                     <Typography variant="subtitle1" fontWeight={700}>{eur(viewInvoice?.total || 0)}</Typography>

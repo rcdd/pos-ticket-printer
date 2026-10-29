@@ -38,6 +38,11 @@ export default (sequelize, Sequelize) => {
             type: Sequelize.INTEGER,
             defaultValue: 0
         },
+        // why the sale was discounted (e.g. "Banda"); null without a discount
+        discountNote: {
+            type: Sequelize.STRING(120),
+            allowNull: true
+        },
         isDeleted: {
             type: Sequelize.BOOLEAN,
             defaultValue: false

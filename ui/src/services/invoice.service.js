@@ -5,13 +5,14 @@ import {PaymentMethods} from "../enums/PaymentMethodsEnum";
 class InvoiceService {
     BASE_URL = API_BASE_URL;
 
-    async addInvoice(sessionId, userId, items, totalAmount, discount, paymentMethod = PaymentMethods.find(p => p.value === 'cash').name, payments = undefined) {
+    async addInvoice(sessionId, userId, items, totalAmount, discount, paymentMethod = PaymentMethods.find(p => p.value === 'cash').name, payments = undefined, discountNote = undefined) {
         const result = await http.post(this.BASE_URL + "/invoice/add", {
             sessionId,
             userId,
             items,
             totalAmount,
             discount,
+            discountNote,
             paymentMethod,
             payments
         });
@@ -27,6 +28,12 @@ class InvoiceService {
 
     async revokeInvoice(id) {
         const result = await http.post(this.BASE_URL + "/invoice/revoke", {id});
+
+        return result.data;
+    }
+
+    async getRecentDiscountNotes() {
+        const result = await http.get(this.BASE_URL + "/invoice/discount-notes");
 
         return result.data;
     }

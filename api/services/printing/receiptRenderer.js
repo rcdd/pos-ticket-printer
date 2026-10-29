@@ -179,7 +179,8 @@ export function renderSessionRaw(sessionData) {
         parts.push(fontUnderline(0));
         let subtotalDiscounted = 0;
         for (const p of sessionData.discountedProducts) {
-            parts.push(textPrintLine(`${p.quantity} x ${p.name} - ${toEuros((p.total || 0) / 100)} (${p.discount}% Desconto)`));
+            const reason = p.note ? ` - ${p.note}` : '';
+            parts.push(textPrintLine(`${p.quantity} x ${p.name} - ${toEuros((p.total || 0) / 100)} (${p.discount}% Desconto${reason})`));
             subtotalDiscounted += (p.total || 0);
         }
 

@@ -34,8 +34,11 @@ export function computeSessionAggregates(invoices = [], initialAmountCents = 0, 
 
             if (hasDiscount) {
                 const discPct = inv.discountPercent;
+                // same product and discount but another reason (band vs.
+                // sound crew) stays a separate line
+                const note = inv.discountNote || null;
                 const discountedPrice = Math.round(price * (1 - discPct / 100));
-                const key = `${product.id}-${discPct}`;
+                const key = `${product.id}-${discPct}-${note ?? ''}`;
                 const prev = discountedMap.get(key) ?? {
                     id: product.id,
                     name: product.name,
@@ -43,6 +46,7 @@ export function computeSessionAggregates(invoices = [], initialAmountCents = 0, 
                     quantity: 0,
                     total: 0,
                     discount: discPct,
+                    note,
                 };
                 prev.quantity += qty;
                 prev.total += discountedPrice * qty;

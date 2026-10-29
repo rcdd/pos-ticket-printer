@@ -101,6 +101,7 @@ async function ensureAddedColumns() {
         {table: 'sessions', column: 'isTest', model: db.sessions},
         {table: 'products', column: 'ticketsPerUnit', model: db.products},
         {table: 'products', column: 'ticketLabel', model: db.products},
+        {table: 'invoices', column: 'discountNote', model: db.invoices},
     ];
     for (const {table, column, model} of added) {
         try {
@@ -412,6 +413,7 @@ app.delete("/db/products", notifyCatalogUpdate, products.softDeleteAllProducts);
 app.post("/invoice/all", invoices.getAll);
 app.post("/invoice/revoke", invoices.revoke);
 app.post("/invoice/session", invoices.getFromSession);
+app.get("/invoice/discount-notes", invoices.getRecentDiscountNotes);
 app.get("/reports/top-products", invoices.getTopProducts);
 
 // Menus

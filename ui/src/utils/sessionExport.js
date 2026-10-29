@@ -69,6 +69,7 @@ export function buildSessionExport({
         for (const inv of sessionInvoices) {
             if (inv.isDeleted) continue;
             const disc = inv.discountPercent || 0;
+            const note = disc > 0 ? (inv.discountNote ?? '') : '';
             for (const rec of inv.records ?? []) {
                 const item = recordItem(rec);
                 if (!item) continue;
@@ -77,12 +78,12 @@ export function buildSessionExport({
                 const qty = Number(rec.quantity || 0);
                 const kind = rec.productItem ? 'Produto' : 'Menu';
                 const zone = item.zone?.name || (rec.productItem ? '—' : 'Menus');
-                const totalKey = `${kind}-${item.id}-${disc}`;
-                const prev = productsTotal.get(totalKey) ?? {zone, kind, name: item.name, discount: disc, quantity: 0, total: 0};
+                const totalKey = `${kind}-${item.id}-${disc}-${note}`;
+                const prev = productsTotal.get(totalKey) ?? {zone, kind, name: item.name, discount: disc, note, quantity: 0, total: 0};
                 prev.quantity += qty;
                 prev.total += unit * qty;
                 productsTotal.set(totalKey, prev);
-                products.push({session: s.id, itemId: item.id, zone, kind, name: item.name, discount: disc, quantity: qty, total: unit * qty});
+                products.push({session: s.id, itemId: item.id, zone, kind, name: item.name, discount: disc, note, quantity: qty, total: unit * qty});
             }
         }
 
@@ -103,6 +104,7 @@ export function buildSessionExport({
                     .map((rec) => `${rec.quantity}× ${recordItem(rec)?.name ?? '?'}`)
                     .join(', '),
                 discount: inv.discountPercent || 0,
+                note: inv.discountPercent > 0 ? (inv.discountNote ?? '') : '',
                 total: euros(inv.total),
                 ...Object.fromEntries(METHODS.map((m) => [m, euros(paid[m])])),
                 status: inv.isDeleted ? 'Anulada' : 'Válida',
@@ -156,12 +158,13 @@ export function buildSessionExport({
     }
 
     const byZoneThenName = (a, b) => String(a.zone).localeCompare(String(b.zone), 'pt')
-        || String(a.name).localeCompare(String(b.name), 'pt') || a.discount - b.discount;
+        || String(a.name).localeCompare(String(b.name), 'pt') || a.discount - b.discount
+        || String(a.note).localeCompare(String(b.note), 'pt');
 
     // the same product sold in several invoices of a session → one line
     const perSession = new Map();
     for (const p of products) {
-        const key = `${p.session}-${p.kind}-${p.itemId}-${p.discount}`;
+        const key = `${p.session}-${p.kind}-${p.itemId}-${p.discount}-${p.note}`;
         const prev = perSession.get(key) ?? {...p, quantity: 0, total: 0};
         prev.quantity += p.quantity;
         prev.total += p.total;
@@ -202,20 +205,22 @@ const SHEETS = [
     {
         key: 'products', name: 'Produtos', columns: [
             ['Sessão', 'session', 9], ['Zona', 'zone', 16], ['Tipo', 'kind', 9], ['Produto', 'name', 26],
-            ['Desconto %', 'discount', 11], ['Quantidade', 'quantity', 11], ['Total', 'total', 12, MONEY],
+            ['Desconto %', 'discount', 11], ['Motivo desconto', 'note', 22],
+            ['Quantidade', 'quantity', 11], ['Total', 'total', 12, MONEY],
         ],
     },
     {
         key: 'productsTotal', name: 'Produtos (total)', columns: [
             ['Zona', 'zone', 16], ['Tipo', 'kind', 9], ['Produto', 'name', 26],
-            ['Desconto %', 'discount', 11], ['Quantidade', 'quantity', 11], ['Total', 'total', 12, MONEY],
+            ['Desconto %', 'discount', 11], ['Motivo desconto', 'note', 22],
+            ['Quantidade', 'quantity', 11], ['Total', 'total', 12, MONEY],
         ],
     },
     {
         key: 'invoices', name: 'Faturas', columns: [
             ['Sessão', 'session', 9], ['Fatura', 'invoice', 9], ['Data', 'date', 17, DATE],
             ['Utilizador', 'user', 16], ['Origem', 'origin', 22], ['Itens', 'items', 40],
-            ['Desconto %', 'discount', 11], ['Total', 'total', 12, MONEY],
+            ['Desconto %', 'discount', 11], ['Motivo desconto', 'note', 22], ['Total', 'total', 12, MONEY],
             ...METHODS.map((m) => [METHOD_LABELS[m], m, 12, MONEY]),
             ['Estado', 'status', 10],
         ],

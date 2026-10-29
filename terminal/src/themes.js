@@ -6,6 +6,9 @@ export const CARD_THEMES = {
     orange: {background: '#ed6c02', color: '#fff'},
     red: {background: '#d32f2f', color: '#fff'},
     black: {background: '#000', color: '#fff'},
+    yellow: {background: '#fdd835', color: '#000'},
+    brown: {background: '#795548', color: '#fff'},
+    gray: {background: '#757575', color: '#fff'},
 };
 
 export const themeStyle = (theme) => {

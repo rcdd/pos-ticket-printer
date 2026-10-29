@@ -1,5 +1,6 @@
 import db from "../index.js";
 import {normalizePayments} from "../../services/payments.util.js";
+import {normalizeDiscountNote} from "../../services/discountNote.js";
 
 const Invoices = db.invoices;
 
@@ -54,6 +55,7 @@ export const create = (req, res) => {
     const userId = req.body.userId;
     const total = req.body.totalAmount ?? 0;
     const discountPercent = req.body.discount ?? 0;
+    const discountNote = normalizeDiscountNote(req.body.discountNote, discountPercent);
 
     // split payments: parcels must sum to the total; without parcels, a
     // single payment with the given method is assumed
@@ -65,7 +67,7 @@ export const create = (req, res) => {
     const paymentMethod = normalized.primaryMethod;
     const payments = normalized.payments;
 
-    Invoices.create({records, total, userId, sessionId, paymentMethod, discountPercent, payments}, {
+    Invoices.create({records, total, userId, sessionId, paymentMethod, discountPercent, discountNote, payments}, {
         include: [db.records, {model: db.invoicePayments, as: 'payments'}]
     })
         .then(data => {
@@ -120,6 +122,26 @@ export const getAll = (req, res) => {
             });
         });
 }
+
+// Discount reasons used lately, newest first: the payment screen offers them
+// as one-tap buttons (POS machines rarely have a keyboard)
+export const getRecentDiscountNotes = async (req, res) => {
+    try {
+        const rows = await db.sequelize.query(`
+            SELECT discountNote AS note, MAX(createdAt) AS lastUsed
+            FROM invoices
+            WHERE discountNote IS NOT NULL AND isDeleted = 0
+            GROUP BY discountNote
+            ORDER BY lastUsed DESC
+            LIMIT 8
+        `, {type: db.Sequelize.QueryTypes.SELECT});
+        res.send(rows.map((row) => row.note));
+    } catch (err) {
+        res.status(500).send({
+            message: err.message || "Some error occurred while retrieving discount notes."
+        });
+    }
+};
 
 export const getTopProducts = async (req, res) => {
     const limitRaw = req.query.limit;
